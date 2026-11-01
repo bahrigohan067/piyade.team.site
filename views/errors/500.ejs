@@ -1,0 +1,29 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 680px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="padding: 3rem 2rem; border-top: 4px solid var(--color-danger);">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">💥</div>
+    <span class="badge badge-danger" style="margin-bottom: 0.75rem;">Sunucu Hatası (500)</span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem;">Beklenmeyen Bir Hata Oluştu</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+      <%= typeof message !== 'undefined' ? message : 'Sunucu isteğinizi işlerken bir sorunla karşılaştı.' %>
+    </p>
+
+    <% if (typeof stack !== 'undefined' && stack) { %>
+      <div style="text-align: left; background: var(--bg-input); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-danger); margin-bottom: 1.5rem;">
+        <pre style="margin: 0; white-space: pre-wrap;"><%= stack %></pre>
+      </div>
+    <% } %>
+
+    <div style="display: flex; gap: 1rem; justify-content: center;">
+      <button onclick="window.location.reload();" class="btn btn-primary">
+        <span>🔄 Yeniden Dene</span>
+      </button>
+      <a href="/" class="btn btn-secondary">
+        <span>🏠 Anasayfaya Dön</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<%- include('../layouts/footer') %>

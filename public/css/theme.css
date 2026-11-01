@@ -1,0 +1,96 @@
+/**
+ * ==============================================================================
+ * 🎨 PIYADE TEAM | VIOLET GHOST FIBERS TEMA VE RENK DEĞİŞKENLERİ (THEME.CSS)
+ * ==============================================================================
+ * Bu dosya sitenin tüm tema, renk, kenarlık ve tipografi ayarlarını tek bir
+ * yerden yönetir. Ghost Fibers (Preset: Violet) arka planı ile %100 uyumludur.
+ * ==============================================================================
+ */
+
+:root {
+  /* ============================================================================
+   * 1. ANA RENKLER (Ghost Fibers Violet & Indigo Paleti)
+   * ============================================================================ */
+  --color-primary: #8b5cf6;              /* Canlı Elektrik Moru / Violet */
+  --color-primary-hover: #7c3aed;        /* Üzerine gelindiğinde koyu mor */
+  --color-primary-light: rgba(139, 92, 246, 0.16); /* Yarı saydam mor arka plan */
+  --color-primary-glow: rgba(139, 92, 246, 0.45);  /* Işıma efekti */
+
+  --color-accent: #c084fc;               /* Açık Neon Leylak Vurgu */
+  --color-accent-hover: #a855f7;
+  --color-accent-light: rgba(192, 132, 252, 0.15);
+
+  --color-secondary: #ec4899;            /* Canlı Pembe/Fuşya İkincil Gradyan Rengi */
+  --color-cyan: #38bdf8;                 /* Soğuk Mavi/Cam Göbeği Parıltı */
+
+  /* ============================================================================
+   * 2. ARKA PLAN VE YÜZEY TONLARI (Deep Space Violet / Koyu Gece)
+   * ============================================================================ */
+  --bg-body: #07040f;                    /* En alt zemin (Derin Mor/Siyah Gece) */
+  --bg-surface: rgba(13, 8, 28, 0.82);   /* Yarı saydam cam navbar ve header */
+  --bg-card: rgba(22, 13, 44, 0.62);     /* Buzlu cam kart arka planı */
+  --bg-card-hover: rgba(35, 20, 68, 0.78); /* Kart üzerine gelindiğindeki ton */
+  --bg-input: rgba(10, 6, 22, 0.85);     /* Form input içi */
+  --bg-glass: rgba(24, 15, 48, 0.55);    /* Hafif blur zemin */
+
+  /* ============================================================================
+   * 3. METİN VE YAZI RENKLERİ
+   * ============================================================================ */
+  --text-primary: #fcfaff;               /* Parlak Beyaz-Leylak Başlıklar */
+  --text-secondary: #cbd5e1;             /* Açık Gri/Leylak Açıklamalar */
+  --text-muted: #8b85a3;                 /* Pasif / Tarih yazıları */
+  --text-inverse: #07040f;               /* Açık buton içi zemin rengi */
+
+  /* ============================================================================
+   * 4. BİLDİRİM VE DURUM RENKLERİ
+   * ============================================================================ */
+  --color-success: #10b981;              /* Yeşil: Onaylandı, Aktif */
+  --color-success-light: rgba(16, 185, 129, 0.14);
+  --color-success-border: rgba(16, 185, 129, 0.4);
+
+  --color-warning: #f59e0b;              /* Sarı/Turuncu: Beklemede, Sözlü Uyarı */
+  --color-warning-light: rgba(245, 158, 11, 0.14);
+  --color-warning-border: rgba(245, 158, 11, 0.4);
+
+  --color-danger: #f43f5e;               /* Kırmızı/Gül: Reddedildi, Ceza, Ban */
+  --color-danger-light: rgba(244, 63, 94, 0.14);
+  --color-danger-border: rgba(244, 63, 94, 0.4);
+
+  --color-info: #818cf8;                 /* İndigo/Açık Mor: Bilgi */
+  --color-info-light: rgba(129, 140, 248, 0.14);
+  --color-info-border: rgba(129, 140, 248, 0.4);
+
+  /* ============================================================================
+   * 5. KENARLIK VE ÇİZGİLER (Luminous Violet Borders)
+   * ============================================================================ */
+  --border-color: rgba(168, 85, 247, 0.22); /* İnce mor kenarlık */
+  --border-focus: #c084fc;
+  --border-light: rgba(216, 180, 254, 0.35);
+
+  /* ============================================================================
+   * 6. GÖLGELER VE NEON IŞIMALAR (Violet Shadows & Glows)
+   * ============================================================================ */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
+  --shadow-primary: 0 0 25px rgba(139, 92, 246, 0.45);
+  --shadow-accent: 0 0 25px rgba(236, 72, 153, 0.45);
+  --shadow-danger: 0 0 25px rgba(244, 63, 94, 0.45);
+
+  /* ============================================================================
+   * 7. KÖŞE YUVARLAKLIĞI (Border Radius)
+   * ============================================================================ */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;                     /* Modern kart yuvarlaklığı */
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  /* ============================================================================
+   * 8. TİPOGRAFİ VE GEÇİŞLER
+   * ============================================================================ */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  --transition-fast: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}

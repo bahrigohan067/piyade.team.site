@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Piyade Team | The Strongest Battlegrounds' %></title>
+  
+  <!-- Favicon & Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Dosyaları (theme.css tek noktadan tüm renk ve temayı yönetir) -->
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Üst Menü / Navbar -->
+  <header class="site-header">
+    <div class="container navbar">
+      <!-- Logo ve Klan İsmi -->
+      <a href="/" class="brand">
+        <div class="brand-icon">⚔️</div>
+        <span>Piyade Team <span style="color: var(--color-primary); font-size: 0.9em;">| TSB</span></span>
+      </a>
+
+      <!-- Dinamik Menü Linkleri (menu.config.js üzerinden gelir) -->
+      <nav>
+        <ul class="nav-links" id="navLinks">
+          <% if (typeof visibleMenus !== 'undefined' && visibleMenus.length > 0) { %>
+            <% visibleMenus.forEach(function(item) { %>
+              <li>
+                <a href="<%= item.path %>" class="nav-link <%= typeof currentPath !== 'undefined' && currentPath === item.path ? 'active' : '' %>">
+                  <span><%= item.title %></span>
+                  <% if (item.badge) { %>
+                    <span class="badge <%= item.badgeClass || 'badge-primary' %>" style="font-size: 0.65rem; padding: 2px 6px;"><%= item.badge %></span>
+                  <% } %>
+                </a>
+              </li>
+            <% }); %>
+          <% } else { %>
+            <li><a href="/" class="nav-link">Anasayfa</a></li>
+            <li><a href="/kurallar" class="nav-link">Genel Kurallar</a></li>
+            <li><a href="/kayit" class="nav-link">Kayıt Ol</a></li>
+          <% } %>
+        </ul>
+      </nav>
+
+      <!-- Kullanıcı Alanı / Giriş Butonu -->
+      <div class="nav-actions">
+        <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+          <div class="user-menu">
+            <img src="<%= currentUser.avatarUrl %>" alt="<%= currentUser.displayName %>" class="user-avatar" />
+            <span class="user-name"><%= currentUser.displayName %></span>
+            <% if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
+              <span class="badge badge-danger" style="font-size: 0.65rem;">Dev</span>
+            <% } else if (typeof isManagement !== 'undefined' && isManagement) { %>
+              <span class="badge badge-warning" style="font-size: 0.65rem;">Yönetim</span>
+            <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+              <span class="badge badge-success" style="font-size: 0.65rem;">Üye</span>
+            <% } %>
+            <a href="/auth/logout" class="btn btn-secondary btn-sm" title="Çıkış Yap" style="margin-left: 4px; padding: 4px 8px;">Çıkış</a>
+          </div>
+        <% } else { %>
+          <a href="/auth/discord" class="btn btn-discord btn-sm">
+            <span>Discord ile Giriş</span>
+          </a>
+        <% } %>
+
+        <!-- Mobil Menü Butonu -->
+        <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Menüyü Aç">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ana İçerik Taşıyıcısı -->
+  <main class="main-content">
+    <div class="container">

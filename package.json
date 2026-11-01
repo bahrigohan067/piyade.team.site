@@ -1,0 +1,31 @@
+{
+  "name": "piyade-team-site",
+  "version": "1.0.0",
+  "description": "Piyade Team | TSB Discord Topluluğu İnce Web Sitesi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "discord",
+    "the-strongest-battlegrounds",
+    "tsb",
+    "piyade-team",
+    "express",
+    "ejs",
+    "railway"
+  ],
+  "author": "Piyade Team",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}

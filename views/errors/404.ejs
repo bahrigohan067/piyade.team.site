@@ -1,0 +1,17 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 600px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="padding: 3rem 2rem;">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔍</div>
+    <span class="badge badge-warning" style="margin-bottom: 0.75rem;">Hata 404</span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem;">Sayfa Bulunamadı</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 1.75rem;">
+      Ulaşmaya çalıştığınız <code><%= typeof url !== 'undefined' ? url : '' %></code> adresi mevcut değil, taşınmış veya silinmiş olabilir.
+    </p>
+    <a href="/" class="btn btn-primary">
+      <span>🏠 Anasayfaya Dön</span>
+    </a>
+  </div>
+</div>
+
+<%- include('../layouts/footer') %>

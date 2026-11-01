@@ -1,0 +1,39 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 640px; margin: 3rem auto; text-align: center;">
+  <div class="card" style="padding: 3rem 2rem; border-top: 4px solid var(--color-warning);">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🛡️</div>
+    <span class="badge badge-warning" style="margin-bottom: 0.75rem;">Kayıt Gerekli</span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem;">Önce Kayıt Olmanız Gerekiyor</h1>
+
+    <% if (inGuild) { %>
+      <p style="color: var(--text-secondary); margin-bottom: 1.75rem;">
+        Discord sunucumuzda yer alıyorsunuz ancak henüz <strong>Kayıtlı Üye</strong> rolüne (<code>1559604702143062016</code>) sahip değilsiniz. Üye panellerine (Profilim, Tryout, Acil Takviye) erişebilmek için lütfen Roblox hesabınızla kayıt başvurusunda bulununuz.
+      </p>
+    <% } else { %>
+      <p style="color: var(--text-secondary); margin-bottom: 1.75rem;">
+        Giriş yaptığınız Discord hesabı henüz <strong>Piyade Team | TSB</strong> Discord sunucusunda bulunamadı. Lütfen önce sunucumuza katılıp ardından kayıt başvurusunu tamamlayınız.
+      </p>
+      <div style="margin-bottom: 1.5rem;">
+        <a href="https://discord.gg" target="_blank" rel="noopener" class="btn btn-discord">
+          <span>🚀 Discord Sunucumuza Katıl</span>
+        </a>
+      </div>
+    <% } %>
+
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+      <a href="/kayit" class="btn btn-primary btn-lg">
+        <span>📝 Hemen Kayıt Ol</span>
+      </a>
+      <a href="/kurallar" class="btn btn-secondary btn-lg">
+        <span>📜 Kuralları Oku</span>
+      </a>
+    </div>
+
+    <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+      Kayıt başvurunuz yetkililer tarafından onaylandığında rolleriniz ve bu sayfadaki yetkileriniz anında aktif olacaktır.
+    </div>
+  </div>
+</div>
+
+<%- include('../layouts/footer') %>

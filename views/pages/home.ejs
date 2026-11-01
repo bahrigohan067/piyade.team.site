@@ -1,0 +1,143 @@
+<%- include('../layouts/header') %>
+
+<!-- ==============================================================================
+ * 1. HERO TANITIM ALANI (GHOST FIBERS UYUMLU, BLUR BUTONLAR & HAREKETLİ GRADYAN)
+ * ============================================================================== -->
+<div class="card" style="padding: 3.5rem 2rem; margin-bottom: 3.5rem; background: rgba(20, 11, 42, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-light); text-align: center; position: relative; overflow: hidden; box-shadow: 0 0 50px rgba(139, 92, 246, 0.25);">
+  <div style="position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: var(--color-primary); filter: blur(120px); opacity: 0.35; pointer-events: none;"></div>
+  <div style="position: absolute; bottom: -60px; left: -60px; width: 220px; height: 220px; background: #d946ef; filter: blur(120px); opacity: 0.3; pointer-events: none;"></div>
+
+  <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; justify-content: center;">
+    <span class="badge badge-primary">The Strongest Battlegrounds</span>
+    <span class="badge badge-success" style="box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);">
+      🟢 <%= activeStats.activeRegisteredCount || 0 %> Aktif Kayıtlı Üye
+    </span>
+    <a href="/etkilesim" class="badge badge-info" style="text-decoration: none;">
+      ✨ Yeni: Dart & Meteor Alanı
+    </a>
+  </div>
+
+  <h1 style="font-size: clamp(2.2rem, 5.5vw, 3.75rem); margin-bottom: 1.25rem; letter-spacing: -0.035em; font-weight: 800;">
+    Piyade Team <span class="gradient-text">Topluluk Portalı</span>
+  </h1>
+  <p style="font-size: 1.15rem; max-width: 720px; margin: 0 auto 2.25rem; color: var(--text-secondary); line-height: 1.7;">
+    Roblox TSB evreninde birlik, rekabet ve sarsılmaz disiplini buluşturan elit savaş klanı. Seviyeni kanıtla, VS kapışmalarında yüksel ve klanınla zaferin tadını çıkar.
+  </p>
+
+  <!-- Hafif Blur ve Hareketli Gradyan Butonlar -->
+  <div style="display: flex; gap: 1.25rem; justify-content: center; flex-wrap: wrap;">
+    <% if (!currentUser) { %>
+      <a href="/auth/discord" class="btn btn-discord btn-lg">
+        <span>🎮 Discord ile Giriş Yap</span>
+      </a>
+      <a href="/kayit" class="btn btn-primary btn-lg">
+        <span>📝 Hemen Kayıt Ol</span>
+      </a>
+    <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+      <a href="/profil" class="btn btn-primary btn-lg">
+        <span>👤 Profilime Git</span>
+      </a>
+      <a href="/takviye" class="btn btn-danger btn-lg">
+        <span>🚨 Acil Takviye Paneli</span>
+      </a>
+    <% } else { %>
+      <a href="/kayit" class="btn btn-primary btn-lg">
+        <span>📝 Kayıt Başvurusu Yap</span>
+      </a>
+    <% } %>
+    <a href="/etkilesim" class="btn btn-blur btn-lg">
+      <span>🎯 Dart & Yıldız Gökyüzü</span>
+    </a>
+    <a href="/kurallar" class="btn btn-secondary btn-lg">
+      <span>📜 Genel Kurallar</span>
+    </a>
+  </div>
+</div>
+
+<!-- ==============================================================================
+ * 2. SCROLL REVEAL TEXT (AŞAĞI KAYDIRINCA AÇILAN MANİFESTO)
+ * ============================================================================== -->
+<section class="scroll-reveal-section" style="padding: 4rem 1rem 6rem;">
+  <div style="margin-bottom: 1.5rem;">
+    <span class="badge badge-primary">Klan Manifestosu</span>
+  </div>
+  <div class="scroll-reveal-line">Hız için inşa edildi.</div>
+  <div class="scroll-reveal-line">Disiplinle yoğruldu.</div>
+  <div class="scroll-reveal-line gradient-text">Piyade Team | TSB Zirvesi.</div>
+</section>
+
+<!-- ==============================================================================
+ * 3. METEORS COMPONENT (DİLEK GÖKYÜZÜ - CLICK THE SKY TO CALL ONE DOWN)
+ * ============================================================================== -->
+<div style="margin-bottom: 4rem;">
+  <div class="meteors-container" id="meteorsContainer">
+    <div style="pointer-events: none; text-align: center; z-index: 10;">
+      <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 30px rgba(192, 132, 252, 0.9);">
+        Make a wish.
+      </h2>
+      <p style="margin-top: 0.75rem; font-size: 0.95rem; color: rgba(255, 255, 255, 0.75);">
+        Click the sky to call one down. (Gökyüzüne tıkla, yıldızını kaydır.)
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ==============================================================================
+ * 4. KLAN ÖZELLİKLERİ VE KARTLAR
+ * ============================================================================== -->
+<div class="grid grid-3" style="margin-bottom: 3rem;">
+  <div class="card card-interactive">
+    <div style="font-size: 2.25rem; margin-bottom: 0.75rem;">🏆</div>
+    <h3 class="card-title">37 Kademeli Tryout</h3>
+    <p>
+      Low weak 4 kademesinden High strong 0 zirvesine uzanan hiyerarşik seviye değerlendirme sistemi ile yeteneklerini tescil ettir.
+    </p>
+    <% if (currentUser && isRegistered) { %>
+      <a href="/tryout" style="font-weight: 600; font-size: 0.9rem;">Sıralamayı İncele &rarr;</a>
+    <% } %>
+  </div>
+
+  <div class="card card-interactive">
+    <div style="font-size: 2.25rem; margin-bottom: 0.75rem;">⚔️</div>
+    <h3 class="card-title">Resmi VS & Top 10</h3>
+    <p>
+      Discord üzerinden rakibini seç, 48 saatlik yetkili gözetimindeki odada kapış ve Top 10 sıralama tablosunda adını altın harflerle yazdır.
+    </p>
+    <% if (currentUser && isRegistered) { %>
+      <a href="/profil" style="font-weight: 600; font-size: 0.9rem;">VS Puanını Gör &rarr;</a>
+    <% } %>
+  </div>
+
+  <div class="card card-interactive">
+    <div style="font-size: 2.25rem; margin-bottom: 0.75rem;">🛡️</div>
+    <h3 class="card-title">Acil Takviye Sistemi</h3>
+    <p>
+      Oyunda sunucun baskın yediğinde tek tıkla klandan takviye çağır. Discord botumuz anında aktif üyelere DM ve Roblox linki iletir.
+    </p>
+    <% if (currentUser && isRegistered) { %>
+      <a href="/takviye" style="font-weight: 600; font-size: 0.9rem;">Takviye Çağrısı Yap &rarr;</a>
+    <% } %>
+  </div>
+</div>
+
+<!-- Canlı Durum Kartı -->
+<div class="card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-left: 4px solid var(--color-primary);">
+  <div>
+    <h3 style="margin-bottom: 0.25rem;">Sunucu ve Bot Durumu</h3>
+    <p style="margin: 0; font-size: 0.9rem;">
+      Veri ve iş mantığı kesintisiz olarak bot REST API entegrasyonu ile sağlanmaktadır.
+    </p>
+  </div>
+  <div style="display: flex; gap: 2rem; align-items: center;">
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Aktif Kayıtlı</div>
+      <strong style="font-size: 1.5rem; color: var(--color-success);"><%= activeStats.activeRegisteredCount || 0 %> Üye</strong>
+    </div>
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Çevrim İçi</div>
+      <strong style="font-size: 1.5rem; color: var(--color-accent);"><%= activeStats.onlineMembersCount || 0 %> Oyuncu</strong>
+    </div>
+  </div>
+</div>
+
+<%- include('../layouts/footer') %>

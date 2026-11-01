@@ -1,0 +1,197 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 760px; margin: 0 auto;">
+  <div style="text-align: center; margin-bottom: 2rem;">
+    <span class="badge badge-primary">Roblox Doğrulamalı</span>
+    <h1 style="margin-top: 0.5rem; margin-bottom: 0.5rem;">Klan Kayıt Başvurusu</h1>
+    <p style="color: var(--text-secondary);">
+      Piyade Team topluluğuna katılmak ve sunucu içi üye rollerinizi almak için aşağıdaki başvuru adımlarını takip ediniz.
+    </p>
+  </div>
+
+  <!-- Hata ve Başarı Bildirimleri -->
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger">
+      <span>❌</span>
+      <div><%= error %></div>
+    </div>
+  <% } %>
+
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success">
+      <span>✅</span>
+      <div><%= success %></div>
+    </div>
+  <% } %>
+
+  <!-- DURUM 1: DİSCORD İLE GİRİŞ GEREKLİ -->
+  <% if (state === 'login_required') { %>
+    <div class="card" style="text-align: center; padding: 3rem 2rem;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
+      <h2>Önce Discord ile Giriş Yapınız</h2>
+      <p style="max-width: 500px; margin: 0 auto 1.75rem;">
+        Kayıt başvurunuzun Discord hesabınızla ve sunucumuzdaki profilinizle doğrudan eşleşebilmesi için Discord ile oturum açmanız gerekmektedir.
+      </p>
+      <a href="/auth/discord" class="btn btn-discord btn-lg">
+        <span>🎮 Discord ile Giriş Yap</span>
+      </a>
+    </div>
+
+  <!-- DURUM 2: ZATEN ONAYLANDI / KAYITLI ÜYE -->
+  <% } else if (state === 'approved') { %>
+    <div class="card" style="border-left: 4px solid var(--color-success); padding: 2.5rem 2rem;">
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 2.5rem;">🎉</div>
+        <div>
+          <span class="badge badge-success">Onaylandı</span>
+          <h2 style="margin: 4px 0 0;">Kayıtlı ve Aktif Üyesiniz!</h2>
+        </div>
+      </div>
+      <p style="color: var(--text-secondary);">
+        Discord ve Roblox hesabınız sistemimizde başarıyla onaylanmış ve klan üye rolleriniz tanımlanmıştır.
+      </p>
+
+      <% if (statusData && statusData.registration) { %>
+        <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+          <div class="grid grid-2" style="gap: 1rem;">
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Kayıtlı İsim</span>
+              <div style="font-weight: 700; color: var(--text-primary);"><%= statusData.registration.realName || 'Belirtilmedi' %></div>
+            </div>
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox Kullanıcı Adı</span>
+              <div style="font-weight: 700; color: var(--text-primary);">
+                <% if (statusData.registration.robloxUsername) { %>
+                  @<%= statusData.registration.robloxUsername %>
+                <% } else { %>
+                  Kayıtlı
+                <% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="/profil" class="btn btn-primary">
+          <span>👤 Profilimi Görüntüle</span>
+        </a>
+        <a href="/tryout" class="btn btn-secondary">
+          <span>🏆 Tryout Tablosu</span>
+        </a>
+      </div>
+    </div>
+
+  <!-- DURUM 3: BAŞVURU BEKLEMEDE -->
+  <% } else if (state === 'pending') { %>
+    <div class="card" style="border-left: 4px solid var(--color-warning); padding: 2.5rem 2rem;">
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 2.5rem;">⏳</div>
+        <div>
+          <span class="badge badge-warning">İncelemede</span>
+          <h2 style="margin: 4px 0 0;">Başvurunuz Yetkili Onayında Bekliyor</h2>
+        </div>
+      </div>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Kayıt başvurunuz başarıyla alındı. Discord sunucumuzda yetkililer için onay kartı ve sizin için özel kayıt odası açıldı. En kısa sürede yetkililerimiz başvurunuzu sonuçlandıracaktır.
+      </p>
+
+      <% if (statusData && statusData.application) { %>
+        <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+          <div class="grid grid-2" style="gap: 1rem;">
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Başvuru Sahibi</span>
+              <div style="font-weight: 700; color: var(--text-primary);"><%= statusData.application.realName || currentUser.displayName %></div>
+            </div>
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox Hesabı</span>
+              <div style="font-weight: 700; color: var(--color-primary);">@<%= statusData.application.robloxUsername || 'İnceleniyor' %></div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button onclick="window.location.reload();" class="btn btn-secondary btn-sm">
+          <span>🔄 Durumu Yenile</span>
+        </button>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Sonuçlandığında rolleriniz otomatik verilecektir.</span>
+      </div>
+    </div>
+
+  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA HENÜZ BAŞVURU YAPILMAMIŞ -->
+  <% } else { %>
+    <% if (state === 'rejected' && statusData && statusData.rejected) { %>
+      <div class="card" style="border-left: 4px solid var(--color-danger); margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.05);">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <span style="font-size: 1.5rem;">✖️</span>
+          <h3 style="margin: 0; color: var(--color-danger);">Son Kayıt Başvurunuz Reddedildi</h3>
+        </div>
+        <p style="margin-bottom: 0.75rem; color: var(--text-secondary);">
+          <strong>Yetkili Red Sebebi:</strong> <%= statusData.rejected.reason %>
+        </p>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Lütfen aşağıdaki formda belirtilen eksik veya hatalı bilgileri düzelterek tekrar başvurunuz.
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Kayıt Başvuru Formu -->
+    <div class="card">
+      <form action="/kayit" method="POST">
+        <!-- CSRF Güvenlik Anahtarı -->
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+        <div class="form-group">
+          <label class="form-label" for="realName">Gerçek Adınız</label>
+          <input
+            type="text"
+            id="realName"
+            name="realName"
+            class="form-control"
+            placeholder="Örn: Ahmet"
+            minlength="2"
+            maxlength="32"
+            required
+          />
+          <div class="form-text">Sunucu içi adınız <code>{Gerçek Ad} | {Roblox Nick}</code> şeklinde ayarlanacaktır.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="gender">Cinsiyet</label>
+          <select id="gender" name="gender" class="form-select" required>
+            <option value="">Cinsiyet seçiniz...</option>
+            <option value="Erkek">👨 Erkek</option>
+            <option value="Kız">👩 Kız</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="robloxInput">Roblox Kullanıcı Adı, ID veya Profil Linki</label>
+          <input
+            type="text"
+            id="robloxInput"
+            name="robloxInput"
+            class="form-control"
+            placeholder="Örn: Player123 veya 123456789 veya https://www.roblox.com/users/..."
+            required
+          />
+          <div class="form-text">
+            ⚠️ <strong>Önemli:</strong> Display Name (görünen ad) değil, profilinizdeki asıl <code>@kullanıcıadı</code> veya ID yazılmalıdır. Sistem Roblox API üzerinden hesabın ban durumunu ve gerçekliğini otomatik teyit eder.
+          </div>
+        </div>
+
+        <div style="margin-top: 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+          <div style="font-size: 0.85rem; color: var(--text-muted);">
+            Oturum: <strong><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg">
+            <span>📝 Başvuruyu Gönder</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>

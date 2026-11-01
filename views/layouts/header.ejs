@@ -8,21 +8,36 @@
   <!-- Favicon & Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   
-  <!-- CSS Dosyaları (theme.css tek noktadan tüm renk ve temayı yönetir) -->
+  <!-- CSS Dosyaları (theme.css tek noktadan yönetilen obsidian paletidir) -->
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-  <!-- Üst Menü / Navbar -->
+  <!-- Ambient Obsidian Arka Plan Efektleri (Taktiksel Izgara ve Parıltı Orbları) -->
+  <div class="ambient-bg-grid"></div>
+  <div class="ambient-orb ambient-orb-1"></div>
+  <div class="ambient-orb ambient-orb-2"></div>
+  <div class="ambient-orb ambient-orb-3"></div>
+
+  <!-- Üst Menü / Navbar (Glass-Nav) -->
   <header class="site-header">
     <div class="container navbar">
+      
       <!-- Logo ve Klan İsmi -->
       <a href="/" class="brand">
-        <div class="brand-icon">⚔️</div>
-        <span>Piyade Team <span style="color: var(--color-primary); font-size: 0.9em;">| TSB</span></span>
+        <div class="brand-icon">
+          <div class="brand-icon-inner">⚔️</div>
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 900; letter-spacing: -0.01em;">PİYADE <span class="gradient-text">TEAM</span></span>
+            <span class="badge badge-primary" style="font-size: 0.65rem; padding: 2px 7px;">TSB</span>
+          </div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.02em;">Roblox Topluluk & Savaş Portalı</div>
+        </div>
       </a>
 
       <!-- Dinamik Menü Linkleri (menu.config.js üzerinden gelir) -->
@@ -34,7 +49,7 @@
                 <a href="<%= item.path %>" class="nav-link <%= typeof currentPath !== 'undefined' && currentPath === item.path ? 'active' : '' %>">
                   <span><%= item.title %></span>
                   <% if (item.badge) { %>
-                    <span class="badge <%= item.badgeClass || 'badge-primary' %>" style="font-size: 0.65rem; padding: 2px 6px;"><%= item.badge %></span>
+                    <span class="badge <%= item.badgeClass || 'badge-primary' %>" style="font-size: 0.65rem; padding: 1px 6px;"><%= item.badge %></span>
                   <% } %>
                 </a>
               </li>
@@ -42,25 +57,34 @@
           <% } else { %>
             <li><a href="/" class="nav-link">Anasayfa</a></li>
             <li><a href="/kurallar" class="nav-link">Genel Kurallar</a></li>
+            <li><a href="/etkilesim" class="nav-link">🎯 Atış & Gökyüzü</a></li>
             <li><a href="/kayit" class="nav-link">Kayıt Ol</a></li>
           <% } %>
         </ul>
       </nav>
 
-      <!-- Kullanıcı Alanı / Giriş Butonu -->
+      <!-- Sağ Aksiyon Alanı: Canlı Durum ve Kullanıcı Butonu -->
       <div class="nav-actions">
+        
+        <!-- Canlı Aktif Üye Göstergesi -->
+        <div class="nav-status-pill hidden-sm">
+          <span class="status-dot-success"></span>
+          <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> Aktif</span>
+        </div>
+
+        <!-- Kullanıcı Alanı / Giriş Butonu -->
         <% if (typeof currentUser !== 'undefined' && currentUser) { %>
           <div class="user-menu">
             <img src="<%= currentUser.avatarUrl %>" alt="<%= currentUser.displayName %>" class="user-avatar" />
             <span class="user-name"><%= currentUser.displayName %></span>
             <% if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
-              <span class="badge badge-danger" style="font-size: 0.65rem;">Dev</span>
+              <span class="badge badge-danger" style="font-size: 0.65rem; padding: 2px 6px;">Dev</span>
             <% } else if (typeof isManagement !== 'undefined' && isManagement) { %>
-              <span class="badge badge-warning" style="font-size: 0.65rem;">Yönetim</span>
+              <span class="badge badge-warning" style="font-size: 0.65rem; padding: 2px 6px;">Yönetim</span>
             <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
-              <span class="badge badge-success" style="font-size: 0.65rem;">Üye</span>
+              <span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">Üye</span>
             <% } %>
-            <a href="/auth/logout" class="btn btn-secondary btn-sm" title="Çıkış Yap" style="margin-left: 4px; padding: 4px 8px;">Çıkış</a>
+            <a href="/auth/logout" class="btn btn-secondary btn-sm" title="Çıkış Yap" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 9999px;">Çıkış</a>
           </div>
         <% } else { %>
           <a href="/auth/discord" class="btn btn-discord btn-sm">
@@ -71,6 +95,7 @@
         <!-- Mobil Menü Butonu -->
         <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Menüyü Aç">☰</button>
       </div>
+
     </div>
   </header>
 

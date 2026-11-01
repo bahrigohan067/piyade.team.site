@@ -1,17 +1,20 @@
 <%- include('../layouts/header') %>
 
-<!-- Üst Profil Özeti -->
-<div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(21, 30, 50, 0.95), rgba(14, 21, 38, 0.95));">
+<!-- Üst Profil Özeti (Obsidian Glass Banner) -->
+<div class="glass-card" style="margin-bottom: 2rem; padding: 2rem; border-color: rgba(255, 255, 255, 0.1);">
   <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
     <div style="display: flex; align-items: center; gap: 1.25rem;">
-      <img
-        src="<%= profile.discord.avatarUrl %>"
-        alt="<%= profile.discord.displayName %>"
-        style="width: 84px; height: 84px; border-radius: 50%; border: 3px solid var(--color-primary); box-shadow: var(--shadow-primary);"
-      />
+      <div style="position: relative;">
+        <img
+          src="<%= profile.discord.avatarUrl %>"
+          alt="<%= profile.discord.displayName %>"
+          style="width: 86px; height: 86px; border-radius: 50%; border: 3px solid #3b82f6; box-shadow: 0 0 25px rgba(59, 130, 246, 0.4); object-fit: cover;"
+        />
+        <span class="status-dot-success" style="position: absolute; bottom: 4px; right: 4px; width: 14px; height: 14px; border: 2px solid #07080c;"></span>
+      </div>
       <div>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-          <h1 style="font-size: 1.85rem; margin: 0;"><%= profile.discord.displayName %></h1>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap;">
+          <h1 style="font-size: 1.85rem; margin: 0; color: #ffffff;"><%= profile.discord.displayName %></h1>
           <% if (profile.discord.level === 'developer') { %>
             <span class="badge badge-danger">Developer</span>
           <% } else if (profile.discord.level === 'yonetmenlik') { %>
@@ -20,7 +23,7 @@
             <span class="badge badge-success">Kayıtlı Üye</span>
           <% } %>
         </div>
-        <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);">
+        <p style="margin: 0; font-size: 0.875rem; color: var(--text-muted);">
           @<%= profile.discord.username %> • Discord ID: <code><%= profile.discord.id %></code>
         </p>
       </div>
@@ -29,7 +32,7 @@
     <div>
       <% if (profile.registration && profile.registration.robloxProfileUrl) { %>
         <a href="<%= profile.registration.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
-          <span>🟥 Roblox Profilini Aç</span>
+          <span>🟥 Roblox Profilini Aç &rarr;</span>
         </a>
       <% } %>
     </div>
@@ -38,12 +41,13 @@
 
 <!-- 4 Ana İstatistik Kartı -->
 <div class="grid grid-4" style="margin-bottom: 2rem;">
+  
   <div class="stat-card">
     <div class="stat-header">
       <span class="stat-label">Tryout Seviyesi</span>
-      <span style="font-size: 1.25rem;">🏆</span>
+      <span style="font-size: 1.2rem;">🏆</span>
     </div>
-    <div class="stat-value" style="color: var(--color-primary); font-size: 1.5rem;">
+    <div class="stat-value" style="color: #60a5fa; font-size: 1.45rem;">
       <%= profile.tryout.roleName || 'Seviye Yok' %>
     </div>
     <div class="stat-desc">
@@ -54,9 +58,9 @@
   <div class="stat-card">
     <div class="stat-header">
       <span class="stat-label">VS Puanı</span>
-      <span style="font-size: 1.25rem;">⚔️</span>
+      <span style="font-size: 1.2rem;">⚔️</span>
     </div>
-    <div class="stat-value" style="color: var(--color-accent);">
+    <div class="stat-value" style="color: #c084fc; font-size: 1.45rem;">
       <%= profile.vs.points || 0 %> Puan
     </div>
     <div class="stat-desc">
@@ -67,34 +71,41 @@
   <div class="stat-card">
     <div class="stat-header">
       <span class="stat-label">Toplam Kill</span>
-      <span style="font-size: 1.25rem;">💀</span>
+      <span style="font-size: 1.2rem;">💀</span>
     </div>
-    <div class="stat-value">
+    <div class="stat-value" style="color: #ffffff; font-size: 1.45rem;">
       <%= profile.vs.kills || 0 %>
     </div>
     <div class="stat-desc">
-      Resmi VS maçlarında alınan toplam leş
+      Resmi VS maçlarındaki toplam leş
     </div>
   </div>
 
   <div class="stat-card">
     <div class="stat-header">
       <span class="stat-label">Ceza Puanı</span>
-      <span style="font-size: 1.25rem;">⚖️</span>
+      <span style="font-size: 1.2rem;">⚖️</span>
     </div>
-    <div class="stat-value" style="color: <%= profile.warnings.points > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>;">
-      <%= profile.warnings.points || 0 %> Puan
+    <div class="stat-value" style="color: <%= profile.warnings.points > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.45rem;">
+      <%= profile.warnings.points || 0 %> / 15
     </div>
     <div class="stat-desc">
-      <%= profile.warnings.tier ? 'Uyarı ' + profile.warnings.tier : 'Sicil Temiz' %>
+      <%= profile.warnings.tier ? 'Uyarı ' + profile.warnings.tier : 'Sicil Tertemiz' %>
+    </div>
+    <!-- Jail Risk Çubuğu -->
+    <% const riskPct = Math.min(100, Math.round(((profile.warnings.points || 0) / 15) * 100)); %>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" style="width: <%= riskPct %>%; background: <%= riskPct > 60 ? 'var(--color-danger)' : (riskPct > 0 ? 'var(--color-warning)' : 'var(--color-success)') %>;"></div>
     </div>
   </div>
+
 </div>
 
 <!-- Detay Kartları Izgarası -->
 <div class="grid grid-2">
+  
   <!-- 1. Roblox & Kayıt Bilgileri Kartı -->
-  <div class="card">
+  <div class="glass-card">
     <div class="card-header">
       <h3 class="card-title"><span>🟥</span> Roblox & Kayıt Bilgileri</h3>
       <% if (profile.registration && profile.registration.registered) { %>
@@ -103,20 +114,20 @@
         <span class="badge badge-warning">Kayıtsız</span>
       <% } %>
     </div>
-    <div class="card-body">
+    <div>
       <% if (profile.registration && profile.registration.registered) { %>
-        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Gerçek Ad</span>
-            <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= profile.registration.realName || 'Belirtilmedi' %></div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Gerçek Ad</span>
+            <div style="font-weight: 700; color: #ffffff; font-size: 1.05rem;"><%= profile.registration.realName || 'Belirtilmedi' %></div>
           </div>
           <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Cinsiyet</span>
-            <div style="font-weight: 600; color: var(--text-primary);"><%= profile.registration.gender || 'Belirtilmedi' %></div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cinsiyet</span>
+            <div style="font-weight: 600; color: #ffffff;"><%= profile.registration.gender || 'Belirtilmedi' %></div>
           </div>
           <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox Kullanıcı Adı</span>
-            <div style="font-weight: 700; color: var(--color-primary); font-size: 1.05rem;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox Kullanıcı Adı</span>
+            <div style="font-weight: 700; color: #60a5fa; font-size: 1.05rem;">
               @<%= profile.registration.robloxUsername || 'Bulunamadı' %>
               <% if (profile.registration.robloxDisplayName) { %>
                 <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(<%= profile.registration.robloxDisplayName %>)</span>
@@ -124,68 +135,69 @@
             </div>
           </div>
           <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox ID</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox ID</span>
             <div><code><%= profile.registration.robloxId || '-' %></code></div>
           </div>
           <% if (profile.registration.registeredAt) { %>
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Kayıt Tarihi</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Kayıt Tarihi</span>
               <div style="font-size: 0.875rem; color: var(--text-secondary);"><%= new Date(profile.registration.registeredAt).toLocaleDateString('tr-TR') %></div>
             </div>
           <% } %>
         </div>
       <% } else { %>
-        <p>Kayıt bilgileriniz henüz sisteme eklenmemiş. Lütfen kayıt formunu doldurunuz.</p>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Kayıt bilgileriniz henüz sisteme eklenmemiş. Lütfen kayıt formunu doldurunuz.</p>
         <a href="/kayit" class="btn btn-primary btn-sm">Kayıt Ol</a>
       <% } %>
     </div>
   </div>
 
   <!-- 2. Disiplin & Sicil Durumu Kartı -->
-  <div class="card">
+  <div class="glass-card">
     <div class="card-header">
       <h3 class="card-title"><span>⚖️</span> Disiplin & Güvenlik Durumu</h3>
       <% if (profile.warnings.suspendedUntil && profile.warnings.suspendedUntil > Date.now()) { %>
         <span class="badge badge-danger">Askıda (Jail)</span>
       <% } else if (profile.warnings.points === 0) { %>
-        <span class="badge badge-success">Tertemiz</span>
+        <span class="badge badge-success">Sicil Tertemiz</span>
       <% } else { %>
         <span class="badge badge-warning"><%= profile.warnings.points %> Ceza Puanı</span>
       <% } %>
     </div>
-    <div class="card-body">
-      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+    <div>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
         <div>
-          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Toplam Ceza Puanı</span>
-          <div style="font-weight: 700; font-size: 1.25rem; color: <%= profile.warnings.points > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>;">
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Toplam Ceza Puanı</span>
+          <div style="font-weight: 800; font-size: 1.35rem; color: <%= profile.warnings.points > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>;">
             <%= profile.warnings.points || 0 %> / 15 Puan
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-muted);">15 puana ulaşan üyeler 1 hafta askıya (jail) alınır.</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">15 puana ulaşan üyeler otomatik olarak 1 hafta askıya (jail) alınır.</div>
         </div>
 
         <div>
-          <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Mevcut Uyarı Kademesi</span>
-          <div style="font-weight: 600; color: var(--text-primary);">
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Mevcut Uyarı Kademesi</span>
+          <div style="font-weight: 600; color: #ffffff;">
             <%= profile.warnings.tier ? 'Uyarı ' + profile.warnings.tier + ' Rolü Tanımlı' : 'Aktif Uyarı Rolü Yok' %>
           </div>
         </div>
 
         <% if (profile.discord.level === 'yonetmenlik' || profile.discord.level === 'developer') { %>
           <div>
-            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Yetkili İhtarları</span>
-            <div style="font-weight: 600; color: <%= profile.warnings.staffWarnings > 0 ? 'var(--color-danger)' : 'var(--text-primary)' %>;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Yetkili İhtarları</span>
+            <div style="font-weight: 600; color: <%= profile.warnings.staffWarnings > 0 ? 'var(--color-danger)' : '#ffffff' %>;">
               <%= profile.warnings.staffWarnings || 0 %> / 4 Yetkili Uyarısı
             </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">4. yetkili uyarısında tüm yetkiler alınır.</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">4. yetkili uyarısında tüm yetkiler otomatik geri alınır.</div>
           </div>
         <% } %>
 
-        <div style="background: var(--bg-surface); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-secondary);">
-          ℹ️ Son cezanızdan itibaren 30 gün boyunca kural ihlali yapmadığınız takdirde ceza puanlarınız otomatik olarak temizlenir.
+        <div class="glass-card" style="padding: 0.85rem 1rem; background: rgba(8, 9, 13, 0.6); font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+          ℹ️ <strong>Otomatik Af:</strong> Son cezanızdan itibaren 30 gün boyunca kural ihlali yapmadığınız takdirde tüm ceza puanlarınız sistem tarafından otomatik silinir.
         </div>
       </div>
     </div>
   </div>
+
 </div>
 
 <%- include('../layouts/footer') %>

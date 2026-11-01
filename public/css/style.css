@@ -1,5 +1,7 @@
 /* ==============================================================================
- * PIYADE TEAM | VIOLET GHOST FIBERS MODERN STİLLER (STYLE.CSS)
+ * PIYADE TEAM | OBSIDIAN DARK MODERN STİLLER (STYLE.CSS)
+ * Inspired by https://piyade-rp.up.railway.app
+ * Düzenli, modern, şık ve derin siyah hiyerarşik tasarım
  * ============================================================================== */
 
 *, *::before, *::after {
@@ -27,7 +29,77 @@ body {
 }
 
 /* ==========================================
- * ANİMASYONLU GEÇİŞLER VE HAREKETLİ GRADYANLAR
+ * TAKTİKSEL GRID & AMBIENT ARKA PLAN KATMANI
+ * ========================================== */
+.ambient-bg-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -3;
+  opacity: 0.035;
+  background-image: 
+    linear-gradient(to right, #ffffff 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.ambient-orb {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -2;
+  filter: blur(130px);
+  opacity: 0.35;
+  mix-blend-mode: screen;
+}
+
+.ambient-orb-1 {
+  top: -10%;
+  left: -5%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(37, 99, 235, 0.3) 50%, transparent 75%);
+}
+
+.ambient-orb-2 {
+  top: 15%;
+  right: -8%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.75) 0%, rgba(124, 58, 237, 0.25) 50%, transparent 75%);
+}
+
+.ambient-orb-3 {
+  bottom: -10%;
+  left: 20%;
+  width: 650px;
+  height: 650px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.6) 0%, rgba(14, 116, 144, 0.2) 50%, transparent 75%);
+}
+
+/* ==========================================
+ * ÖZEL MODERN SCROLLBAR
+ * ========================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #08090d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e2230;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2e354b;
+}
+
+/* ==========================================
+ * ANİMASYONLAR VE GLOW EFEKTLERİ
  * ========================================== */
 @keyframes gradientShift {
   0% { background-position: 0% 50%; }
@@ -35,28 +107,26 @@ body {
   100% { background-position: 0% 50%; }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(217, 70, 239, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(139, 92, 246, 0.7), 0 0 60px rgba(217, 70, 239, 0.4);
-  }
+@keyframes pingPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.4; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
 
-@keyframes floatGentle {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+.text-glow-blue {
+  text-shadow: 0 0 25px rgba(59, 130, 246, 0.65);
 }
 
-@keyframes borderRotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.text-glow-purple {
+  text-shadow: 0 0 25px rgba(139, 92, 246, 0.65);
 }
 
-/* Parlayan Hareketli Gradyan Metin */
+.text-glow-red {
+  text-shadow: 0 0 25px rgba(239, 68, 68, 0.65);
+}
+
 .gradient-text {
-  background: linear-gradient(135deg, #c084fc, #8b5cf6, #d946ef, #38bdf8, #c084fc);
+  background: linear-gradient(135deg, #60a5fa, #818cf8, #a855f7, #38bdf8, #60a5fa);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -69,7 +139,7 @@ body {
  * ========================================== */
 .container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1240px;
   margin-left: auto;
   margin-right: auto;
   padding-left: 1.25rem;
@@ -79,7 +149,7 @@ body {
 .main-content {
   flex: 1 0 auto;
   padding-top: 2rem;
-  padding-bottom: 4rem;
+  padding-bottom: 5rem;
 }
 
 /* ==========================================
@@ -87,118 +157,130 @@ body {
  * ========================================== */
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.25;
+  letter-spacing: -0.025em;
   margin-bottom: 0.75rem;
 }
 
-h1 { font-size: 2.35rem; }
+h1 { font-size: 2.5rem; }
 h2 { font-size: 1.85rem; }
 h3 { font-size: 1.35rem; }
 h4 { font-size: 1.15rem; }
 
 p {
-  color: var(--text-secondary);
   margin-bottom: 1rem;
+  color: var(--text-secondary);
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-primary);
   text-decoration: none;
   transition: all var(--transition-fast);
 }
 
 a:hover {
-  color: var(--text-primary);
-  text-shadow: 0 0 10px var(--color-primary-glow);
+  color: #60a5fa;
 }
 
 code {
   font-family: var(--font-mono);
-  background: var(--bg-input);
+  background: rgba(255, 255, 255, 0.06);
   padding: 0.2rem 0.45rem;
   border-radius: var(--radius-xs);
-  font-size: 0.9em;
-  color: var(--color-accent);
-  border: 1px solid var(--border-color);
+  font-size: 0.875em;
+  color: #93c5fd;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ==========================================
- * NAVBAR / HEADER (BUZLU CAM & PARILTILI)
+ * NAVBAR / HEADER (GLASS-NAV)
  * ========================================== */
 .site-header {
-  background-color: var(--bg-surface);
-  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
-  z-index: 1000;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  background: rgba(8, 9, 13, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  transition: background var(--transition-normal);
 }
 
 .navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 74px;
+  height: 76px;
+  gap: 1.5rem;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  font-size: 1.25rem;
   color: var(--text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: 0.02em;
 }
 
 .brand-icon {
   width: 42px;
   height: 42px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #8b5cf6, #d946ef, #6366f1);
-  background-size: 200% 200%;
-  animation: gradientShift 4s ease infinite;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #6366f1, #8b5cf6);
+  padding: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 1.3rem;
-  box-shadow: var(--shadow-primary);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.brand:hover .brand-icon {
+  transform: scale(1.05);
+}
+
+.brand-icon-inner {
+  width: 100%;
+  height: 100%;
+  background: #0d0f17;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
 }
 
 .nav-links {
   display: flex;
   align-items: center;
   list-style: none;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .nav-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   padding: 0.55rem 0.95rem;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 0.925rem;
-  font-weight: 500;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #9ca3af;
   transition: all var(--transition-fast);
-  position: relative;
 }
 
 .nav-link:hover {
-  color: var(--text-primary);
-  background-color: rgba(139, 92, 246, 0.14);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-link.active {
-  color: #fff;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.6), rgba(217, 70, 239, 0.4));
-  border: 1px solid rgba(192, 132, 252, 0.4);
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+  color: #ffffff;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .nav-actions {
@@ -207,17 +289,46 @@ code {
   gap: 0.75rem;
 }
 
-/* Kullanıcı Menüsü */
+/* Status Pill in Navbar */
+.nav-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-dot-ping {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3b82f6;
+  animation: pingPulse 2s infinite ease-in-out;
+}
+
+.status-dot-success {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pingPulse 2s infinite ease-in-out;
+}
+
+/* User Menu Dropdown / Pill */
 .user-menu {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.35rem 0.85rem;
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-full);
+  gap: 0.65rem;
+  padding: 4px 10px 4px 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
 }
 
 .user-avatar {
@@ -225,51 +336,49 @@ code {
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--color-accent);
-  box-shadow: 0 0 10px rgba(192, 132, 252, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
 }
 
 .user-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .mobile-menu-btn {
   display: none;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  border-radius: 10px;
+  color: #ffffff;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
   font-size: 1.25rem;
   cursor: pointer;
 }
 
 /* ==========================================
- * KARTLAR (GLASSMORPHISM & GLOWING CARDS)
+ * GLASS KARTLAR (GLASSMORPHISM CARDS)
  * ========================================== */
-.card {
-  background-color: var(--bg-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+.glass-card, .card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 1.6rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-md);
   position: relative;
-  overflow: hidden;
+  transition: all var(--transition-normal);
 }
 
-.card:hover {
-  border-color: var(--border-light);
+.glass-card-hover, .card-interactive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card.card-interactive:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md), 0 0 20px rgba(139, 92, 246, 0.2);
-  background-color: var(--bg-card-hover);
+.glass-card-hover:hover, .card-interactive:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-hover);
+  box-shadow: 0 16px 40px -10px rgba(59, 130, 246, 0.25);
 }
 
 .card-header {
@@ -277,335 +386,50 @@ code {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .card-title {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.card-body {
-  color: var(--text-secondary);
-}
-
 /* ==========================================
- * BUTONLAR (HAREKETLİ GRADYAN VE HAFİF BLUR)
- * ========================================== */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.7rem 1.4rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all var(--transition-fast);
-  text-decoration: none;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: -0.01em;
-}
-
-/* Birincil Buton: Hareketli Mor-Fuşya Gradyan + Işıma */
-.btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #d946ef, #7c3aed, #a855f7);
-  background-size: 300% 300%;
-  animation: gradientShift 5s ease infinite;
-  color: #fff;
-  border: 1px solid rgba(216, 180, 254, 0.4);
-  box-shadow: var(--shadow-primary);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(168, 85, 247, 0.65), 0 0 40px rgba(217, 70, 239, 0.35);
-  color: #fff;
-}
-
-/* Hafif Blur Buton (Cam Efekti) */
-.btn-blur {
-  background: rgba(139, 92, 246, 0.22);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(192, 132, 252, 0.45);
-  color: #fff;
-}
-
-.btn-blur:hover {
-  background: rgba(139, 92, 246, 0.4);
-  border-color: rgba(216, 180, 254, 0.8);
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-  background-color: var(--bg-card-hover);
-  border-color: var(--border-light);
-  color: #fff;
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #f43f5e, #be123c);
-  color: #fff;
-  border: 1px solid rgba(244, 63, 94, 0.4);
-  box-shadow: var(--shadow-danger);
-}
-
-.btn-danger:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 25px rgba(244, 63, 94, 0.65);
-}
-
-.btn-discord {
-  background: linear-gradient(135deg, #5865F2, #7289da);
-  color: #fff;
-  border: 1px solid rgba(88, 101, 242, 0.4);
-  box-shadow: 0 0 20px rgba(88, 101, 242, 0.4);
-}
-
-.btn-discord:hover {
-  background: #4752c4;
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(88, 101, 242, 0.65);
-}
-
-.btn-sm {
-  padding: 0.35rem 0.8rem;
-  font-size: 0.85rem;
-}
-
-.btn-lg {
-  padding: 0.85rem 1.85rem;
-  font-size: 1.1rem;
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* ==========================================
- * ROZETLER (BADGES)
- * ========================================== */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.775rem;
-  font-weight: 700;
-  border-radius: var(--radius-full);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.badge-primary {
-  background-color: var(--color-primary-light);
-  color: var(--color-accent);
-  border: 1px solid rgba(168, 85, 247, 0.4);
-}
-
-.badge-success {
-  background-color: var(--color-success-light);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
-}
-
-.badge-warning {
-  background-color: var(--color-warning-light);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-}
-
-.badge-danger {
-  background-color: var(--color-danger-light);
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger-border);
-}
-
-.badge-info {
-  background-color: var(--color-info-light);
-  color: var(--color-info);
-  border: 1px solid var(--color-info-border);
-}
-
-/* ==========================================
- * IZGARALAR (GRIDS)
+ * GRID SİSTEMİ
  * ========================================== */
 .grid {
   display: grid;
   gap: 1.25rem;
 }
 
-.grid-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-4 { grid-template-columns: repeat(4, 1fr); }
-
-@media (max-width: 992px) {
-  .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 640px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-}
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 /* ==========================================
- * FORMLAR
- * ========================================== */
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-label {
-  display: block;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  margin-bottom: 0.45rem;
-}
-
-.form-control, .form-select {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: var(--font-family);
-  font-size: 0.95rem;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.form-control:focus, .form-select:focus {
-  outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
-.form-select option {
-  background-color: #110b24;
-  color: var(--text-primary);
-}
-
-.form-text {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.35rem;
-}
-
-/* ==========================================
- * BİLDİRİM VE ALERT KUTULARI
- * ========================================== */
-.alert {
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius-sm);
-  margin-bottom: 1.25rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  backdrop-filter: blur(10px);
-}
-
-.alert-success {
-  background-color: var(--color-success-light);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
-}
-
-.alert-danger {
-  background-color: var(--color-danger-light);
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger-border);
-}
-
-.alert-warning {
-  background-color: var(--color-warning-light);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-}
-
-.alert-info {
-  background-color: var(--color-info-light);
-  color: var(--color-info);
-  border: 1px solid var(--color-info-border);
-}
-
-/* ==========================================
- * TABLOLAR (TABLES)
- * ========================================== */
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.table th {
-  padding: 0.85rem 1rem;
-  background-color: rgba(139, 92, 246, 0.08);
-  color: var(--color-accent);
-  font-size: 0.825rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 0.925rem;
-  vertical-align: middle;
-}
-
-.table tbody tr:hover {
-  background-color: rgba(139, 92, 246, 0.08);
-}
-
-/* ==========================================
- * İSTATİSTİK KARTLARI (STATS)
+ * İSTATİSTİK & METRİK KARTLARI
  * ========================================== */
 .stat-card {
-  display: flex;
-  flex-direction: column;
-  padding: 1.35rem;
   background: var(--bg-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
+  padding: 1.35rem 1.5rem;
+  position: relative;
+  overflow: hidden;
   transition: all var(--transition-normal);
 }
 
 .stat-card:hover {
-  border-color: var(--border-light);
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+  border-color: rgba(96, 165, 250, 0.35);
+  transform: translateY(-3px);
 }
 
 .stat-header {
@@ -616,219 +440,320 @@ code {
 }
 
 .stat-label {
-  font-size: 0.825rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
 
 .stat-value {
   font-size: 1.85rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
 }
 
 .stat-desc {
-  font-size: 0.825rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  margin-top: 0.25rem;
 }
 
-/* ==============================================================================
- * 🌠 NEXUS UI COMPONENT 1: METEORS (YILDIZ YAĞMURU)
- * ============================================================================== */
-.meteors-container {
-  position: relative;
-  height: 360px;
-  width: 100%;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 0%, #20104a, #0b061a 55%, #05020c);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 0 35px rgba(139, 92, 246, 0.25);
-  display: flex;
+/* ==========================================
+ * BUTONLAR (MODERN GLOWING & DISCORD BUTTONS)
+ * ========================================== */
+.btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: crosshair;
-  user-select: none;
+  gap: 0.5rem;
+  padding: 0.65rem 1.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
-.meteor-star {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  background: #fff;
-  border-radius: 50%;
-  opacity: 0.7;
-  pointer-events: none;
-  animation: starTwinkle 3s ease-in-out infinite;
+.btn-sm {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  border-radius: 9px;
 }
 
-@keyframes starTwinkle {
-  0%, 100% { opacity: 0.2; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 4px #fff; }
+.btn-lg {
+  padding: 0.85rem 1.85rem;
+  font-size: 1rem;
+  border-radius: 14px;
 }
 
-.meteor-streak {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  height: 2px;
-  width: 160px;
-  background: linear-gradient(to right, rgba(192, 132, 252, 1), rgba(139, 92, 246, 0.4), transparent);
-  transform: rotate(215deg);
+.btn-primary {
+  background: linear-gradient(135deg, #2563eb, #4f46e5, #7c3aed);
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.55);
+  color: #ffffff;
+}
+
+.btn-discord {
+  background: #5865F2;
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(88, 101, 242, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-discord:hover {
+  background: #4752c4;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(88, 101, 242, 0.5);
+  color: #ffffff;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.35);
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+  color: #ffffff;
+}
+
+.btn-blur {
+  background: rgba(14, 17, 26, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  color: #ffffff;
+}
+
+.btn-blur:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================
+ * ROZETLER (BADGES & PILLS)
+ * ========================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
   border-radius: 9999px;
-  pointer-events: none;
-  opacity: 0;
-  animation: meteorFall 4s linear infinite;
-}
-
-.meteor-streak::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 50px;
-  height: 2px;
-  background: linear-gradient(90deg, #fff, transparent);
-}
-
-@keyframes meteorFall {
-  0% {
-    transform: rotate(215deg) translateX(0);
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(215deg) translateX(-650px);
-    opacity: 0;
-  }
-}
-
-/* ==============================================================================
- * 📜 NEXUS UI COMPONENT 2: SCROLL REVEAL TEXT (AŞAĞI KAYDIRINCA AÇILAN METİN)
- * ============================================================================== */
-.scroll-reveal-section {
-  padding: 6rem 1.5rem;
-  max-width: 900px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.scroll-reveal-line {
-  font-size: clamp(2rem, 5vw, 4.25rem);
-  font-weight: 800;
   line-height: 1.2;
-  letter-spacing: -0.035em;
+}
+
+.badge-primary {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.badge-purple {
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+}
+
+.badge-neutral {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #d1d5db;
+}
+
+/* ==========================================
+ * FORM ELEMANLARI
+ * ========================================== */
+.form-group {
   margin-bottom: 1.25rem;
-  color: var(--text-primary);
-  filter: blur(10px);
-  opacity: 0.15;
-  transform: translateY(20px);
-  transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: filter, opacity, transform;
 }
 
-.scroll-reveal-line.revealed {
-  filter: blur(0px);
-  opacity: 1;
-  transform: translateY(0);
-  text-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.45rem;
 }
 
-/* ==============================================================================
- * 🎯 NEXUS UI COMPONENT 3: DART RATING (İNTERAKTİF DART TAHTASI VE PUANLAMA)
- * ============================================================================== */
-.dart-rating-box {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  text-align: center;
-  max-width: 440px;
-  margin: 0 auto;
-  box-shadow: var(--shadow-lg), 0 0 30px rgba(139, 92, 246, 0.2);
-}
-
-.dartboard-wrapper {
-  position: relative;
-  width: 280px;
-  height: 280px;
-  margin: 1.5rem auto;
-  cursor: crosshair;
-  user-select: none;
-}
-
-.dartboard-svg {
+.form-control, .form-select, textarea.form-control {
   width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.925rem;
+  font-family: inherit;
+  color: #ffffff;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.form-control:focus, .form-select:focus, textarea.form-control:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.form-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
+/* ==========================================
+ * BİLDİRİM VE UYARI KUTULARI (ALERTS)
+ * ========================================== */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+}
+
+.alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+}
+
+.alert-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+}
+
+.alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #bfdbfe;
+}
+
+/* ==========================================
+ * TABLOLAR
+ * ========================================== */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.table th {
+  padding: 0.85rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.table td {
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #d1d5db;
+}
+
+.table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ==========================================
+ * PROGRESS BAR
+ * ========================================== */
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.progress-bar-fill {
   height: 100%;
-  filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.35));
-  transition: transform 0.2s ease;
-}
-
-.dartboard-aim-reticle {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  border: 2px dashed #c084fc;
-  border-radius: 50%;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  display: none;
-  box-shadow: 0 0 12px rgba(192, 132, 252, 0.8);
-  animation: aimPulse 0.8s infinite alternate;
-}
-
-.dartboard-aim-reticle::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  background: #fff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-@keyframes aimPulse {
-  0% { transform: translate(-50%, -50%) scale(0.9); }
-  100% { transform: translate(-50%, -50%) scale(1.15); }
-}
-
-.dart-pin {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  animation: dartImpact 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes dartImpact {
-  0% { transform: translate(-50%, -50%) scale(2.5) rotate(-25deg); opacity: 0; }
-  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  border-radius: 9999px;
+  transition: width 0.4s ease;
 }
 
 /* ==========================================
  * FOOTER
  * ========================================== */
 .site-footer {
-  background-color: var(--bg-surface);
+  background: rgba(6, 7, 11, 0.95);
   border-top: 1px solid var(--border-color);
-  padding: 2.5rem 0 2rem;
+  padding: 2.5rem 0;
   margin-top: auto;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .footer-content {
@@ -841,42 +766,83 @@ code {
 
 .footer-links {
   display: flex;
-  gap: 1.25rem;
+  align-items: center;
   list-style: none;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .footer-links a {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 .footer-links a:hover {
-  color: var(--color-accent);
+  color: #ffffff;
 }
 
 /* ==========================================
- * RESPONSIVE MENÜ
+ * NEXUS UI VE HERO COMPONENT DÜZENLERİ
  * ========================================== */
-@media (max-width: 860px) {
+.meteors-container {
+  position: relative;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(120% 90% at 50% 0%, #111a33 0%, #070a14 55%, #030408 100%);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+.scroll-reveal-section {
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.scroll-reveal-line {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.2);
+  transition: all 0.5s ease-out;
+  margin-bottom: 0.5rem;
+}
+
+.scroll-reveal-line.active {
+  color: #ffffff;
+  filter: blur(0px) !important;
+}
+
+/* ==========================================
+ * RESPONSIVE DÜZEN
+ * ========================================== */
+@media (max-width: 992px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .navbar { height: 68px; }
   .nav-links {
     display: none;
     position: absolute;
-    top: 74px;
+    top: 68px;
     left: 0;
     right: 0;
-    background-color: rgba(13, 8, 28, 0.96);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    flex-direction: column;
-    padding: 1.25rem;
+    background: #08090d;
     border-bottom: 1px solid var(--border-color);
-    box-shadow: var(--shadow-lg);
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.5rem;
   }
-
-  .nav-links.open {
-    display: flex;
-  }
-
-  .mobile-menu-btn {
-    display: block;
-  }
+  .nav-links.open { display: flex; }
+  .mobile-menu-btn { display: block; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .footer-content { flex-direction: column; align-items: flex-start; }
 }

@@ -14,7 +14,7 @@
   canvas.style.height = '100vh';
   canvas.style.zIndex = '-2';
   canvas.style.pointerEvents = 'none';
-  canvas.style.opacity = '0.9';
+  canvas.style.opacity = '0.5';
   document.body.prepend(canvas);
 
   const ctx = canvas.getContext('2d');

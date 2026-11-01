@@ -1,36 +1,64 @@
 <%- include('../layouts/header') %>
 
-<div style="max-width: 760px; margin: 0 auto;">
-  <div style="text-align: center; margin-bottom: 2rem;">
-    <span class="badge badge-primary">Roblox Doğrulamalı</span>
-    <h1 style="margin-top: 0.5rem; margin-bottom: 0.5rem;">Klan Kayıt Başvurusu</h1>
-    <p style="color: var(--text-secondary);">
-      Piyade Team topluluğuna katılmak ve sunucu içi üye rollerinizi almak için aşağıdaki başvuru adımlarını takip ediniz.
+<div style="max-width: 780px; margin: 0 auto; padding-top: 1rem;">
+  
+  <!-- Üst Başlık & İlerleme Adımları -->
+  <div style="text-align: center; margin-bottom: 2.5rem;">
+    <span class="badge badge-primary" style="margin-bottom: 0.5rem;">Roblox & Discord Doğrulamalı</span>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">Klan Kayıt Başvurusu</h1>
+    <p style="color: var(--text-secondary); max-width: 580px; margin: 0 auto 1.75rem; font-size: 0.95rem;">
+      Piyade Team topluluğuna katılmak ve sunucu içi üye rollerinizi almak için aşağıdaki adımları tamamlayınız.
     </p>
+
+    <!-- 3 Aşamalı İlerleme Çubuğu -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; max-width: 540px; margin: 0 auto;">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= currentUser ? '#10b981' : '#3b82f6' %>;">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= currentUser ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)' %>; border: 1px solid <%= currentUser ? '#10b981' : '#3b82f6' %>; display: flex; align-items: center; justify-content: center;">
+          <%= currentUser ? '✓' : '1' %>
+        </span>
+        <span>Discord Girişi</span>
+      </div>
+      <div style="flex: 1; height: 2px; background: rgba(255, 255, 255, 0.1);"></div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= state === 'pending' || state === 'approved' ? '#10b981' : (currentUser ? '#3b82f6' : 'var(--text-muted)') %>;">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= state === 'pending' || state === 'approved' ? 'rgba(16, 185, 129, 0.2)' : (currentUser ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)') %>; border: 1px solid <%= state === 'pending' || state === 'approved' ? '#10b981' : (currentUser ? '#3b82f6' : 'var(--border-color)') %>; display: flex; align-items: center; justify-content: center;">
+          <%= state === 'pending' || state === 'approved' ? '✓' : '2' %>
+        </span>
+        <span>Formu Doldur</span>
+      </div>
+      <div style="flex: 1; height: 2px; background: rgba(255, 255, 255, 0.1);"></div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= state === 'approved' ? '#10b981' : (state === 'pending' ? '#f59e0b' : 'var(--text-muted)') %>;">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= state === 'approved' ? 'rgba(16, 185, 129, 0.2)' : (state === 'pending' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.05)') %>; border: 1px solid <%= state === 'approved' ? '#10b981' : (state === 'pending' ? '#f59e0b' : 'var(--border-color)') %>; display: flex; align-items: center; justify-content: center;">
+          <%= state === 'approved' ? '✓' : '3' %>
+        </span>
+        <span>Bot İncelemesi</span>
+      </div>
+    </div>
   </div>
 
   <!-- Hata ve Başarı Bildirimleri -->
   <% if (typeof error !== 'undefined' && error) { %>
     <div class="alert alert-danger">
-      <span>❌</span>
+      <span style="font-size: 1.25rem;">🛑</span>
       <div><%= error %></div>
     </div>
   <% } %>
 
   <% if (typeof success !== 'undefined' && success) { %>
     <div class="alert alert-success">
-      <span>✅</span>
+      <span style="font-size: 1.25rem;">✅</span>
       <div><%= success %></div>
     </div>
   <% } %>
 
   <!-- DURUM 1: DİSCORD İLE GİRİŞ GEREKLİ -->
   <% if (state === 'login_required') { %>
-    <div class="card" style="text-align: center; padding: 3rem 2rem;">
-      <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
-      <h2>Önce Discord ile Giriş Yapınız</h2>
-      <p style="max-width: 500px; margin: 0 auto 1.75rem;">
-        Kayıt başvurunuzun Discord hesabınızla ve sunucumuzdaki profilinizle doğrudan eşleşebilmesi için Discord ile oturum açmanız gerekmektedir.
+    <div class="glass-card" style="text-align: center; padding: 3.5rem 2rem;">
+      <div style="width: 64px; height: 64px; border-radius: 20px; background: rgba(88, 101, 242, 0.15); border: 1px solid rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.85rem; margin: 0 auto 1.25rem;">
+        🔐
+      </div>
+      <h2 style="font-size: 1.6rem; margin-bottom: 0.5rem;">Önce Discord ile Giriş Yapınız</h2>
+      <p style="max-width: 500px; margin: 0 auto 1.75rem; color: var(--text-secondary); font-size: 0.95rem;">
+        Kayıt başvurunuzun Discord hesabınızla ve klan sunucumuzdaki profilinizle doğrudan eşleşebilmesi için Discord ile oturum açmanız gerekmektedir.
       </p>
       <a href="/auth/discord" class="btn btn-discord btn-lg">
         <span>🎮 Discord ile Giriş Yap</span>
@@ -39,28 +67,30 @@
 
   <!-- DURUM 2: ZATEN ONAYLANDI / KAYITLI ÜYE -->
   <% } else if (state === 'approved') { %>
-    <div class="card" style="border-left: 4px solid var(--color-success); padding: 2.5rem 2rem;">
+    <div class="glass-card" style="border-left: 4px solid var(--color-success); padding: 2.5rem 2rem;">
       <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
-        <div style="font-size: 2.5rem;">🎉</div>
+        <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.75rem;">
+          🎉
+        </div>
         <div>
           <span class="badge badge-success">Onaylandı</span>
-          <h2 style="margin: 4px 0 0;">Kayıtlı ve Aktif Üyesiniz!</h2>
+          <h2 style="margin: 4px 0 0; font-size: 1.5rem;">Kayıtlı ve Aktif Üyesiniz!</h2>
         </div>
       </div>
-      <p style="color: var(--text-secondary);">
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
         Discord ve Roblox hesabınız sistemimizde başarıyla onaylanmış ve klan üye rolleriniz tanımlanmıştır.
       </p>
 
       <% if (statusData && statusData.registration) { %>
-        <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+        <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: rgba(8, 9, 13, 0.7);">
           <div class="grid grid-2" style="gap: 1rem;">
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Kayıtlı İsim</span>
-              <div style="font-weight: 700; color: var(--text-primary);"><%= statusData.registration.realName || 'Belirtilmedi' %></div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Kayıtlı İsim</span>
+              <div style="font-weight: 700; color: #ffffff; font-size: 1.05rem;"><%= statusData.registration.realName || 'Belirtilmedi' %></div>
             </div>
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox Kullanıcı Adı</span>
-              <div style="font-weight: 700; color: var(--text-primary);">
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox Kullanıcı Adı</span>
+              <div style="font-weight: 700; color: #60a5fa; font-size: 1.05rem;">
                 <% if (statusData.registration.robloxUsername) { %>
                   @<%= statusData.registration.robloxUsername %>
                 <% } else { %>
@@ -84,48 +114,50 @@
 
   <!-- DURUM 3: BAŞVURU BEKLEMEDE -->
   <% } else if (state === 'pending') { %>
-    <div class="card" style="border-left: 4px solid var(--color-warning); padding: 2.5rem 2rem;">
+    <div class="glass-card" style="border-left: 4px solid var(--color-warning); padding: 2.5rem 2rem;">
       <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
-        <div style="font-size: 2.5rem;">⏳</div>
+        <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.75rem;">
+          ⏳
+        </div>
         <div>
           <span class="badge badge-warning">İncelemede</span>
-          <h2 style="margin: 4px 0 0;">Başvurunuz Yetkili Onayında Bekliyor</h2>
+          <h2 style="margin: 4px 0 0; font-size: 1.5rem;">Başvurunuz Yetkili Onayında Bekliyor</h2>
         </div>
       </div>
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
         Kayıt başvurunuz başarıyla alındı. Discord sunucumuzda yetkililer için onay kartı ve sizin için özel kayıt odası açıldı. En kısa sürede yetkililerimiz başvurunuzu sonuçlandıracaktır.
       </p>
 
       <% if (statusData && statusData.application) { %>
-        <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+        <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: rgba(8, 9, 13, 0.7);">
           <div class="grid grid-2" style="gap: 1rem;">
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Başvuru Sahibi</span>
-              <div style="font-weight: 700; color: var(--text-primary);"><%= statusData.application.realName || currentUser.displayName %></div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Başvuru Sahibi</span>
+              <div style="font-weight: 700; color: #ffffff;"><%= statusData.application.realName || currentUser.displayName %></div>
             </div>
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Roblox Hesabı</span>
-              <div style="font-weight: 700; color: var(--color-primary);">@<%= statusData.application.robloxUsername || 'İnceleniyor' %></div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox Hesabı</span>
+              <div style="font-weight: 700; color: #60a5fa;">@<%= statusData.application.robloxUsername || 'İnceleniyor' %></div>
             </div>
           </div>
         </div>
       <% } %>
 
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
         <button onclick="window.location.reload();" class="btn btn-secondary btn-sm">
           <span>🔄 Durumu Yenile</span>
         </button>
-        <span style="font-size: 0.85rem; color: var(--text-muted);">Sonuçlandığında rolleriniz otomatik verilecektir.</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Onaylandığında klan rolleriniz otomatik tanımlanacaktır.</span>
       </div>
     </div>
 
-  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA HENÜZ BAŞVURU YAPILMAMIŞ -->
+  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU FORMU -->
   <% } else { %>
     <% if (state === 'rejected' && statusData && statusData.rejected) { %>
-      <div class="card" style="border-left: 4px solid var(--color-danger); margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.05);">
+      <div class="glass-card" style="border-left: 4px solid var(--color-danger); margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.06);">
         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-          <span style="font-size: 1.5rem;">✖️</span>
-          <h3 style="margin: 0; color: var(--color-danger);">Son Kayıt Başvurunuz Reddedildi</h3>
+          <span style="font-size: 1.5rem;">🛑</span>
+          <h3 style="margin: 0; color: var(--color-danger); font-size: 1.2rem;">Son Kayıt Başvurunuz Reddedildi</h3>
         </div>
         <p style="margin-bottom: 0.75rem; color: var(--text-secondary);">
           <strong>Yetkili Red Sebebi:</strong> <%= statusData.rejected.reason %>
@@ -137,7 +169,7 @@
     <% } %>
 
     <!-- Kayıt Başvuru Formu -->
-    <div class="card">
+    <div class="glass-card">
       <form action="/kayit" method="POST">
         <!-- CSRF Güvenlik Anahtarı -->
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -181,9 +213,9 @@
           </div>
         </div>
 
-        <div style="margin-top: 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="margin-top: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
           <div style="font-size: 0.85rem; color: var(--text-muted);">
-            Oturum: <strong><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
+            Oturum: <strong style="color: #ffffff;"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
           </div>
           <button type="submit" class="btn btn-primary btn-lg">
             <span>📝 Başvuruyu Gönder</span>
@@ -192,6 +224,7 @@
       </form>
     </div>
   <% } %>
+
 </div>
 
 <%- include('../layouts/footer') %>

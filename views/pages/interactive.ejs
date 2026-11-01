@@ -1,11 +1,11 @@
 <%- include('../layouts/header') %>
 
-<div style="text-align: center; margin-bottom: 3rem;">
+<div style="text-align: center; margin-bottom: 3rem; padding-top: 1rem;">
   <span class="badge badge-primary" style="margin-bottom: 0.75rem;">Nexus UI & İnteraktif Deneyim</span>
   <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">
     🎯 Atış Poligonu & <span class="gradient-text">Meteor Gökyüzü</span>
   </h1>
-  <p style="color: var(--text-secondary); max-width: 650px; margin: 0 auto;">
+  <p style="color: var(--text-secondary); max-width: 650px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">
     Piyade Team topluluğuna özel tasarlanmış fizik motorlu dart değerlendirme sistemi, meteor yağmuru gökyüzü ve akıcı metin efektleri.
   </p>
 </div>
@@ -15,18 +15,18 @@
  * ============================================================================== -->
 <section style="margin-bottom: 5rem;">
   <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2>🎯 Dart Rating & Klan Yetenek Atışı</h2>
+    <h2 style="font-size: 1.85rem; color: #ffffff;">🎯 Dart Rating & Klan Yetenek Atışı</h2>
     <p style="color: var(--text-secondary); font-size: 0.95rem;">
       Tahtaya <strong>basılı tutarak nişan al</strong>, bırak ve dartı fırlat! <br />
-      <span style="color: var(--color-accent);">İpucu:</span> Klavyenizdeki <code>1</code>'den <code>9</code>'a kadar olan sayılar ve <code>0</code> (Bullseye) tuşları o halkaya kusursuz atış yapar.
+      <span style="color: #60a5fa;">İpucu:</span> Klavyenizdeki <code>1</code>'den <code>9</code>'a kadar olan sayılar ve <code>0</code> (Bullseye) tuşları o halkaya kusursuz atış yapar.
     </p>
   </div>
 
-  <div class="dart-rating-box">
+  <div class="glass-card" style="max-width: 460px; margin: 0 auto; text-align: center; padding: 2rem;">
     <!-- Skor ve Yıldızlar -->
     <div style="margin-bottom: 1rem;">
-      <div id="dartScoreDisplay" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">
-        <span style="color: var(--color-accent); font-size: 2.25rem;">10</span> / 10
+      <div id="dartScoreDisplay" style="font-size: 1.5rem; font-weight: 800; color: #ffffff; font-family: var(--font-mono);">
+        <span style="color: #60a5fa; font-size: 2.25rem;">10</span> / 10
       </div>
       <div id="dartStarsContainer" style="display: flex; justify-content: center; gap: 4px; margin: 6px 0;">
         <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
@@ -40,54 +40,54 @@
         <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
         <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
       </div>
-      <div id="dartFeedbackDisplay" style="font-size: 0.9rem; font-weight: 600; color: var(--color-accent);">
+      <div id="dartFeedbackDisplay" style="font-size: 0.9rem; font-weight: 600; color: #60a5fa;">
         🎯 Hedef almak için tahtaya basılı tut ve bırak.
       </div>
     </div>
 
     <!-- İnteraktif Dart Tahtası -->
-    <div class="dartboard-wrapper" id="dartboardWrapper">
-      <svg class="dartboard-svg" viewBox="0 0 280 280">
+    <div class="dartboard-wrapper" id="dartboardWrapper" style="position: relative; width: 280px; height: 280px; margin: 0 auto; cursor: crosshair;">
+      <svg class="dartboard-svg" viewBox="0 0 280 280" style="width: 100%; height: 100%;">
         <!-- Dış Metalik Çember -->
-        <circle cx="140" cy="140" r="135" fill="#0d0824" stroke="rgba(168, 85, 247, 0.4)" stroke-width="4" />
-        <circle cx="140" cy="140" r="130" fill="#140a33" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2" />
+        <circle cx="140" cy="140" r="135" fill="#08090d" stroke="rgba(59, 130, 246, 0.4)" stroke-width="4" />
+        <circle cx="140" cy="140" r="130" fill="#0d0f17" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2" />
         
         <!-- Halka 1 (1 Puan) -->
-        <circle cx="140" cy="140" r="126" fill="rgba(35, 15, 70, 0.7)" stroke="rgba(192, 132, 252, 0.2)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="126" fill="rgba(30, 40, 70, 0.7)" stroke="rgba(96, 165, 250, 0.2)" stroke-width="1.5" />
         <!-- Halka 2 (2 Puan) -->
-        <circle cx="140" cy="140" r="113" fill="rgba(20, 10, 45, 0.8)" stroke="rgba(192, 132, 252, 0.2)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="113" fill="rgba(15, 20, 45, 0.8)" stroke="rgba(96, 165, 250, 0.2)" stroke-width="1.5" />
         <!-- Halka 3 (3 Puan) -->
-        <circle cx="140" cy="140" r="100" fill="rgba(45, 20, 90, 0.75)" stroke="rgba(192, 132, 252, 0.25)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="100" fill="rgba(40, 50, 95, 0.75)" stroke="rgba(96, 165, 250, 0.25)" stroke-width="1.5" />
         <!-- Halka 4 (4 Puan) -->
-        <circle cx="140" cy="140" r="87" fill="rgba(25, 12, 55, 0.85)" stroke="rgba(192, 132, 252, 0.25)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="87" fill="rgba(20, 25, 55, 0.85)" stroke="rgba(96, 165, 250, 0.25)" stroke-width="1.5" />
         <!-- Halka 5 (5 Puan) -->
-        <circle cx="140" cy="140" r="74" fill="rgba(65, 25, 125, 0.8)" stroke="rgba(192, 132, 252, 0.3)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="74" fill="rgba(50, 65, 125, 0.8)" stroke="rgba(96, 165, 250, 0.3)" stroke-width="1.5" />
         <!-- Halka 6 (6 Puan) -->
-        <circle cx="140" cy="140" r="61" fill="rgba(30, 14, 65, 0.9)" stroke="rgba(192, 132, 252, 0.3)" stroke-width="1.5" />
+        <circle cx="140" cy="140" r="61" fill="rgba(25, 35, 75, 0.9)" stroke="rgba(96, 165, 250, 0.3)" stroke-width="1.5" />
         <!-- Halka 7 (7 Puan) -->
-        <circle cx="140" cy="140" r="48" fill="rgba(90, 35, 160, 0.85)" stroke="rgba(216, 180, 254, 0.4)" stroke-width="2" />
+        <circle cx="140" cy="140" r="48" fill="rgba(70, 85, 160, 0.85)" stroke="rgba(147, 197, 253, 0.4)" stroke-width="2" />
         <!-- Halka 8 (8 Puan) -->
-        <circle cx="140" cy="140" r="35" fill="rgba(40, 18, 80, 0.95)" stroke="rgba(216, 180, 254, 0.5)" stroke-width="2" />
+        <circle cx="140" cy="140" r="35" fill="rgba(30, 45, 95, 0.95)" stroke="rgba(147, 197, 253, 0.5)" stroke-width="2" />
         <!-- Halka 9 (9 Puan) -->
-        <circle cx="140" cy="140" r="23" fill="rgba(125, 50, 220, 0.9)" stroke="rgba(255, 255, 255, 0.6)" stroke-width="2" />
+        <circle cx="140" cy="140" r="23" fill="rgba(90, 110, 220, 0.9)" stroke="rgba(255, 255, 255, 0.6)" stroke-width="2" />
         
         <!-- Bullseye (10 Puan) -->
         <circle cx="140" cy="140" r="11" fill="url(#bullseyeGrad)" stroke="#fff" stroke-width="2" />
 
         <defs>
           <radialGradient id="bullseyeGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#f43f5e" />
-            <stop offset="100%" stop-color="#be123c" />
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="100%" stop-color="#b91c1c" />
           </radialGradient>
         </defs>
       </svg>
 
       <!-- Hedefleme Göstergesi (Reticle) -->
-      <div id="dartAimReticle" class="dartboard-aim-reticle"></div>
+      <div id="dartAimReticle" class="dartboard-aim-reticle" style="display: none; position: absolute; width: 28px; height: 28px; border: 2px dashed #60a5fa; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);"></div>
     </div>
 
     <!-- Temizleme Butonu -->
-    <button id="btnClearDarts" class="btn btn-secondary btn-sm" style="margin-top: 0.5rem;">
+    <button id="btnClearDarts" class="btn btn-secondary btn-sm" style="margin-top: 1rem;">
       <span>🔄 Tahtayı Temizle</span>
     </button>
   </div>
@@ -98,7 +98,7 @@
  * ============================================================================== -->
 <section style="margin-bottom: 5rem;">
   <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2>🌌 İnteraktif Gece Gökyüzü (Meteors)</h2>
+    <h2 style="font-size: 1.85rem; color: #ffffff;">🌌 İnteraktif Gece Gökyüzü (Meteors)</h2>
     <p style="color: var(--text-secondary); font-size: 0.95rem;">
       Gökyüzünde 22 sürekli akan meteor ve 70 yanıp sönen yıldız. Gökyüzüne tıkladığınız her noktaya özel bir meteor düşer!
     </p>
@@ -106,7 +106,7 @@
 
   <div class="meteors-container" id="meteorsContainer">
     <div style="pointer-events: none; text-align: center; z-index: 10;">
-      <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 25px rgba(192, 132, 252, 0.8);">
+      <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 35px rgba(96, 165, 250, 0.9);">
         Make a wish.
       </h2>
       <p style="margin-top: 0.75rem; font-size: 0.95rem; color: rgba(255, 255, 255, 0.75);">
@@ -126,7 +126,7 @@
 
   <div class="scroll-reveal-line">Hız için inşa edildi.</div>
   <div class="scroll-reveal-line">Disiplinle yoğruldu.</div>
-  <div class="scroll-reveal-line" style="color: var(--color-accent);">Piyade Team | TSB Zirvesi.</div>
+  <div class="scroll-reveal-line gradient-text text-glow-blue">Piyade Team | TSB Zirvesi.</div>
 
   <div style="margin-top: 3rem; color: var(--text-muted); font-size: 0.9rem;">
     Sayfayı aşağı ve yukarı kaydırdıkça metinler bulanıklıktan netliğe yumuşakça geçiş yapar.

@@ -1,40 +1,42 @@
-    </div><!-- /.container -->
-  </main><!-- /.main-content -->
+      </div><!-- /.container -->
+    </main><!-- /.main-content -->
 
-  <!-- Alt Bilgi / Footer -->
-  <footer class="site-footer">
-    <div class="container footer-content">
-      <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-          <strong style="color: var(--text-primary); font-size: 1.1rem; letter-spacing: -0.01em;">⚔️ PİYADE TEAM</strong>
-          <span class="badge badge-primary" style="font-size: 0.65rem;">TSB</span>
+    <!-- Alt Bilgi / Footer -->
+    <footer class="site-footer">
+      <div class="container footer-content">
+        <div>
+          <div class="footer-brand-row">
+            <strong class="footer-brand-title">⚔️ PİYADE TEAM</strong>
+            <span class="badge badge-primary badge-xs">TSB</span>
+          </div>
+          <p class="footer-desc">
+            <%= t('footer.description') %>
+          </p>
         </div>
-        <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); max-width: 500px;">
-          <%= t('footer.description') %>
-        </p>
+
+        <ul class="footer-links">
+          <li><a href="/"><%= t('nav.home') %></a></li>
+          <li><a href="/kurallar"><%= t('nav.rules') %></a></li>
+          <li><a href="/etkilesim"><%= t('nav.interactive') %></a></li>
+          <li><a href="/kayit"><%= t('nav.register') %></a></li>
+          <li><a href="https://discord.gg" target="_blank" rel="noopener"><%= t('footer.discordServer') %></a></li>
+        </ul>
+
+        <div class="footer-copyright">
+          &copy; <%= new Date().getFullYear() %> <%= t('footer.copyright') %>
+        </div>
       </div>
+    </footer>
+  </div><!-- /.app-layout-shell -->
 
-      <ul class="footer-links">
-        <li><a href="/"><%= t('nav.home') %></a></li>
-        <li><a href="/kurallar"><%= t('nav.rules') %></a></li>
-        <li><a href="/etkilesim"><%= t('nav.interactive') %></a></li>
-        <li><a href="/kayit"><%= t('nav.register') %></a></li>
-        <li><a href="https://discord.gg" target="_blank" rel="noopener"><%= t('footer.discordServer') %></a></li>
-      </ul>
-
-      <div style="font-size: 0.8rem; color: var(--text-muted);">
-        &copy; <%= new Date().getFullYear() %> <%= t('footer.copyright') %>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Ghost Fibers Canvas Arka Planı (Preset: Violet) -->
-  <script src="/js/ghost-fibers.js"></script>
+  <!-- Aero Shards WebGL Yardımcı Katmanı (Yerel Vendor) ve Parametrik Arka Plan Motoru -->
+  <script src="/vendor/aero-webgl.js"></script>
+  <script src="/js/background/aero-shards.js"></script>
 
   <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text) -->
   <script src="/js/nexus-components.js"></script>
 
-  <!-- Temel İstemci Scriptleri -->
+  <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->
   <script src="/js/app.js"></script>
 </body>
 </html>

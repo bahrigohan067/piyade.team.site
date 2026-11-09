@@ -12,10 +12,15 @@
     "roleDev": "Dev",
     "roleStaff": "Staff",
     "roleMember": "Member",
-    "logout": "Logout",
+    "logout": "Sign Out",
     "logoutTitle": "Sign Out",
     "loginDiscord": "Login with Discord",
     "openMenu": "Open Menu",
+    "closeMenu": "Close Menu",
+    "toggleSidebar": "Collapse or Expand Sidebar",
+    "sidebarAriaLabel": "Primary Navigation Menu",
+    "groupMember": "Member",
+    "groupAdmin": "Management",
     "langSwitchLabel": "Language Selection"
   },
   "footer": {

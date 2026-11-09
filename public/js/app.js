@@ -14,7 +14,7 @@ function escapeHtmlClient(str) {
 document.addEventListener('DOMContentLoaded', () => {
   const isEn = document.body.getAttribute('data-lang') === 'en';
 
-  // 1. Mobil Menü Aç/Kapa
+  // 1. Giriş Yapmamış Ziyaretçi: Üst Mobil Menü Aç/Kapa
   const mobileBtn = document.getElementById('mobileMenuToggle');
   const navLinks = document.getElementById('navLinks');
 
@@ -22,6 +22,134 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileBtn.addEventListener('click', () => {
       navLinks.classList.toggle('open');
     });
+  }
+
+  // 1B. Giriş Yapılmış Sayfalar: Sol Kenar Çubuğu (Sidebar) Masaüstü & Mobil Kontrolü
+  const appSidebar = document.getElementById('appSidebar');
+  const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+  const mobileSidebarOpenBtn = document.getElementById('mobileSidebarOpenBtn');
+  const mobileSidebarCloseBtn = document.getElementById('mobileSidebarCloseBtn');
+  const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+  if (appSidebar) {
+    // Masaüstü (>=1024px) Aç/Kapa ve localStorage Kaydı
+    const syncDesktopAria = () => {
+      const currentState = document.documentElement.getAttribute('data-sidebar') || 'open';
+      if (sidebarCollapseBtn) {
+        sidebarCollapseBtn.setAttribute(
+          'aria-expanded',
+          currentState === 'collapsed' ? 'false' : 'true'
+        );
+      }
+    };
+    syncDesktopAria();
+
+    if (sidebarCollapseBtn) {
+      sidebarCollapseBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-sidebar') || 'open';
+        const next = current === 'collapsed' ? 'open' : 'collapsed';
+        document.documentElement.setAttribute('data-sidebar', next);
+        try {
+          localStorage.setItem('piyade_sidebar_state', next);
+        } catch (_) {}
+        syncDesktopAria();
+      });
+    }
+
+    // Mobil/Tablet (<1024px) Çekmece Aç/Kapa, Scroll Kilidi ve Odak Kapanı (Focus Trap)
+    const getFocusableElements = () =>
+      Array.from(
+        appSidebar.querySelectorAll(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+
+    const openMobileSidebar = () => {
+      document.documentElement.setAttribute('data-mobile-sidebar', 'open');
+      document.body.classList.add('sidebar-scroll-locked');
+      if (mobileSidebarOpenBtn) {
+        mobileSidebarOpenBtn.setAttribute('aria-expanded', 'true');
+      }
+      const focusables = getFocusableElements();
+      if (focusables.length > 0) {
+        focusables[0].focus();
+      }
+    };
+
+    const closeMobileSidebar = (restoreFocus = true) => {
+      const wasOpen = document.documentElement.getAttribute('data-mobile-sidebar') === 'open';
+      document.documentElement.removeAttribute('data-mobile-sidebar');
+      document.body.classList.remove('sidebar-scroll-locked');
+      if (mobileSidebarOpenBtn) {
+        mobileSidebarOpenBtn.setAttribute('aria-expanded', 'false');
+        if (wasOpen && restoreFocus) {
+          mobileSidebarOpenBtn.focus();
+        }
+      }
+    };
+
+    if (mobileSidebarOpenBtn) {
+      mobileSidebarOpenBtn.addEventListener('click', openMobileSidebar);
+    }
+
+    if (mobileSidebarCloseBtn) {
+      mobileSidebarCloseBtn.addEventListener('click', () => closeMobileSidebar(true));
+    }
+
+    if (sidebarBackdrop) {
+      sidebarBackdrop.addEventListener('click', () => closeMobileSidebar(true));
+    }
+
+    // Menü öğesine tıklanınca mobilde çekmeceyi kapat
+    appSidebar.querySelectorAll('.sidebar-link').forEach((link) => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 1024) {
+          closeMobileSidebar(false);
+        }
+      });
+    });
+
+    // Klavye: Escape ile kapat ve Tab tuşuyla odağı menü içinde tut (Focus Trap)
+    document.addEventListener('keydown', (e) => {
+      const isMobileOpen =
+        document.documentElement.getAttribute('data-mobile-sidebar') === 'open';
+      if (!isMobileOpen) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMobileSidebar(true);
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusables = getFocusableElements();
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    // Ekran masaüstü genişliğine (>=1024px) çıkarsa mobil çekmece kilidini temizle
+    window.addEventListener(
+      'resize',
+      () => {
+        if (
+          window.innerWidth >= 1024 &&
+          document.documentElement.getAttribute('data-mobile-sidebar') === 'open'
+        ) {
+          closeMobileSidebar(false);
+        }
+      },
+      { passive: true }
+    );
   }
 
   // 2. Madde 6: Çift Gönderimi Engelleme (Form Submit Buton Kilitleme)

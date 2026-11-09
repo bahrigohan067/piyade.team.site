@@ -1,116 +1,337 @@
 <!DOCTYPE html>
-<html lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>">
+<html lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>" data-sidebar="open">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= typeof title !== 'undefined' ? title : t('meta.defaultTitle') %></title>
-  
+
+  <!-- Boyamadan Önce (Zero-Flicker) Sol Menü Açık/Kapalı Tercihini Uygula -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('piyade_sidebar_state');
+        if (saved === 'collapsed' || saved === 'open') {
+          document.documentElement.setAttribute('data-sidebar', saved);
+        }
+      } catch (_) {}
+    })();
+  </script>
+
   <!-- Favicon & Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  
-  <!-- CSS Dosyaları (theme.css tek noktadan yönetilen obsidian paletidir) -->
+
+  <!-- CSS Dosyaları (Tüm renkler yalnızca theme.css değişkenlerinden okunur) -->
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body data-lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>">
+<body
+  data-lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>"
+  class="<%= (typeof currentUser !== 'undefined' && currentUser) ? 'has-sidebar' : 'no-sidebar' %>"
+>
 
-  <!-- Ambient Obsidian Arka Plan Efektleri (Taktiksel Izgara ve Parıltı Orbları) -->
-  <div class="ambient-bg-grid"></div>
-  <div class="ambient-orb ambient-orb-1"></div>
-  <div class="ambient-orb ambient-orb-2"></div>
-  <div class="ambient-orb ambient-orb-3"></div>
+  <!-- B) Parametrik "Aero Shards" Tam Ekran WebGL Arka Plan Tuvali -->
+  <div id="aero-shards-bg" class="aero-shards" aria-hidden="true"></div>
 
-  <!-- Üst Menü / Navbar (Glass-Nav) -->
-  <header class="site-header">
-    <div class="container navbar">
-      
-      <!-- Logo ve Klan İsmi -->
-      <a href="/" class="brand">
-        <div class="brand-icon">
+  <!-- Hafif Taktiksel Izgara Katmanı -->
+  <div class="ambient-bg-grid" aria-hidden="true"></div>
+
+  <%
+    const isLoggedIn = Boolean(typeof currentUser !== 'undefined' && currentUser);
+    const allMenus = (typeof visibleMenus !== 'undefined' && Array.isArray(visibleMenus)) ? visibleMenus : [];
+    const memberMenus = allMenus.filter(function (m) { return m.section !== 'admin'; });
+    const adminMenus = allMenus.filter(function (m) { return m.section === 'admin'; });
+  %>
+
+  <% if (isLoggedIn) { %>
+    <!-- ======================================================================
+         A) GİRİŞ YAPILMIŞ SAYFALAR: SOL KENAR ÇUBUĞU (SIDEBAR) + MOBİL ÜST BAR
+         ====================================================================== -->
+
+    <!-- Tablet ve Telefon (<1024px) İnce Üst Bar -->
+    <header class="mobile-topbar">
+      <button
+        type="button"
+        class="sidebar-hamburger-btn"
+        id="mobileSidebarOpenBtn"
+        aria-expanded="false"
+        aria-controls="appSidebar"
+        aria-label="<%= t('nav.openMenu') %>"
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <a href="/" class="brand brand-compact">
+        <div class="brand-icon brand-icon-sm">
           <div class="brand-icon-inner">⚔️</div>
         </div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-weight: 900; letter-spacing: -0.01em;">PİYADE <span class="gradient-text">TEAM</span></span>
-            <span class="badge badge-primary" style="font-size: 0.65rem; padding: 2px 7px;">TSB</span>
-          </div>
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.02em;"><%= t('meta.brandSubtitle') %></div>
-        </div>
+        <span class="brand-title-text">PİYADE <span class="gradient-text">TEAM</span></span>
+        <span class="badge badge-primary badge-xs">TSB</span>
       </a>
 
-      <!-- Dinamik Menü Linkleri (menu.config.js üzerinden gelir) -->
-      <nav>
-        <ul class="nav-links" id="navLinks">
-          <% if (typeof visibleMenus !== 'undefined' && visibleMenus.length > 0) { %>
-            <% visibleMenus.forEach(function(item) { %>
-              <li>
-                <a href="<%= item.path %>" class="nav-link <%= typeof currentPath !== 'undefined' && currentPath === item.path ? 'active' : '' %>">
-                  <span><%= item.title %></span>
-                  <% if (item.badge) { %>
-                    <span class="badge <%= item.badgeClass || 'badge-primary' %>" style="font-size: 0.65rem; padding: 1px 6px;"><%= item.badge %></span>
-                  <% } %>
-                </a>
-              </li>
-            <% }); %>
-          <% } else { %>
-            <li><a href="/" class="nav-link"><%= t('nav.home') %></a></li>
-            <li><a href="/kurallar" class="nav-link"><%= t('nav.rules') %></a></li>
-            <li><a href="/etkilesim" class="nav-link"><%= t('nav.interactive') %></a></li>
-            <li><a href="/kayit" class="nav-link"><%= t('nav.register') %></a></li>
-          <% } %>
-        </ul>
+      <div class="mobile-topbar-actions">
+        <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
+          <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
+          <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mobil/Tablet Yarı Saydam Karartma Katmanı -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+    <!-- Sol Sabit Kenar Çubuğu (Sidebar) -->
+    <aside id="appSidebar" class="app-sidebar">
+      <!-- Üst Başlık ve Aç/Kapa Butonu -->
+      <div class="sidebar-header">
+        <a href="/" class="sidebar-brand">
+          <div class="brand-icon">
+            <div class="brand-icon-inner">⚔️</div>
+          </div>
+          <div class="sidebar-brand-copy">
+            <div class="sidebar-brand-row">
+              <span class="sidebar-brand-title">PİYADE <span class="gradient-text">TEAM</span></span>
+              <span class="badge badge-primary badge-xs">TSB</span>
+            </div>
+            <div class="sidebar-brand-sub"><%= t('meta.brandSubtitle') %></div>
+          </div>
+        </a>
+
+        <!-- Masaüstü Daralt/Genişlet Butonu (>=1024px) -->
+        <button
+          type="button"
+          class="sidebar-toggle-btn"
+          id="sidebarCollapseBtn"
+          aria-expanded="true"
+          aria-controls="appSidebar"
+          aria-label="<%= t('nav.toggleSidebar') %>"
+          title="<%= t('nav.toggleSidebar') %>"
+        >
+          <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <!-- Mobil Kapatma Butonu (<1024px) -->
+        <button
+          type="button"
+          class="sidebar-mobile-close-btn"
+          id="mobileSidebarCloseBtn"
+          aria-label="<%= t('nav.closeMenu') %>"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Canlı Sunucu Aktiflik & Dil Seçici Çubuğu -->
+      <div class="sidebar-meta-bar">
+        <div class="nav-status-pill sidebar-status-pill">
+          <span class="status-dot-success"></span>
+          <span class="sidebar-status-text">👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> <%= t('nav.activeCount') %></span>
+        </div>
+
+        <div class="lang-switch-pill sidebar-lang-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
+          <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
+          <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+        </div>
+      </div>
+
+      <!-- Dinamik Gezinme Menüsü (menu.config.js üzerinden okunur) -->
+      <nav class="sidebar-nav" aria-label="<%= t('nav.sidebarAriaLabel') %>">
+        <!-- GRUP 1: ÜYE MENÜLERİ -->
+        <% if (memberMenus.length > 0) { %>
+          <div class="sidebar-group">
+            <div class="sidebar-group-heading" id="sidebarGroupMember"><%= t('nav.groupMember') %></div>
+            <ul class="sidebar-menu-list" aria-labelledby="sidebarGroupMember">
+              <% memberMenus.forEach(function (item) {
+                const isActive = typeof currentPath !== 'undefined' && currentPath === item.path;
+              %>
+                <li class="sidebar-menu-item">
+                  <a
+                    href="<%= item.path %>"
+                    class="sidebar-link <%= isActive ? 'active' : '' %>"
+                    data-tooltip="<%= item.title %>"
+                    <% if (isActive) { %>aria-current="page"<% } %>
+                  >
+                    <span class="sidebar-link-icon">
+                      <% if (item.icon === 'home') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9.5"/><path d="M9 21v-6h6v6"/></svg>
+                      <% } else if (item.icon === 'book') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      <% } else if (item.icon === 'sparkles') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+                      <% } else if (item.icon === 'user-plus') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                      <% } else if (item.icon === 'user') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <% } else if (item.icon === 'trophy') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                      <% } else if (item.icon === 'bell') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                      <% } else { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                      <% } %>
+                    </span>
+                    <span class="sidebar-link-label"><%= item.title %></span>
+                    <% if (item.badge) { %>
+                      <span class="badge <%= item.badgeClass || 'badge-primary' %> sidebar-link-badge"><%= item.badge %></span>
+                    <% } %>
+                  </a>
+                </li>
+              <% }); %>
+            </ul>
+          </div>
+        <% } %>
+
+        <!-- GRUP 2: YÖNETİM MENÜLERİ (Sadece Yetkililere Görünür) -->
+        <% if (adminMenus.length > 0) { %>
+          <div class="sidebar-group">
+            <div class="sidebar-group-heading" id="sidebarGroupAdmin"><%= t('nav.groupAdmin') %></div>
+            <ul class="sidebar-menu-list" aria-labelledby="sidebarGroupAdmin">
+              <% adminMenus.forEach(function (item) {
+                const isActive = typeof currentPath !== 'undefined' && currentPath === item.path;
+              %>
+                <li class="sidebar-menu-item">
+                  <a
+                    href="<%= item.path %>"
+                    class="sidebar-link <%= isActive ? 'active' : '' %>"
+                    data-tooltip="<%= item.title %>"
+                    <% if (isActive) { %>aria-current="page"<% } %>
+                  >
+                    <span class="sidebar-link-icon">
+                      <% if (item.icon === 'shield-alert') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <% } else if (item.icon === 'users') { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <% } else { %>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                      <% } %>
+                    </span>
+                    <span class="sidebar-link-label"><%= item.title %></span>
+                    <% if (item.badge) { %>
+                      <span class="badge <%= item.badgeClass || 'badge-warning' %> sidebar-link-badge"><%= item.badge %></span>
+                    <% } %>
+                  </a>
+                </li>
+              <% }); %>
+            </ul>
+          </div>
+        <% } %>
       </nav>
 
-      <!-- Sağ Aksiyon Alanı: Dil Seçici, Canlı Durum ve Kullanıcı Butonu -->
-      <div class="nav-actions">
-
-        <!-- Çok Dilli Dil Seçici (TR | EN — 1 Yıl Çerez Kayıtlı) -->
-        <div style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); border-radius: 9999px; padding: 2px;" aria-label="<%= t('nav.langSwitchLabel') %>">
-          <a
-            href="/lang/tr"
-            style="padding: 3px 8px; border-radius: 9999px; font-size: 0.72rem; font-weight: 700; text-decoration: none; transition: all 0.2s; <%= (typeof lang === 'undefined' || lang === 'tr') ? 'background: rgba(59, 130, 246, 0.25); color: #ffffff; border: 1px solid rgba(59, 130, 246, 0.45);' : 'color: var(--text-muted);' %>"
-          >TR</a>
-          <a
-            href="/lang/en"
-            style="padding: 3px 8px; border-radius: 9999px; font-size: 0.72rem; font-weight: 700; text-decoration: none; transition: all 0.2s; <%= (typeof lang !== 'undefined' && lang === 'en') ? 'background: rgba(59, 130, 246, 0.25); color: #ffffff; border: 1px solid rgba(59, 130, 246, 0.45);' : 'color: var(--text-muted);' %>"
-          >EN</a>
-        </div>
-        
-        <!-- Canlı Aktif Üye Göstergesi -->
-        <div class="nav-status-pill hidden-sm">
-          <span class="status-dot-success"></span>
-          <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> <%= t('nav.activeCount') %></span>
-        </div>
-
-        <!-- Kullanıcı Alanı / Giriş Butonu -->
-        <% if (typeof currentUser !== 'undefined' && currentUser) { %>
-          <div class="user-menu">
-            <img src="<%= currentUser.avatarUrl %>" alt="<%= currentUser.displayName %>" class="user-avatar" />
-            <span class="user-name"><%= currentUser.displayName %></span>
-            <% if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
-              <span class="badge badge-danger" style="font-size: 0.65rem; padding: 2px 6px;"><%= t('nav.roleDev') %></span>
-            <% } else if (typeof isManagement !== 'undefined' && isManagement) { %>
-              <span class="badge badge-warning" style="font-size: 0.65rem; padding: 2px 6px;"><%= t('nav.roleStaff') %></span>
-            <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
-              <span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;"><%= t('nav.roleMember') %></span>
-            <% } %>
-            <a href="/auth/logout" class="btn btn-secondary btn-sm" title="<%= t('nav.logoutTitle') %>" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 9999px;"><%= t('nav.logout') %></a>
+      <!-- En Altta Kullanıcı Kartı (Discord Avatarı, Kullanıcı Adı, Rol Rozeti ve Çıkış Yap) -->
+      <div class="sidebar-footer">
+        <div class="sidebar-user-card">
+          <img
+            src="<%= currentUser.avatarUrl %>"
+            alt="<%= currentUser.displayName %>"
+            class="sidebar-user-avatar"
+          />
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" title="<%= currentUser.displayName %>"><%= currentUser.displayName %></div>
+            <div class="sidebar-user-role">
+              <% if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
+                <span class="badge badge-danger badge-xs"><%= t('nav.roleDev') %></span>
+              <% } else if (typeof isManagement !== 'undefined' && isManagement) { %>
+                <span class="badge badge-warning badge-xs"><%= t('nav.roleStaff') %></span>
+              <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+                <span class="badge badge-success badge-xs"><%= t('nav.roleMember') %></span>
+              <% } else { %>
+                <span class="badge badge-neutral badge-xs">@<%= currentUser.username %></span>
+              <% } %>
+            </div>
           </div>
-        <% } else { %>
+          <a
+            href="/auth/logout"
+            class="sidebar-logout-btn"
+            title="<%= t('nav.logoutTitle') %>"
+            aria-label="<%= t('nav.logoutTitle') %>"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span class="sidebar-logout-text"><%= t('nav.logout') %></span>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+  <% } else { %>
+    <!-- ======================================================================
+         GİRİŞ YAPMAMIŞ ZİYARETÇİ: MEVCUT ÜST NAVBAR AYNEN KORUNUR
+         ====================================================================== -->
+    <header class="site-header">
+      <div class="container navbar">
+        <!-- Logo ve Klan İsmi -->
+        <a href="/" class="brand">
+          <div class="brand-icon">
+            <div class="brand-icon-inner">⚔️</div>
+          </div>
+          <div>
+            <div class="brand-header-row">
+              <span class="brand-title-text">PİYADE <span class="gradient-text">TEAM</span></span>
+              <span class="badge badge-primary badge-xs">TSB</span>
+            </div>
+            <div class="brand-subtitle-text"><%= t('meta.brandSubtitle') %></div>
+          </div>
+        </a>
+
+        <!-- Dinamik Menü Linkleri (menu.config.js üzerinden gelir) -->
+        <nav aria-label="<%= t('nav.sidebarAriaLabel') %>">
+          <ul class="nav-links" id="navLinks">
+            <% if (allMenus.length > 0) { %>
+              <% allMenus.forEach(function (item) { %>
+                <li>
+                  <a href="<%= item.path %>" class="nav-link <%= typeof currentPath !== 'undefined' && currentPath === item.path ? 'active' : '' %>">
+                    <span><%= item.title %></span>
+                    <% if (item.badge) { %>
+                      <span class="badge <%= item.badgeClass || 'badge-primary' %> badge-xs"><%= item.badge %></span>
+                    <% } %>
+                  </a>
+                </li>
+              <% }); %>
+            <% } else { %>
+              <li><a href="/" class="nav-link"><%= t('nav.home') %></a></li>
+              <li><a href="/kurallar" class="nav-link"><%= t('nav.rules') %></a></li>
+              <li><a href="/etkilesim" class="nav-link"><%= t('nav.interactive') %></a></li>
+              <li><a href="/kayit" class="nav-link"><%= t('nav.register') %></a></li>
+            <% } %>
+          </ul>
+        </nav>
+
+        <!-- Sağ Aksiyon Alanı: Dil Seçici, Canlı Durum ve Giriş Butonu -->
+        <div class="nav-actions">
+          <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
+            <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
+            <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+          </div>
+
+          <div class="nav-status-pill hidden-sm">
+            <span class="status-dot-success"></span>
+            <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> <%= t('nav.activeCount') %></span>
+          </div>
+
           <a href="/auth/discord" class="btn btn-discord btn-sm">
             <span><%= t('nav.loginDiscord') %></span>
           </a>
-        <% } %>
 
-        <!-- Mobil Menü Butonu -->
-        <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="<%= t('nav.openMenu') %>">☰</button>
+          <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="<%= t('nav.openMenu') %>">☰</button>
+        </div>
       </div>
+    </header>
+  <% } %>
 
-    </div>
-  </header>
-
-  <!-- Ana İçerik Taşıyıcısı -->
-  <main class="main-content">
-    <div class="container">
+  <!-- Ana İçerik Taşıyıcısı (Giriş yapıldığında sol menü genişliğine göre akıcı kayar) -->
+  <div class="app-layout-shell">
+    <main class="main-content">
+      <div class="container">

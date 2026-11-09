@@ -2,8 +2,8 @@
  * ==============================================================================
  * 🎨 PIYADE TEAM | OBSIDIAN DARK TEMA VE RENK DEĞİŞKENLERİ (THEME.CSS)
  * ==============================================================================
- * Inspired by piyade-rp.up.railway.app
- * Derin siyah (#07080c), cam kartlar (glassmorphism), mavi-mor neon ışımalar,
+ * Inspired by piyade-rp.up.railway.app & React Bits Aero Shards Studio
+ * Derin siyah (#07080c), cam kartlar (glassmorphism), Aero Shards (#896abd / #a855f7),
  * düzenli hiyerarşi ve tek noktadan kolayca yönetilebilen CSS değişkenleri.
  * ==============================================================================
  */
@@ -25,65 +25,144 @@
   --color-cyan: #06b6d4;                 /* Cam Göbeği / Cyan */
   --color-cyan-light: rgba(6, 182, 212, 0.15);
 
+  --color-discord: #5865F2;
+  --color-discord-hover: #4752c4;
+  --color-discord-glow: rgba(88, 101, 242, 0.45);
+
   /* ============================================================================
-   * 2. ARKA PLAN VE YÜZEY TONLARI (Pitch Black & Obsidian Glass)
+   * 2. AERO SHARDS PARAMETRİK ARKA PLAN RENKLERİ (React Bits Studio Ayarları)
+   * ============================================================================ */
+  --aero-shard-color: #896abd;           /* Studio Shard Color */
+  --aero-accent-color: #a855f7;          /* Studio Accent Color */
+  --aero-bg-color: transparent;          /* Tuval arka planı (saydam) */
+  --aero-fallback-gradient: radial-gradient(
+    120% 90% at 50% 0%,
+    rgba(137, 106, 189, 0.24) 0%,
+    rgba(168, 85, 247, 0.11) 38%,
+    rgba(7, 8, 12, 0.96) 78%,
+    #07080c 100%
+  );
+  --aero-canvas-fade-duration: 0.55s;
+
+  /* ============================================================================
+   * 3. ARKA PLAN VE YÜZEY TONLARI (Pitch Black & Obsidian Glass + WCAG AA)
    * ============================================================================ */
   --bg-body: #07080c;                    /* Saf Obsidian Siyahı */
-  --bg-surface: rgba(8, 9, 13, 0.85);    /* Yarı saydam üst bar */
-  --bg-card: rgba(14, 17, 26, 0.72);     /* Buzlu cam kart arka planı */
-  --bg-card-hover: rgba(20, 25, 38, 0.88);/* Hover kart tonu */
+  --bg-surface: rgba(8, 9, 14, 0.84);    /* Yarı saydam üst bar */
+  --bg-surface-fallback: rgba(8, 9, 14, 0.97); /* backdrop-filter yoksa opak yüzey */
+  --bg-card: rgba(12, 15, 24, 0.78);     /* Buzlu cam kart arka planı (WCAG AA) */
+  --bg-card-fallback: rgba(12, 15, 24, 0.96);  /* backdrop-filter yoksa opak kart */
+  --bg-card-hover: rgba(20, 25, 38, 0.90);/* Hover kart tonu */
   --bg-card-solid: #0d0f17;              /* Katı koyu obsidian kart */
-  --bg-input: rgba(10, 12, 18, 0.9);     /* Form input içi */
-  --bg-glass: rgba(14, 17, 26, 0.55);
+  --bg-input: rgba(10, 12, 18, 0.92);    /* Form input içi */
+  --bg-glass: rgba(14, 17, 26, 0.65);
+  --bg-footer: rgba(6, 7, 11, 0.94);
+  --bg-scrollbar-track: #08090d;
+  --bg-scrollbar-thumb: #1e2230;
+  --bg-scrollbar-thumb-hover: #2e354b;
+  --bg-code: rgba(255, 255, 255, 0.06);
+  --bg-subtle-hover: rgba(255, 255, 255, 0.05);
+  --bg-table-head: rgba(255, 255, 255, 0.03);
+  --bg-table-row-hover: rgba(255, 255, 255, 0.035);
 
   /* ============================================================================
-   * 3. METİN VE YAZI RENKLERİ
+   * 4. SOL KENAR ÇUBUĞU (SIDEBAR) DEĞİŞKENLERİ
+   * ============================================================================ */
+  --sidebar-width-open: 260px;
+  --sidebar-width-collapsed: 72px;
+  --sidebar-mobile-topbar-height: 60px;
+  --sidebar-bg: rgba(9, 11, 18, 0.80);
+  --sidebar-bg-fallback: rgba(9, 11, 18, 0.97);
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-group-label: #9ca3af;
+  --sidebar-item-text: #d1d5db;
+  --sidebar-item-text-active: #ffffff;
+  --sidebar-item-hover-bg: rgba(137, 106, 189, 0.15);
+  --sidebar-item-active-bg: linear-gradient(
+    90deg,
+    rgba(137, 106, 189, 0.28) 0%,
+    rgba(168, 85, 247, 0.14) 100%
+  );
+  --sidebar-item-active-border: rgba(168, 85, 247, 0.45);
+  --sidebar-item-active-indicator: #a855f7;
+  --sidebar-icon-color: #c4b5fd;
+  --sidebar-icon-active: #ffffff;
+  --sidebar-tooltip-bg: #121522;
+  --sidebar-tooltip-border: rgba(168, 85, 247, 0.42);
+  --sidebar-user-card-bg: rgba(15, 18, 29, 0.78);
+  --sidebar-backdrop-bg: rgba(4, 5, 10, 0.72);
+
+  /* ============================================================================
+   * 5. METİN VE YAZI RENKLERİ (WCAG AA Kontrast Garantili)
    * ============================================================================ */
   --text-primary: #ffffff;               /* Parlak Beyaz Başlıklar */
-  --text-secondary: #d1d5db;             /* Açık Gri Okuma Metinleri */
-  --text-muted: #9ca3af;                 /* Pasif / Tarih / Kod yazıları */
-  --text-dim: #6b7280;                   /* Çok silik etiketler */
+  --text-secondary: #e2e8f0;             /* Yüksek kontrast okuma metinleri */
+  --text-muted: #9ca3af;                 /* Pasif / Tarih / Alt başlık yazıları */
+  --text-dim: #6b7280;                   /* İkincil etiketler */
   --text-inverse: #07080c;               /* Açık buton içi zemin rengi */
+  --text-code: #93c5fd;                  /* Kod bloğu yazı rengi */
+  --text-link-hover: #60a5fa;
+  --gradient-brand-text: linear-gradient(135deg, #60a5fa, #818cf8, #a855f7, #38bdf8, #60a5fa);
+  --gradient-brand-icon: linear-gradient(135deg, #2563eb, #6366f1, #8b5cf6);
+  --gradient-btn-primary: linear-gradient(135deg, #2563eb, #4f46e5, #7c3aed);
+  --gradient-btn-danger: linear-gradient(135deg, #ef4444, #dc2626);
+  --gradient-btn-success: linear-gradient(135deg, #10b981, #059669);
+  --gradient-meteors-bg: radial-gradient(120% 90% at 50% 0%, #111a33 0%, #070a14 55%, #030408 100%);
 
   /* ============================================================================
-   * 4. BİLDİRİM VE DURUM RENKLERİ (Emerald, Amber, Rose)
+   * 6. BİLDİRİM VE DURUM RENKLERİ (Emerald, Amber, Rose)
    * ============================================================================ */
   --color-success: #10b981;              /* Yeşil: Onaylandı, Aktif */
   --color-success-light: rgba(16, 185, 129, 0.14);
   --color-success-border: rgba(16, 185, 129, 0.35);
+  --color-success-text: #6ee7b7;
+  --color-success-alert: #a7f3d0;
 
   --color-warning: #f59e0b;              /* Sarı/Turuncu: Beklemede, Sözlü İhtar */
   --color-warning-light: rgba(245, 158, 11, 0.14);
   --color-warning-border: rgba(245, 158, 11, 0.35);
+  --color-warning-text: #fcd34d;
+  --color-warning-alert: #fde68a;
 
   --color-danger: #ef4444;               /* Kırmızı: Reddedildi, Ceza, Askıda */
   --color-danger-light: rgba(239, 68, 68, 0.14);
   --color-danger-border: rgba(239, 68, 68, 0.35);
+  --color-danger-text: #fca5a5;
+  --color-danger-alert: #fecaca;
 
   --color-info: #60a5fa;                 /* Mavi: Bilgi */
   --color-info-light: rgba(96, 165, 250, 0.14);
   --color-info-border: rgba(96, 165, 250, 0.35);
+  --color-info-text: #93c5fd;
+  --color-info-alert: #bfdbfe;
+
+  --color-purple-badge-bg: rgba(139, 92, 246, 0.14);
+  --color-purple-badge-border: rgba(139, 92, 246, 0.35);
+  --color-purple-badge-text: #c4b5fd;
 
   /* ============================================================================
-   * 5. KENARLIK VE ÇİZGİLER (Subtle Obsidian Borders)
+   * 7. KENARLIK, ODAK (FOCUS) VE ÇİZGİLER
    * ============================================================================ */
-  --border-color: rgba(255, 255, 255, 0.08); /* İnce beyaz kenarlık */
-  --border-focus: #3b82f6;
-  --border-light: rgba(255, 255, 255, 0.15);
-  --border-hover: rgba(96, 165, 250, 0.4);
+  --border-color: rgba(255, 255, 255, 0.09); /* İnce beyaz kenarlık */
+  --border-subtle: rgba(255, 255, 255, 0.045);
+  --border-focus: #a855f7;
+  --border-light: rgba(255, 255, 255, 0.16);
+  --border-hover: rgba(168, 85, 247, 0.45);
+  --focus-ring-color: #a855f7;
+  --focus-ring-shadow: 0 0 0 3px rgba(168, 85, 247, 0.42);
 
   /* ============================================================================
-   * 6. GÖLGELER VE NEON IŞIMALAR
+   * 8. GÖLGELER VE NEON IŞIMALAR
    * ============================================================================ */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 40px -10px rgba(0, 0, 0, 0.7);
+  --shadow-md: 0 8px 32px 0 rgba(0, 0, 0, 0.48);
+  --shadow-lg: 0 16px 40px -10px rgba(0, 0, 0, 0.72);
   --shadow-primary: 0 0 25px rgba(59, 130, 246, 0.45);
-  --shadow-accent: 0 0 25px rgba(139, 92, 246, 0.45);
+  --shadow-accent: 0 0 25px rgba(168, 85, 247, 0.45);
   --shadow-danger: 0 0 25px rgba(239, 68, 68, 0.45);
 
   /* ============================================================================
-   * 7. KÖŞE YUVARLAKLIĞI (Border Radius)
+   * 9. KÖŞE YUVARLAKLIĞI (Border Radius)
    * ============================================================================ */
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -92,10 +171,10 @@
   --radius-full: 9999px;
 
   /* ============================================================================
-   * 8. TİPOGRAFİ VE GEÇİŞLER
+   * 10. TİPOGRAFİ VE GEÇİŞLER
    * ============================================================================ */
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --transition-fast: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-normal: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }

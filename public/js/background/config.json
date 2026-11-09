@@ -1,0 +1,61 @@
+{
+  "arrangement": "stream",
+  "placement": "full",
+  "finish": "pearl",
+  "material": "glass",
+  "colors": {
+    "shardColorVar": "--aero-shard-color",
+    "accentColorVar": "--aero-accent-color",
+    "backgroundColorVar": "--aero-bg-color",
+    "fallbackGradientVar": "--aero-fallback-gradient"
+  },
+  "count": 1300,
+  "shardSize": 1,
+  "spread": 1,
+  "twist": 1,
+  "billow": 1,
+  "speed": 1,
+  "scale": 1,
+  "depthOfField": 0.75,
+  "glow": 0.35,
+  "grain": 0.06,
+  "vignette": 0.3,
+  "intro": true,
+  "lightMode": false,
+  "markers": "plus",
+  "mouseInteraction": true,
+  "mouseMode": "repel",
+  "mouseStrength": 0.6,
+  "pulseOnClick": true,
+  "holdToGather": true,
+  "parallax": 0.5,
+  "dpr": 2,
+  "qualityTiers": {
+    "high": {
+      "count": 1300,
+      "dpr": 2,
+      "depthOfField": 0.75,
+      "glow": 0.35
+    },
+    "medium": {
+      "count": 750,
+      "dpr": 1.5,
+      "depthOfField": 0.5,
+      "glow": 0.28
+    },
+    "low": {
+      "count": 420,
+      "dpr": 1.0,
+      "depthOfField": 0,
+      "glow": 0.2
+    }
+  },
+  "performance": {
+    "desktopDefaultTier": "high",
+    "mobileDefaultTier": "medium",
+    "fpsSampleFrames": 55,
+    "downgradeFpsThreshold": 44,
+    "criticalFpsThreshold": 28,
+    "resizeDebounceMs": 120
+  }
+}

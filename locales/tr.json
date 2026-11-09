@@ -12,10 +12,15 @@
     "roleDev": "Dev",
     "roleStaff": "Yönetim",
     "roleMember": "Üye",
-    "logout": "Çıkış",
-    "logoutTitle": "Çıkış Yap",
+    "logout": "Çıkış Yap",
+    "logoutTitle": "Oturumu Kapat",
     "loginDiscord": "Discord ile Giriş",
     "openMenu": "Menüyü Aç",
+    "closeMenu": "Menüyü Kapat",
+    "toggleSidebar": "Kenar Çubuğunu Daralt veya Genişlet",
+    "sidebarAriaLabel": "Ana Gezinme Menüsü",
+    "groupMember": "Üye",
+    "groupAdmin": "Yönetim",
     "langSwitchLabel": "Dil Seçimi"
   },
   "footer": {

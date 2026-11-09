@@ -135,7 +135,7 @@
       <div class="sidebar-meta-bar">
         <div class="nav-status-pill sidebar-status-pill">
           <span class="status-dot-success"></span>
-          <span class="sidebar-status-text">👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> <%= t('nav.activeCount') %></span>
+          <span class="sidebar-status-text">👥 <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %> <%= t('nav.activeCount') %></span>
         </div>
 
         <div class="lang-switch-pill sidebar-lang-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
@@ -318,7 +318,7 @@
 
           <div class="nav-status-pill hidden-sm">
             <span class="status-dot-success"></span>
-            <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %> <%= t('nav.activeCount') %></span>
+            <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %> <%= t('nav.activeCount') %></span>
           </div>
 
           <a href="/auth/discord" class="btn btn-discord btn-sm">

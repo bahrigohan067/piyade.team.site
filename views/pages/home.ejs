@@ -77,7 +77,7 @@
         <span style="font-size: 1.2rem;">👥</span>
       </div>
       <div class="stat-value" style="color: #60a5fa; font-size: 1.6rem;">
-        <%= (typeof activeStats !== 'undefined' && activeStats.activeRegisteredCount) ? activeStats.activeRegisteredCount : 0 %>
+        <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %>
       </div>
       <div class="stat-desc">
         <%= t('home.statActiveDesc') %>

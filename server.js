@@ -5,6 +5,7 @@ const helmet = require('helmet');
 
 const appConfig = require('./config/app.config');
 const PersistentSessionStore = require('./services/sessionStore');
+const botApiClient = require('./services/botApiClient');
 const { globalLimiter } = require('./middlewares/rateLimiter');
 const { i18nMiddleware, handleLanguageSwitch } = require('./middlewares/i18n');
 const { csrfProtection } = require('./middlewares/csrf');
@@ -74,6 +75,7 @@ function createServerApp() {
   const sessionStore = new PersistentSessionStore({
     ttlMs: 24 * 60 * 60 * 1000,
   });
+  app.locals.sessionStore = sessionStore;
 
   // Oturum Yönetimi (express-session: httpOnly + secure cookie)
   app.use(
@@ -105,9 +107,22 @@ function createServerApp() {
   // Her İstek İçin Oturum & 60 Saniyelik Bot API Rol Senkronizasyonu
   app.use(syncRolesMiddleware);
 
-  // Sağlık Kontrolü (Railway Healthcheck için)
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'piyade-team-web', timestamp: Date.now() });
+  // Madde 2: Sağlık Kontrolü (/health) — Sunucunun ayakta olduğunu ve BOT_API_URL erişim durumunu gösterir (Secret içermez)
+  app.get('/health', async (req, res) => {
+    const botProbe = await botApiClient.probeBotApiStatus();
+    const storeCheck = sessionStore.testWriteAccess();
+
+    return res.json({
+      status: 'ok',
+      service: 'piyade-team-web',
+      sunucu: 'ayakta',
+      botApi: botProbe.statusText, // "ulaşıldı" | "ulaşılamadı" | "yetki hatası (API_SECRET uyuşmuyor)"
+      botApiSebepSinifi: botProbe.category,
+      botApiAciklama: botProbe.explanation,
+      oturumDeposu: storeCheck.writable ? 'yazılabilir' : 'yazılamıyor',
+      oturumDeposuAciklama: storeCheck.writable ? 'Oturum klasörüne başarıyla yazılabiliyor.' : storeCheck.reason,
+      timestamp: Date.now(),
+    });
   });
 
   // Sayfa Rotaları
@@ -132,8 +147,15 @@ if (require.main === module) {
     console.log('====================================================');
     console.log(`🌐 Piyade Team | TSB Web Sitesi Aktif!`);
     console.log(`📍 Adres: http://localhost:${appConfig.PORT}`);
-    console.log(`🔗 Bot API Bağlantısı: ${appConfig.BOT_API_URL}`);
     console.log('====================================================');
+
+    // Madde 5: Oturum deposunun (Railway Volume veya yerel klasör) yazılabilirliğini açılışta test et ve logla
+    if (app.locals.sessionStore) {
+      app.locals.sessionStore.logStartupWriteCheck();
+    }
+
+    // Madde 3: Açılışta BOT_API_URL'e bir kez test isteği at ve sonucu (başarılı/başarısız + sebep sınıfı) loga yaz
+    botApiClient.runStartupConnectivityTest().catch(() => null);
   });
 }
 

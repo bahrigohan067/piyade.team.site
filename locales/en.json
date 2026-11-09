@@ -379,6 +379,8 @@
     "500Badge": "Server Error (500)",
     "500Title": "An Unexpected Error Occurred",
     "500DefaultMsg": "The server encountered an issue while processing your request.",
+    "errorCodeLabel": "Error Code:",
+    "errorCodeHint": "Search this 8-character code in Railway > Deployments > Logs to see the exact cause of the error.",
     "botOfflineBadge": "Service Unavailable (503)",
     "botOfflineTitle": "Cannot Reach Bot API Service",
     "botOfflineDesc": "The Piyade Team website is a thin frontend. Member data, registration applications, and disciplinary logic reside on the Discord bot's REST API, which is currently unreachable.",

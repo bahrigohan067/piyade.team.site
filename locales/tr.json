@@ -379,6 +379,8 @@
     "500Badge": "Sunucu Hatası (500)",
     "500Title": "Beklenmeyen Bir Hata Oluştu",
     "500DefaultMsg": "Sunucu isteğinizi işlerken bir sorunla karşılaştı.",
+    "errorCodeLabel": "Hata Kodu:",
+    "errorCodeHint": "Bu 8 karakterlik kodu Railway > Deployments > Logs ekranında aratarak hatanın tam nedenini görebilirsiniz.",
     "botOfflineBadge": "Hizmet Kesintisi (503)",
     "botOfflineTitle": "Bot API Servisine Ulaşılamıyor",
     "botOfflineDesc": "Piyade Team web sitesi ince bir ön yüzdür. Üye verileri, kayıt başvuruları ve ceza mantığı Discord botunun REST API'sinde barındırılmaktadır. Şu anda bot API'sine bağlanılamıyor.",

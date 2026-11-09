@@ -25,6 +25,11 @@
           <%= t('errors.errorDetailLabel') %> <%= errorMessage %>
         </div>
       <% } %>
+      <% if (typeof errorCode !== 'undefined' && errorCode) { %>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
+          <%= t('errors.errorCodeLabel') %> <code><%= errorCode %></code>
+        </div>
+      <% } %>
     </div>
 
     <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">

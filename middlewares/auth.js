@@ -12,6 +12,7 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.currentUser = null;
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;
+  res.locals.activeStats = botApiClient.getLastKnownActiveStats();
 
   if (!req.session || !req.session.user || !req.session.user.id) {
     return next();
@@ -42,6 +43,7 @@ async function syncRolesMiddleware(req, res, next) {
         user.rolesSyncedAt = now;
       } else if (err.isOffline) {
         res.locals.botOfflineWarning = true;
+        res.locals.activeStats = botApiClient.getLastKnownActiveStats();
       }
     }
   }

@@ -7,9 +7,20 @@
     </div>
     <span class="badge badge-danger" style="margin-bottom: 0.75rem;"><%= t('errors.500Badge') %></span>
     <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('errors.500Title') %></h1>
-    <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">
+    <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.95rem;">
       <%= typeof message !== 'undefined' ? message : t('errors.500DefaultMsg') %>
     </p>
+
+    <% if (typeof errorCode !== 'undefined' && errorCode) { %>
+      <div style="background: rgba(8, 9, 13, 0.85); padding: 0.9rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem; display: inline-block; max-width: 100%;">
+        <div style="font-size: 0.9rem; color: var(--text-primary); font-weight: 700; margin-bottom: 0.25rem;">
+          <%= t('errors.errorCodeLabel') %> <code style="font-family: var(--font-mono); font-size: 1rem; color: var(--color-danger); letter-spacing: 0.08em;"><%= errorCode %></code>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+          <%= t('errors.errorCodeHint') %>
+        </div>
+      </div>
+    <% } %>
 
     <% if (typeof stack !== 'undefined' && stack) { %>
       <div style="text-align: left; background: rgba(8, 9, 13, 0.85); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-danger); margin-bottom: 1.5rem;">

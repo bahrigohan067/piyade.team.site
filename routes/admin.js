@@ -226,7 +226,7 @@ router.post(
   requireFreshManagement,
   handleEvidenceUpload,
   verifyCsrfToken,
-  async (req, res) => {
+  async (req, res, next) => {
     const actorId = req.session.user.id;
     const { targetUserId, type, ruleCode, reason, evidenceUrlInput } = req.body;
     const cleanTargetId = String(targetUserId || '').trim();
@@ -345,6 +345,9 @@ router.post(
         idempotencyKey: generateIdempotencyKey(req),
       });
     } catch (err) {
+      if (err && err.isOffline) {
+        return next(err);
+      }
       return renderWarnFormError(err.statusCode || 400, err.message);
     }
   }

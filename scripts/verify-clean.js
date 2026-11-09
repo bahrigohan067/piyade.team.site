@@ -256,8 +256,29 @@ function verifyServerStartupWithFakeEnv() {
           if (homeRes.statusCode !== 200) {
             throw new Error(`GET / beklenen 200, alınan: ${homeRes.statusCode}`);
           }
+          if (!homeRes.body.includes('👥 —')) {
+            throw new Error('GET / yanıtında Bot API kapalıyken "👥 — Aktif" gösterilmedi!');
+          }
           if (healthRes.statusCode !== 200) {
             throw new Error(`GET /health beklenen 200, alınan: ${healthRes.statusCode}`);
+          }
+
+          const healthJson = JSON.parse(healthRes.body);
+          if (healthJson.sunucu !== 'ayakta' || healthJson.botApi !== 'ulaşılamadı' || healthJson.oturumDeposu !== 'yazılabilir') {
+            throw new Error(`/health beklenen alanları döndürmedi: ${healthRes.body}`);
+          }
+          if (healthRes.body.includes(fakeEnv.API_SECRET) || healthRes.body.includes(fakeEnv.SESSION_SECRET)) {
+            throw new Error('Güvenlik İhlali: /health çıktısında secret değeri bulundu!');
+          }
+
+          const { generateErrorCode, sanitizeLogText } = require(path.join(ROOT_DIR, 'middlewares', 'errorHandler'));
+          const sampleCode = generateErrorCode();
+          if (typeof sampleCode !== 'string' || !/^[0-9A-F]{8}$/.test(sampleCode)) {
+            throw new Error(`Hata kodu 8 karakterli HEX değil: ${sampleCode}`);
+          }
+          const masked = sanitizeLogText(`Bearer secretToken123 and ${fakeEnv.API_SECRET}`);
+          if (masked.includes('secretToken123')) {
+            throw new Error('sanitizeLogText Bearer token değerini maskelemedi!');
           }
 
           const expectedSessionDir = path.join(tempVolumeDir, 'sessions');
@@ -268,8 +289,9 @@ function verifyServerStartupWithFakeEnv() {
           settled = true;
           clearTimeout(timeoutId);
           console.log(`✅ Sunucu açıldı (PID: ${serverProc.pid})`);
-          console.log(`✅ GET http://localhost:${testPort}/ -> HTTP ${homeRes.statusCode} OK (${homeRes.body.length} byte)`);
-          console.log(`✅ GET http://localhost:${testPort}/health -> HTTP ${healthRes.statusCode} OK`);
+          console.log(`✅ GET http://localhost:${testPort}/ -> HTTP ${homeRes.statusCode} OK ("👥 — Aktif" doğrulandı)`);
+          console.log(`✅ GET http://localhost:${testPort}/health -> HTTP ${healthRes.statusCode} OK (botApi: "${healthJson.botApi}", oturumDeposu: "${healthJson.oturumDeposu}")`);
+          console.log(`✅ Hata Kodu üretimi (${sampleCode}) ve secret maskeleme doğrulandı.`);
           console.log(`✅ Railway Volume oturum klasörü doğrulandı: ${expectedSessionDir}`);
           cleanup();
           resolve();

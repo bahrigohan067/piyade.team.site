@@ -13,8 +13,8 @@ const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middleware
  */
 router.get('/', async (req, res) => {
   let activeStats = {
-    activeRegisteredCount: 0,
-    botOnline: true,
+    activeRegisteredCount: null,
+    botOnline: false,
   };
 
   try {
@@ -25,12 +25,16 @@ router.get('/', async (req, res) => {
 
     if (helpData && typeof helpData.activeRegisteredCount === 'number') {
       activeStats.activeRegisteredCount = helpData.activeRegisteredCount;
+      activeStats.botOnline = true;
     }
     if (!healthData || healthData.status !== 'ok') {
       activeStats.botOnline = false;
+    } else {
+      activeStats.botOnline = true;
     }
   } catch (_) {
     activeStats.botOnline = false;
+    activeStats.activeRegisteredCount = null;
   }
 
   return res.render('pages/home', {
@@ -102,7 +106,7 @@ router.get('/kayit', async (req, res, next) => {
  * Kayıt başvurusunu Bot REST API'sine (POST /api/register) iletir.
  * Madde 6: Tekil idempotency anahtarı ile çift gönderimi engeller.
  */
-router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (req, res) => {
+router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (req, res, next) => {
   const user = req.session.user;
   const { realName, gender, robloxInput } = req.body;
 
@@ -182,6 +186,9 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
       idempotencyKey: generateIdempotencyKey(req),
     });
   } catch (err) {
+    if (err && err.isOffline) {
+      return next(err);
+    }
     const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
     return res.status(err.statusCode || 400).render('pages/register', {
       title: req.t('register.pageTitle'),

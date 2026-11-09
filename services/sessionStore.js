@@ -27,11 +27,16 @@ class PersistentSessionStore extends session.Store {
 
   constructor(options = {}) {
     super(options);
-    this.dirPath = options.dirPath || PersistentSessionStore.resolveDefaultDir(options.env || process.env);
+    const envObj = options.env || process.env;
+    this.isRailwayVolume = Boolean(
+      envObj && typeof envObj.RAILWAY_VOLUME_MOUNT_PATH === 'string' && envObj.RAILWAY_VOLUME_MOUNT_PATH.trim()
+    );
+    this.dirPath = options.dirPath || PersistentSessionStore.resolveDefaultDir(envObj);
     this.filePath = path.join(this.dirPath, 'sessions.json');
     this.ttlMs = options.ttlMs || 24 * 60 * 60 * 1000; // 24 saat
     this.sessions = new Map();
     this._writeTimer = null;
+    this.lastWriteCheck = { writable: false, reason: null };
 
     this._ensureDirectory();
     this._loadFromDisk();
@@ -43,6 +48,79 @@ class PersistentSessionStore extends session.Store {
     if (this._pruneTimer.unref) {
       this._pruneTimer.unref();
     }
+  }
+
+  /**
+   * Madde 5: Oturum deposunun hedef klasöre (Railway Volume veya yerel .sessions)
+   * gerçekten dosya yazıp silebildiğini test eder ve sade Türkçe sebep döndürür.
+   */
+  testWriteAccess() {
+    const testFile = path.join(this.dirPath, `.write-check-${process.pid}-${Date.now()}.tmp`);
+    try {
+      if (!fs.existsSync(this.dirPath)) {
+        fs.mkdirSync(this.dirPath, { recursive: true, mode: 0o700 });
+      }
+      fs.writeFileSync(testFile, 'ok', { encoding: 'utf8', mode: 0o600 });
+      const readBack = fs.readFileSync(testFile, 'utf8');
+      fs.unlinkSync(testFile);
+
+      if (readBack !== 'ok') {
+        throw new Error('Yazılan test dosyası doğrulama okumasıyla eşleşmedi.');
+      }
+
+      this.lastWriteCheck = {
+        writable: true,
+        isRailwayVolume: this.isRailwayVolume,
+        dirPath: this.dirPath,
+        reason: null,
+      };
+      return this.lastWriteCheck;
+    } catch (err) {
+      try {
+        if (fs.existsSync(testFile)) fs.unlinkSync(testFile);
+      } catch (_) {}
+
+      let friendlyReason = `Dosya sistemine yazılamadı (${err.code || err.message}).`;
+      if (err.code === 'EACCES' || err.code === 'EPERM') {
+        friendlyReason = 'Klasöre yazma izni yok (EACCES/EPERM). Railway Volume izinlerini veya mount yolunu kontrol edin.';
+      } else if (err.code === 'ENOENT') {
+        friendlyReason = 'Hedef klasör yolu bulunamadı (ENOENT). RAILWAY_VOLUME_MOUNT_PATH yolunun doğru bağlandığından emin olun.';
+      } else if (err.code === 'EROFS') {
+        friendlyReason = 'Dosya sistemi salt okunur (Read-Only / EROFS). Yazılabilir bir Railway Volume bağlayın.';
+      } else if (err.code === 'ENOSPC') {
+        friendlyReason = 'Disk alanı dolu (ENOSPC). Railway Volume kapasitesini kontrol edin.';
+      }
+
+      this.lastWriteCheck = {
+        writable: false,
+        isRailwayVolume: this.isRailwayVolume,
+        dirPath: this.dirPath,
+        reason: friendlyReason,
+        code: err.code || 'WRITE_ERROR',
+      };
+      return this.lastWriteCheck;
+    }
+  }
+
+  /**
+   * Madde 5: Uygulama açılışında oturum deposu yazma testini çalıştırır ve sonucu Railway loglarına yazar.
+   */
+  logStartupWriteCheck() {
+    const check = this.testWriteAccess();
+    const storageMode = check.isRailwayVolume
+      ? 'Railway Volume (Kalıcı Disk)'
+      : 'Yerel Klasör (RAILWAY_VOLUME_MOUNT_PATH tanımlı değil — yeniden dağıtımda oturumlar sıfırlanabilir)';
+
+    if (check.writable) {
+      console.log(
+        `✅ [OTURUM DEPOSU TESTİ: BAŞARILI] Klasöre yazılabiliyor | Mod: ${storageMode} | Yol: ${check.dirPath}`
+      );
+    } else {
+      console.error(
+        `❌ [OTURUM DEPOSU TESTİ: BAŞARISIZ] Oturum klasörüne YAZILAMIYOR! | Mod: ${storageMode} | Yol: ${check.dirPath} | Neden: ${check.reason}`
+      );
+    }
+    return check;
   }
 
   _ensureDirectory() {

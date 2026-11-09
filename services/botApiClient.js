@@ -7,6 +7,34 @@ const appConfig = require('../config/app.config');
  */
 const ephemeralEvidenceRamStore = new Map();
 
+/**
+ * Header ("👥 X Aktif" / "👥 — Aktif") için son bilinen aktif üye sayısı önbelleği.
+ * Bot API'den veri alınamadığında 0 yerine null döner, böylece arayüzde "—" gösterilir.
+ */
+let lastKnownActiveStats = {
+  activeRegisteredCount: null,
+  botOnline: null,
+  updatedAt: 0,
+};
+
+function getLastKnownActiveStats() {
+  return {
+    activeRegisteredCount:
+      typeof lastKnownActiveStats.activeRegisteredCount === 'number'
+        ? lastKnownActiveStats.activeRegisteredCount
+        : null,
+    botOnline: Boolean(lastKnownActiveStats.botOnline),
+  };
+}
+
+function updateActiveStatsCache(count, online = true) {
+  lastKnownActiveStats = {
+    activeRegisteredCount: typeof count === 'number' ? count : null,
+    botOnline: Boolean(online),
+    updatedAt: Date.now(),
+  };
+}
+
 function storeEphemeralEvidence(fileName, buffer, mimeType) {
   const expiresAt = Date.now() + 5 * 60 * 1000; // 5 dakika
   ephemeralEvidenceRamStore.set(fileName, { buffer, mimeType, expiresAt });
@@ -107,19 +135,69 @@ async function executeSingleRequest(endpoint, options = {}) {
     clearTimeout(timeoutId);
 
     let data = null;
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const isJson = contentType.includes('application/json');
+
+    if (isJson) {
       data = await response.json().catch(() => null);
     } else {
       const text = await response.text().catch(() => '');
-      data = { error: text || `HTTP ${response.status}` };
+      data = { error: text ? text.slice(0, 200) : `HTTP ${response.status}` };
     }
 
     if (!response.ok) {
-      const errorMsg = (data && data.error) || `Bot API Hatası (HTTP ${response.status})`;
+      const rawErrorMsg = String((data && (data.error || data.message)) || `Bot API Hatası (HTTP ${response.status})`);
+      const isRailwayAppNotFound = /application not found|failed to respond|bad gateway|service unavailable/i.test(rawErrorMsg);
+      const isMemberLookupEndpoint =
+        endpoint.startsWith('/api/member/') || /^\/api\/admin\/members\/[^/?]+/.test(endpoint);
+
+      // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
+      if (response.status === 401) {
+        updateActiveStatsCache(null, false);
+        throw new BotApiError(
+          'Bot API yetki hatası (HTTP 401): Site ile Bot servisindeki API_SECRET şifreleri birbiriyle uyuşmuyor.',
+          401,
+          true,
+          'AUTH_SECRET_MISMATCH',
+          { status: 401 }
+        );
+      }
+
+      // 2) Railway Proxy 404 ("Application not found") veya üye araması dışındaki 404'ler veya JSON olmayan yanıtlar
+      if (
+        (response.status === 404 && (isRailwayAppNotFound || !isMemberLookupEndpoint || !isJson)) ||
+        response.status === 502 ||
+        response.status === 503 ||
+        response.status === 504 ||
+        response.status >= 520
+      ) {
+        updateActiveStatsCache(null, false);
+        const category =
+          response.status === 504
+            ? 'TIMEOUT'
+            : response.status === 404
+            ? 'ENDPOINT_NOT_FOUND'
+            : 'NETWORK_UNREACHABLE';
+        const friendlyMsg =
+          response.status === 404
+            ? 'Bot API uç noktasına ulaşılamadı (HTTP 404). Bot servisi kapalı olabilir, portu açık olmayabilir veya BOT_API_URL yanlış adrese işaret ediyor.'
+            : rawErrorMsg;
+        throw new BotApiError(friendlyMsg, response.status, true, category, data);
+      }
+
       const category = classifyHttpStatus(response.status);
-      const isOfflineStatus = response.status === 502 || response.status === 503 || response.status === 504;
-      throw new BotApiError(errorMsg, response.status, isOfflineStatus, category, data);
+      throw new BotApiError(rawErrorMsg, response.status, false, category, data);
+    }
+
+    // Yanıt 200 OK olsa bile JSON değilse (örneğin BOT_API_URL yanlışlıkla bir HTML web sayfasına ayarlandıysa)
+    if (!isJson || data === null || typeof data !== 'object') {
+      updateActiveStatsCache(null, false);
+      throw new BotApiError(
+        'Bot API geçerli bir JSON yanıtı döndürmedi (HTML sayfası döndü). BOT_API_URL yanlış bir adrese ayarlanmış olabilir.',
+        503,
+        true,
+        'NON_JSON_RESPONSE'
+      );
     }
 
     return data;
@@ -129,6 +207,8 @@ async function executeSingleRequest(endpoint, options = {}) {
     if (err instanceof BotApiError) {
       throw err;
     }
+
+    updateActiveStatsCache(null, false);
 
     if (err.name === 'AbortError') {
       throw new BotApiError(
@@ -182,6 +262,79 @@ async function requestBotApi(endpoint, options = {}) {
 
 async function checkHealth() {
   return requestBotApi('/api/health', { method: 'GET' });
+}
+
+/**
+ * Madde 2 & 3: /health uç noktası ve açılış testi için Bot API erişilebilirliğini kontrol eder.
+ * Asla secret değerlerini döndürmez. Sonucu "ulaşıldı", "ulaşılamadı" veya "yetki hatası (API_SECRET uyuşmuyor)" olarak sınıflandırır.
+ */
+async function probeBotApiStatus() {
+  const startMs = Date.now();
+  try {
+    const data = await requestBotApi('/api/health', { method: 'GET', retries: 0 });
+    const latencyMs = Date.now() - startMs;
+    if (data && data.status === 'ok') {
+      return {
+        reachable: true,
+        statusText: 'ulaşıldı',
+        category: 'OK',
+        httpStatus: 200,
+        latencyMs,
+        explanation: 'Bot REST API servisine başarıyla ulaşıldı.',
+      };
+    }
+    return {
+      reachable: false,
+      statusText: 'ulaşılamadı',
+      category: 'UNEXPECTED_RESPONSE',
+      httpStatus: 200,
+      latencyMs,
+      explanation: 'Bot API yanıt verdi ancak beklenen sağlık durumunu (status: ok) döndürmedi.',
+    };
+  } catch (err) {
+    const latencyMs = Date.now() - startMs;
+    const category = err.errorCategory || 'NETWORK_UNREACHABLE';
+    const isAuthMismatch = category === 'AUTH_SECRET_MISMATCH' || err.statusCode === 401 || err.statusCode === 403;
+
+    if (isAuthMismatch) {
+      return {
+        reachable: false,
+        statusText: 'yetki hatası (API_SECRET uyuşmuyor)',
+        category: 'AUTH_SECRET_MISMATCH',
+        httpStatus: err.statusCode || 401,
+        latencyMs,
+        explanation: 'Bot API servisine ulaşıldı ancak Site ile Bot arasındaki API_SECRET şifreleri uyuşmuyor.',
+      };
+    }
+
+    return {
+      reachable: false,
+      statusText: 'ulaşılamadı',
+      category,
+      httpStatus: err.statusCode || 503,
+      latencyMs,
+      explanation: err.message || 'Bot API servisine erişilemedi.',
+    };
+  }
+}
+
+/**
+ * Madde 3: Uygulama açılışında BOT_API_URL'e bir kez test isteği atar ve sonucu Railway loglarına yazar.
+ */
+async function runStartupConnectivityTest() {
+  const result = await probeBotApiStatus();
+  if (result.reachable) {
+    console.log(
+      `✅ [BOT API AÇILIŞ TESTİ: BAŞARILI] Durum: ${result.statusText} | Sebep Sınıfı: ${result.category} | Süre: ${result.latencyMs}ms`
+    );
+    // Açılışta aktif üye sayısını da bir kez ısıt (başarısız olursa sessiz geç)
+    await getHelpStatus(null).catch(() => null);
+  } else {
+    console.error(
+      `❌ [BOT API AÇILIŞ TESTİ: BAŞARISIZ] Durum: ${result.statusText} | Sebep Sınıfı: ${result.category} (HTTP ${result.httpStatus}) | Açıklama: ${result.explanation}`
+    );
+  }
+  return result;
 }
 
 // ============================================================================
@@ -252,9 +405,13 @@ async function getTryoutLeaderboard() {
 
 async function getHelpStatus(discordId) {
   const query = discordId ? `?userId=${encodeURIComponent(discordId)}` : '';
-  return requestBotApi(`/api/help/status${query}`, {
+  const data = await requestBotApi(`/api/help/status${query}`, {
     method: 'GET',
   });
+  if (data && typeof data.activeRegisteredCount === 'number') {
+    updateActiveStatsCache(data.activeRegisteredCount, true);
+  }
+  return data;
 }
 
 async function triggerHelpCall(discordId) {
@@ -377,6 +534,10 @@ module.exports = {
   BotApiError,
   requestBotApi,
   checkHealth,
+  probeBotApiStatus,
+  runStartupConnectivityTest,
+  getLastKnownActiveStats,
+  updateActiveStatsCache,
   getMemberRoles,
   getMemberProfile,
   getRegistrationStatus,

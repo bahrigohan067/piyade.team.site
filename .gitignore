@@ -1,22 +1,16 @@
 # Bağımlılıklar
 node_modules/
 
-# Ortam Değişkenleri ve Gizli Anahtarlar (Asla Git'e eklenmemelidir)
+# Ortam Değişkenleri ve Gizli Anahtarlar (ASLA Git'e yüklenmez!)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# Yüklenen Geçici Kanıt Dosyaları
-public/uploads/*
-!public/uploads/.gitkeep
+# Kalıcı Oturum Deposu (PersistentSessionStore)
+.sessions/
 
-# Günlük ve Log Dosyaları
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-logs/
+# Loglar ve Geçici Dosyalar
 *.log
-
-# İşletim Sistemi Dosyaları
+npm-debug.log*
 .DS_Store
 Thumbs.db

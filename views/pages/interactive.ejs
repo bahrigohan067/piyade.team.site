@@ -1,12 +1,12 @@
 <%- include('../layouts/header') %>
 
 <div style="text-align: center; margin-bottom: 3rem; padding-top: 1rem;">
-  <span class="badge badge-primary" style="margin-bottom: 0.75rem;">Nexus UI & İnteraktif Deneyim</span>
+  <span class="badge badge-primary" style="margin-bottom: 0.75rem;"><%= t('interactive.badgeTop') %></span>
   <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">
-    🎯 Atış Poligonu & <span class="gradient-text">Meteor Gökyüzü</span>
+    <%= t('interactive.headingPart1') %> <span class="gradient-text"><%= t('interactive.headingPart2') %></span>
   </h1>
   <p style="color: var(--text-secondary); max-width: 650px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">
-    Piyade Team topluluğuna özel tasarlanmış fizik motorlu dart değerlendirme sistemi, meteor yağmuru gökyüzü ve akıcı metin efektleri.
+    <%= t('interactive.subheading') %>
   </p>
 </div>
 
@@ -15,10 +15,10 @@
  * ============================================================================== -->
 <section style="margin-bottom: 5rem;">
   <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1.85rem; color: #ffffff;">🎯 Dart Rating & Klan Yetenek Atışı</h2>
+    <h2 style="font-size: 1.85rem; color: #ffffff;"><%= t('interactive.dartTitle') %></h2>
     <p style="color: var(--text-secondary); font-size: 0.95rem;">
-      Tahtaya <strong>basılı tutarak nişan al</strong>, bırak ve dartı fırlat! <br />
-      <span style="color: #60a5fa;">İpucu:</span> Klavyenizdeki <code>1</code>'den <code>9</code>'a kadar olan sayılar ve <code>0</code> (Bullseye) tuşları o halkaya kusursuz atış yapar.
+      <%= t('interactive.dartDesc') %> <br />
+      <span style="color: #60a5fa;"><%= t('interactive.dartTipLabel') %></span> <%= t('interactive.dartTipText') %>
     </p>
   </div>
 
@@ -41,7 +41,7 @@
         <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
       </div>
       <div id="dartFeedbackDisplay" style="font-size: 0.9rem; font-weight: 600; color: #60a5fa;">
-        🎯 Hedef almak için tahtaya basılı tut ve bırak.
+        <%= t('interactive.dartInitialFeedback') %>
       </div>
     </div>
 
@@ -88,7 +88,7 @@
 
     <!-- Temizleme Butonu -->
     <button id="btnClearDarts" class="btn btn-secondary btn-sm" style="margin-top: 1rem;">
-      <span>🔄 Tahtayı Temizle</span>
+      <span><%= t('interactive.btnClearBoard') %></span>
     </button>
   </div>
 </section>
@@ -98,19 +98,19 @@
  * ============================================================================== -->
 <section style="margin-bottom: 5rem;">
   <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1.85rem; color: #ffffff;">🌌 İnteraktif Gece Gökyüzü (Meteors)</h2>
+    <h2 style="font-size: 1.85rem; color: #ffffff;"><%= t('interactive.meteorsSectionTitle') %></h2>
     <p style="color: var(--text-secondary); font-size: 0.95rem;">
-      Gökyüzünde 22 sürekli akan meteor ve 70 yanıp sönen yıldız. Gökyüzüne tıkladığınız her noktaya özel bir meteor düşer!
+      <%= t('interactive.meteorsSectionDesc') %>
     </p>
   </div>
 
   <div class="meteors-container" id="meteorsContainer">
     <div style="pointer-events: none; text-align: center; z-index: 10;">
       <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 35px rgba(96, 165, 250, 0.9);">
-        Make a wish.
+        <%= t('home.meteorsTitle') %>
       </h2>
       <p style="margin-top: 0.75rem; font-size: 0.95rem; color: rgba(255, 255, 255, 0.75);">
-        Click the sky to call one down. (Gökyüzüne tıkla, yıldızını kaydır.)
+        <%= t('home.meteorsSubtitle') %>
       </p>
     </div>
   </div>
@@ -121,15 +121,15 @@
  * ============================================================================== -->
 <section class="scroll-reveal-section">
   <div style="margin-bottom: 1.5rem;">
-    <span class="badge badge-primary">Klan Manifestosu</span>
+    <span class="badge badge-primary"><%= t('interactive.manifestoBadge') %></span>
   </div>
 
-  <div class="scroll-reveal-line">Hız için inşa edildi.</div>
-  <div class="scroll-reveal-line">Disiplinle yoğruldu.</div>
-  <div class="scroll-reveal-line gradient-text text-glow-blue">Piyade Team | TSB Zirvesi.</div>
+  <div class="scroll-reveal-line"><%= t('home.manifestoLine1') %></div>
+  <div class="scroll-reveal-line"><%= t('home.manifestoLine2') %></div>
+  <div class="scroll-reveal-line gradient-text text-glow-blue"><%= t('home.manifestoLine3') %></div>
 
   <div style="margin-top: 3rem; color: var(--text-muted); font-size: 0.9rem;">
-    Sayfayı aşağı ve yukarı kaydırdıkça metinler bulanıklıktan netliğe yumuşakça geçiş yapar.
+    <%= t('interactive.manifestoHint') %>
   </div>
 </section>
 

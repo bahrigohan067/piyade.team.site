@@ -3,10 +3,10 @@
 <div style="max-width: 840px; margin: 0 auto; padding-top: 1rem;">
   
   <div style="text-align: center; margin-bottom: 2.5rem;">
-    <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Klan İçi Hızlı Müdahale</span>
-    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">🚨 Acil Takviye / Yardım Çağrısı</h1>
+    <span class="badge badge-danger" style="margin-bottom: 0.5rem;"><%= t('help.badgeTop') %></span>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;"><%= t('help.heading') %></h1>
     <p style="color: var(--text-secondary); max-width: 620px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">
-      Roblox The Strongest Battlegrounds oyununda sunucun baskın yediğinde veya acil desteğe ihtiyaç duyduğunda tek tıkla klandan takviye iste.
+      <%= t('help.subheading') %>
     </p>
   </div>
 
@@ -30,20 +30,20 @@
     
     <div class="stat-card" style="border-top: 4px solid var(--color-success);">
       <div class="stat-header">
-        <span class="stat-label">Aktif Kayıtlı Üyeler</span>
+        <span class="stat-label"><%= t('help.statActiveLabel') %></span>
         <span class="status-dot-success"></span>
       </div>
       <div class="stat-value" style="color: var(--color-success);">
-        <%= helpStatus.activeRegisteredCount || 0 %> Kişi
+        <%= helpStatus.activeRegisteredCount || 0 %> <%= t('help.personSuffix') %>
       </div>
       <div class="stat-desc">
-        Sunucuda anlık çevrim içi (Online, Idle, DND) klan üyesi
+        <%= t('help.statActiveDesc') %>
       </div>
     </div>
 
     <div class="stat-card" style="border-top: 4px solid var(--color-warning);">
       <div class="stat-header">
-        <span class="stat-label">Bekleme Süresi (Cooldown)</span>
+        <span class="stat-label"><%= t('help.statCooldownLabel') %></span>
         <span style="font-size: 1.1rem;">⏱️</span>
       </div>
       <div class="stat-value" style="font-size: 1.4rem;">
@@ -53,17 +53,19 @@
             class="badge badge-warning"
             style="font-size: 1rem; padding: 5px 12px;"
             data-seconds="<%= helpStatus.remainingSeconds %>"
+            data-ready-text="<%= t('help.readyToUse') %>"
+            data-btn-text="<%= t('help.btnStartCall') %>"
           >
-            <%= Math.floor(helpStatus.remainingSeconds / 60) %> dk <%= helpStatus.remainingSeconds % 60 %> sn
+            <%= Math.floor(helpStatus.remainingSeconds / 60) %>m <%= helpStatus.remainingSeconds % 60 %>s
           </span>
         <% } else { %>
           <span id="cooldownTimer" class="badge badge-success" style="font-size: 1rem; padding: 5px 12px;" data-seconds="0">
-            Kullanıma Hazır
+            <%= t('help.readyToUse') %>
           </span>
         <% } %>
       </div>
       <div class="stat-desc">
-        Her üye 5 dakikada bir acil takviye çağrısı gönderebilir
+        <%= t('help.statCooldownDesc') %>
       </div>
     </div>
 
@@ -74,22 +76,22 @@
     <div style="width: 68px; height: 68px; border-radius: 20px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 1.25rem;">
       📢
     </div>
-    <h2 style="font-size: 1.75rem; margin-bottom: 0.75rem; color: #ffffff;">Yardım Çağrısını Ateşle</h2>
+    <h2 style="font-size: 1.75rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('help.callCardTitle') %></h2>
     <p style="max-width: 540px; margin: 0 auto 1.75rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
-      Butona bastığınız anda Discord botumuz acil yardım kanalına <strong>Roblox Profilinize tek tıkla giden bir katılım kartı</strong> gönderir ve o an aktif olan tüm klan üyelerine doğrudan bildirim iletir.
+      <%= t('help.callCardDesc') %>
     </p>
 
-    <form action="/takviye" method="POST">
+    <form action="/takviye" method="POST" data-prevent-double-submit="true" data-confirm="<%= t('help.confirmCall') %>">
       <!-- CSRF Güvenlik Anahtarı -->
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
       <% if (helpStatus.cooldown && helpStatus.remainingSeconds > 0) { %>
         <button type="submit" id="btnTakviyeCall" class="btn btn-danger btn-lg" disabled style="opacity: 0.6; cursor: not-allowed;">
-          <span>⏳ Bekleme Süresi Aktif</span>
+          <span><%= t('help.btnCooldownActive') %></span>
         </button>
       <% } else { %>
-        <button type="submit" id="btnTakviyeCall" class="btn btn-danger btn-lg" onclick="return confirm('Acil takviye çağrısı göndermek istediğinize emin misiniz? Sunucudaki aktif üyelere bildirim iletilecektir.');">
-          <span>🚨 Acil Takviye Çağrısı Başlat</span>
+        <button type="submit" id="btnTakviyeCall" class="btn btn-danger btn-lg">
+          <span><%= t('help.btnStartCall') %></span>
         </button>
       <% } %>
     </form>
@@ -97,45 +99,14 @@
 
   <!-- Bilgilendirme Kartı -->
   <div class="glass-card">
-    <h3 class="card-title" style="margin-bottom: 1rem;"><span>ℹ️</span> Sistem Nasıl Çalışır?</h3>
+    <h3 class="card-title" style="margin-bottom: 1rem;"><span>ℹ️</span> <%= t('help.infoTitle') %></h3>
     <ul style="padding-left: 1.25rem; color: var(--text-secondary); font-size: 0.925rem; display: flex; flex-direction: column; gap: 0.65rem; line-height: 1.5;">
-      <li>Takviye çağrısı doğrudan <code>&lt;#1559928245598560336&gt;</code> bildirim kanalına iletilir.</li>
-      <li>Bildirim kartına sizin <strong>Roblox Profil Linkiniz</strong> eklenir; klan üyeleri tek tıkla profilinize tıklayıp oyun sunucunuza katılabilirler.</li>
-      <li>Gereksiz çağrı ve spam yapılmasını önlemek adına 5 dakikalık bekleme süresi ve kural yaptırımları uygulanır.</li>
+      <li><%= t('help.infoItem1') %></li>
+      <li><%= t('help.infoItem2') %></li>
+      <li><%= t('help.infoItem3') %></li>
     </ul>
   </div>
 
 </div>
-
-<!-- Sayaç Scripti -->
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const timerElem = document.getElementById('cooldownTimer');
-    const callButton = document.getElementById('btnTakviyeCall');
-    if (!timerElem) return;
-
-    let seconds = parseInt(timerElem.getAttribute('data-seconds') || '0', 10);
-    if (seconds <= 0) return;
-
-    const interval = setInterval(function() {
-      seconds--;
-      if (seconds <= 0) {
-        clearInterval(interval);
-        timerElem.className = 'badge badge-success';
-        timerElem.textContent = 'Kullanıma Hazır';
-        if (callButton) {
-          callButton.removeAttribute('disabled');
-          callButton.style.opacity = '1';
-          callButton.style.cursor = 'pointer';
-          callButton.innerHTML = '<span>🚨 Acil Takviye Çağrısı Başlat</span>';
-        }
-      } else {
-        const mins = Math.floor(seconds / 60);
-        const remSecs = seconds % 60;
-        timerElem.textContent = mins + ' dk ' + remSecs + ' sn';
-      }
-    }, 1000);
-  });
-</script>
 
 <%- include('../layouts/footer') %>

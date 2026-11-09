@@ -5,13 +5,13 @@
     <div style="width: 72px; height: 72px; border-radius: 20px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 1.25rem;">
       🔍
     </div>
-    <span class="badge badge-warning" style="margin-bottom: 0.75rem;">Hata 404</span>
-    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;">Sayfa Bulunamadı</h1>
+    <span class="badge badge-warning" style="margin-bottom: 0.75rem;"><%= t('errors.404Badge') %></span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('errors.404Title') %></h1>
     <p style="color: var(--text-secondary); margin-bottom: 1.75rem; font-size: 0.95rem;">
-      Ulaşmaya çalıştığınız <code><%= typeof url !== 'undefined' ? url : '' %></code> adresi mevcut değil, taşınmış veya silinmiş olabilir.
+      <%= t('errors.404DescPrefix') %> <code><%= typeof url !== 'undefined' ? url : '' %></code> <%= t('errors.404DescSuffix') %>
     </p>
     <a href="/" class="btn btn-primary">
-      <span>🏠 Anasayfaya Dön</span>
+      <span><%= t('errors.btnBackHome') %></span>
     </a>
   </div>
 </div>

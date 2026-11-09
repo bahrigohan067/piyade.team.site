@@ -2,7 +2,18 @@
  * Piyade Team İstemci Tarafı JavaScript Etkileşimleri
  */
 
+function escapeHtmlClient(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  const isEn = document.body.getAttribute('data-lang') === 'en';
+
   // 1. Mobil Menü Aç/Kapa
   const mobileBtn = document.getElementById('mobileMenuToggle');
   const navLinks = document.getElementById('navLinks');
@@ -13,11 +24,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 2. Acil Takviye Geri Sayım Sayacı (Cooldown)
+  // 2. Madde 6: Çift Gönderimi Engelleme (Form Submit Buton Kilitleme)
+  const protectedForms = document.querySelectorAll('form[data-prevent-double-submit="true"]');
+  protectedForms.forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      if (form.dataset.submitted === 'true') {
+        e.preventDefault();
+        return;
+      }
+
+      const confirmMsg = form.getAttribute('data-confirm');
+      if (confirmMsg && !window.confirm(confirmMsg)) {
+        e.preventDefault();
+        return;
+      }
+
+      form.dataset.submitted = 'true';
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.65';
+        submitBtn.style.cursor = 'not-allowed';
+        const submittingText = submitBtn.getAttribute('data-submitting-text');
+        if (submittingText) {
+          submitBtn.textContent = submittingText;
+        }
+      }
+    });
+  });
+
+  // 3. Acil Takviye Geri Sayım Sayacı (Cooldown)
   const cooldownElem = document.getElementById('cooldownTimer');
   if (cooldownElem) {
     let secondsLeft = parseInt(cooldownElem.getAttribute('data-seconds'), 10) || 0;
     const callButton = document.getElementById('btnTakviyeCall');
+    const readyText =
+      cooldownElem.getAttribute('data-ready-text') ||
+      (isEn ? 'Ready to Use' : 'Kullanıma Hazır');
+    const btnReadyText =
+      cooldownElem.getAttribute('data-btn-text') ||
+      (isEn ? '🚨 Dispatch Emergency Backup Call' : '🚨 Acil Takviye Çağrısı Başlat');
 
     if (secondsLeft > 0) {
       if (callButton) callButton.disabled = true;
@@ -26,23 +72,27 @@ document.addEventListener('DOMContentLoaded', () => {
         secondsLeft--;
         if (secondsLeft <= 0) {
           clearInterval(timer);
-          cooldownElem.textContent = 'Takviye çağrısı yapmaya hazır!';
+          cooldownElem.textContent = readyText;
           cooldownElem.classList.remove('badge-warning');
           cooldownElem.classList.add('badge-success');
           if (callButton) {
             callButton.disabled = false;
-            callButton.textContent = '🚨 Acil Takviye Çağrısı Başlat';
+            callButton.style.opacity = '1';
+            callButton.style.cursor = 'pointer';
+            callButton.textContent = btnReadyText;
           }
         } else {
           const m = Math.floor(secondsLeft / 60);
           const s = secondsLeft % 60;
-          cooldownElem.textContent = `${m} dk ${s < 10 ? '0' : ''}${s} sn`;
+          cooldownElem.textContent = isEn
+            ? `${m}m ${s < 10 ? '0' : ''}${s}s`
+            : `${m} dk ${s < 10 ? '0' : ''}${s} sn`;
         }
       }, 1000);
     }
   }
 
-  // 3. Yönetim Paneli: Uyarı Formu Canlı Üye Arama
+  // 4. Yönetim Paneli: Uyarı Formu Canlı Üye Arama
   const memberSearchInput = document.getElementById('warnMemberSearch');
   const memberResultsList = document.getElementById('warnMemberResults');
   const targetUserIdHidden = document.getElementById('targetUserId');
@@ -50,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (memberSearchInput && memberResultsList && targetUserIdHidden) {
     let searchDebounceTimer;
+    const selectedLabel =
+      memberSearchInput.getAttribute('data-selected-label') || (isEn ? 'Selected:' : 'Seçilen:');
 
     memberSearchInput.addEventListener('input', (e) => {
       const q = e.target.value.trim();
@@ -68,26 +120,38 @@ document.addEventListener('DOMContentLoaded', () => {
           const members = data.members || [];
 
           if (members.length === 0) {
-            memberResultsList.innerHTML = '<div style="padding: 10px; color: var(--text-muted);">Sonuç bulunamadı.</div>';
+            memberResultsList.innerHTML = `<div style="padding: 10px; color: var(--text-muted);">${
+              isEn ? 'No results found.' : 'Sonuç bulunamadı.'
+            }</div>`;
           } else {
             memberResultsList.innerHTML = members
               .slice(0, 10)
-              .map(
-                (m) => `
-                <div class="member-search-item" data-id="${m.id}" data-name="${m.displayName}" data-avatar="${m.avatarUrl || ''}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px;">
-                  <img src="${m.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png'}" style="width: 28px; height: 28px; border-radius: 50%;" />
-                  <div>
-                    <strong style="color: var(--text-primary);">${m.displayName}</strong>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">${m.username} • ID: ${m.id} ${m.registration?.realName ? '• (' + m.registration.realName + ')' : ''}</div>
+              .map((m) => {
+                const safeId = escapeHtmlClient(m.id);
+                const safeName = escapeHtmlClient(m.displayName);
+                const safeUser = escapeHtmlClient(m.username);
+                const safeAvatar = escapeHtmlClient(
+                  m.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png'
+                );
+                const safeReal = m.registration?.realName
+                  ? `• (${escapeHtmlClient(m.registration.realName)})`
+                  : '';
+
+                return `
+                  <div class="member-search-item" data-id="${safeId}" data-name="${safeName}" data-avatar="${safeAvatar}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px;">
+                    <img src="${safeAvatar}" style="width: 28px; height: 28px; border-radius: 50%;" />
+                    <div>
+                      <strong style="color: var(--text-primary);">${safeName}</strong>
+                      <div style="font-size: 0.8rem; color: var(--text-muted);">${safeUser} • ID: ${safeId} ${safeReal}</div>
+                    </div>
                   </div>
-                </div>
-              `
-              )
+                `;
+              })
               .join('');
           }
           memberResultsList.style.display = 'block';
         } catch (err) {
-          console.error('Arama hatası:', err);
+          console.error('Search error:', err);
         }
       }, 250);
     });
@@ -105,10 +169,15 @@ document.addEventListener('DOMContentLoaded', () => {
         memberResultsList.style.display = 'none';
 
         if (selectedMemberBadge) {
+          const safeId = escapeHtmlClient(id);
+          const safeName = escapeHtmlClient(name);
+          const safeAvatar = escapeHtmlClient(
+            avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'
+          );
           selectedMemberBadge.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 12px; background: var(--bg-card-hover); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-              <img src="${avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'}" style="width: 24px; height: 24px; border-radius: 50%;" />
-              <span>Seçilen: <strong>${name}</strong> (<code>${id}</code>)</span>
+              <img src="${safeAvatar}" style="width: 24px; height: 24px; border-radius: 50%;" />
+              <span>${escapeHtmlClient(selectedLabel)} <strong>${safeName}</strong> (<code>${safeId}</code>)</span>
             </div>
           `;
         }
@@ -123,41 +192,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 4. Kural Kodu Seçildiğinde Otomatik Açıklama Gösterme
+  // 5. Kural Kodu Seçildiğinde Otomatik Açıklama Gösterme (data-rules üzerinden güvenli okuma)
   const ruleSelect = document.getElementById('ruleCodeSelect');
   const rulePreviewBox = document.getElementById('rulePreviewBox');
   const penaltyTypeRadios = document.querySelectorAll('input[name="type"]');
   const officialFields = document.getElementById('officialRuleFields');
-  const verbalFields = document.getElementById('verbalReasonFields');
 
   if (penaltyTypeRadios.length > 0) {
     penaltyTypeRadios.forEach((radio) => {
       radio.addEventListener('change', (e) => {
         if (e.target.value === 'verbal') {
           if (officialFields) officialFields.style.display = 'none';
-          if (verbalFields) verbalFields.style.display = 'block';
         } else {
           if (officialFields) officialFields.style.display = 'block';
-          if (verbalFields) verbalFields.style.display = 'none';
         }
       });
     });
   }
 
-  if (ruleSelect && rulePreviewBox && window.SERVER_RULES) {
+  if (ruleSelect && rulePreviewBox) {
+    let rulesDictionary = {};
+    try {
+      const rawRulesJson = ruleSelect.getAttribute('data-rules');
+      if (rawRulesJson) {
+        rulesDictionary = JSON.parse(rawRulesJson);
+      }
+    } catch (_) {
+      rulesDictionary = {};
+    }
+
     ruleSelect.addEventListener('change', (e) => {
       const code = e.target.value;
-      const rule = window.SERVER_RULES[code];
+      const rule = rulesDictionary[code];
 
       if (rule) {
+        const safeCode = escapeHtmlClient(rule.code);
+        const safeTitle = escapeHtmlClient(rule.title || rule.code);
+        const safePenalty = escapeHtmlClient(rule.penaltyLabel);
+        const safeDesc = escapeHtmlClient(rule.description);
+        const safeBadge = escapeHtmlClient(rule.badgeClass || 'badge-primary');
+
         rulePreviewBox.innerHTML = `
           <div style="margin-top: 10px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span class="badge ${rule.badgeClass || 'badge-primary'}">${rule.code}</span>
-              <strong style="color: var(--text-primary);">${rule.title || rule.code}</strong>
-              <span class="badge badge-danger" style="margin-left: auto;">${rule.penaltyLabel}</span>
+              <span class="badge ${safeBadge}">${safeCode}</span>
+              <strong style="color: var(--text-primary);">${safeTitle}</strong>
+              <span class="badge badge-danger" style="margin-left: auto;">${safePenalty}</span>
             </div>
-            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">${rule.description}</p>
+            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">${safeDesc}</p>
           </div>
         `;
         rulePreviewBox.style.display = 'block';

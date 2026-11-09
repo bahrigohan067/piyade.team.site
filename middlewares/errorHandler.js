@@ -1,54 +1,41 @@
-const { BotApiUnavailableError } = require('../services/botApiClient');
 const appConfig = require('../config/app.config');
+const { BotApiError } = require('../services/botApiClient');
 
 /**
- * 404 Bulunamadı Yakalayıcısı
+ * 404 Bulunamadı Yakalayıcı
  */
 function notFoundHandler(req, res) {
-  if (req.xhr || req.headers.accept?.includes('application/json')) {
-    return res.status(404).json({ error: 'Sayfa veya API endpoint bulunamadı.' });
-  }
-
   res.status(404).render('errors/404', {
-    title: 'Sayfa Bulunamadı (404)',
+    title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı — Piyade Team | TSB',
     url: req.originalUrl,
   });
 }
 
 /**
- * Global Hata Yakalayıcı Middleware
+ * Global Hata Yakalayıcı
+ * Bot REST API'sine erişilemiyorsa (isOffline = true) anlaşılır "Bot API Servisine Ulaşılamıyor" sayfası gösterir.
  */
 function globalErrorHandler(err, req, res, next) {
-  console.error(`[SUNUCU HATASI] ${req.method} ${req.originalUrl}:`, err);
+  console.error('[WEB SUNUCU HATASI]:', err.message);
 
-  // 1. Bot REST API Ulaşılamaz / Çevrimdışı Hatası
-  if (err instanceof BotApiUnavailableError || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
-      return res.status(503).json({
-        error: 'Bot REST API servisine şu anda ulaşılamıyor.',
-        details: err.message,
-      });
-    }
-
+  // Bot API'ye ulaşılamıyorsa özel 503 sayfasını göster
+  if (err instanceof BotApiError && err.isOffline) {
     return res.status(503).render('errors/bot-offline', {
-      title: 'Bot API Çevrimdışı (503)',
-      botApiUrl: appConfig.BOT_API_URL,
+      title: req.t ? req.t('errors.botOfflineTitle') : 'Bot API Servisine Ulaşılamıyor — Piyade Team | TSB',
       errorMessage: err.message,
+      botApiUrl: appConfig.IS_PROD ? 'Railway Bot API' : appConfig.BOT_API_URL,
     });
   }
 
-  // 2. JSON İstekleri için Hata Yanıtı
-  if (req.xhr || req.headers.accept?.includes('application/json')) {
-    return res.status(err.status || 500).json({
-      error: err.message || 'Sunucuda beklenmeyen bir hata meydana geldi.',
-    });
-  }
-
-  // 3. Genel 500 Sayfası
-  res.status(err.status || 500).render('errors/500', {
-    title: 'Sunucu Hatası (500)',
-    message: err.message || 'Sunucu içi bir hata meydana geldi.',
-    stack: !appConfig.IS_PRODUCTION ? err.stack : null,
+  const statusCode = err.statusCode || 500;
+  return res.status(statusCode).render('errors/500', {
+    title: req.t ? req.t('errors.500Title') : 'Sunucu Hatası — Piyade Team | TSB',
+    message: appConfig.IS_PROD
+      ? req.t
+        ? req.t('errors.500DefaultMsg')
+        : 'İşleminiz sırasında beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+      : err.message,
+    stack: appConfig.IS_PROD ? null : err.stack,
   });
 }
 

@@ -5,10 +5,10 @@
     <div style="width: 72px; height: 72px; border-radius: 20px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 1.25rem;">
       💥
     </div>
-    <span class="badge badge-danger" style="margin-bottom: 0.75rem;">Sunucu Hatası (500)</span>
-    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;">Beklenmeyen Bir Hata Oluştu</h1>
+    <span class="badge badge-danger" style="margin-bottom: 0.75rem;"><%= t('errors.500Badge') %></span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('errors.500Title') %></h1>
     <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">
-      <%= typeof message !== 'undefined' ? message : 'Sunucu isteğinizi işlerken bir sorunla karşılaştı.' %>
+      <%= typeof message !== 'undefined' ? message : t('errors.500DefaultMsg') %>
     </p>
 
     <% if (typeof stack !== 'undefined' && stack) { %>
@@ -19,10 +19,10 @@
 
     <div style="display: flex; gap: 1rem; justify-content: center;">
       <button onclick="window.location.reload();" class="btn btn-primary">
-        <span>🔄 Yeniden Dene</span>
+        <span><%= t('errors.btnRetry') %></span>
       </button>
       <a href="/" class="btn btn-secondary">
-        <span>🏠 Anasayfaya Dön</span>
+        <span><%= t('errors.btnBackHome') %></span>
       </a>
     </div>
   </div>

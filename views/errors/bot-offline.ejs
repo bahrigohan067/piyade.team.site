@@ -5,34 +5,34 @@
     <div style="width: 72px; height: 72px; border-radius: 20px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 1.25rem;">
       🔌
     </div>
-    <span class="badge badge-danger" style="margin-bottom: 0.75rem;">Hizmet Kesintisi (503)</span>
-    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;">Bot API Servisine Ulaşılamıyor</h1>
+    <span class="badge badge-danger" style="margin-bottom: 0.75rem;"><%= t('errors.botOfflineBadge') %></span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('errors.botOfflineTitle') %></h1>
     
     <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.6;">
-      Piyade Team web sitesi <strong>ince bir ön yüzdür</strong>. Üye verileri, kayıt başvuruları ve ceza mantığı Discord botunun REST API'sinde barındırılmaktadır. Şu anda bot API'sine bağlanılamıyor.
+      <%= t('errors.botOfflineDesc') %>
     </p>
 
     <!-- Hata ve Teşhis Kutusu -->
     <div class="glass-card" style="background: rgba(8, 9, 13, 0.75); padding: 1.25rem; text-align: left; margin-bottom: 1.75rem; font-size: 0.875rem;">
-      <strong style="color: #ffffff; display: block; margin-bottom: 8px;">🛠️ Olası Sebepler ve Çözüm Adımları:</strong>
+      <strong style="color: #ffffff; display: block; margin-bottom: 8px;"><%= t('errors.botOfflineDiagTitle') %></strong>
       <ul style="padding-left: 1.2rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.5;">
-        <li>Discord botu veya REST API servisi Railway üzerinde henüz başlatılmamış veya yeniden başlatılıyor olabilir.</li>
-        <li>Sitenin <code>BOT_API_URL</code> adresi (<code><%= typeof botApiUrl !== 'undefined' ? botApiUrl : 'BOT_API_URL' %></code>) yanlış veya port erişimi kapalı olabilir.</li>
-        <li>Her iki servisin <code>API_SECRET</code> çevre değişkenlerinin birebir aynı olduğundan emin olunuz.</li>
+        <li><%= t('errors.botOfflineStep1') %></li>
+        <li><%= t('errors.botOfflineStep2') %> (<code><%= typeof botApiUrl !== 'undefined' ? botApiUrl : 'BOT_API_URL' %></code>)</li>
+        <li><%= t('errors.botOfflineStep3') %></li>
       </ul>
       <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
         <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-danger);">
-          Hata detayı: <%= errorMessage %>
+          <%= t('errors.errorDetailLabel') %> <%= errorMessage %>
         </div>
       <% } %>
     </div>
 
     <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
       <button onclick="window.location.reload();" class="btn btn-primary btn-lg">
-        <span>🔄 Bağlantıyı Yeniden Dene</span>
+        <span><%= t('errors.btnRetryConn') %></span>
       </button>
       <a href="/" class="btn btn-secondary btn-lg">
-        <span>🏠 Anasayfaya Dön</span>
+        <span><%= t('errors.btnBackHome') %></span>
       </a>
     </div>
   </div>

@@ -3,17 +3,17 @@
 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2.5rem;">
   <div>
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem;">
-      <span class="badge badge-primary">Roblox TSB Klan Sıralaması</span>
-      <span class="badge badge-neutral">37 Seviye Hiyerarşisi</span>
+      <span class="badge badge-primary"><%= t('tryout.badgeTop') %></span>
+      <span class="badge badge-neutral"><%= t('tryout.badgeHierarchy') %></span>
     </div>
-    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">🏆 Tryout Değerlendirme Tablosu</h1>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;"><%= t('tryout.heading') %></h1>
     <p style="color: var(--text-secondary); margin: 0; font-size: 0.95rem;">
-      Low weak 4 seviyesinden High strong 0 zirvesine uzanan klan içi yetenek sıralaması.
+      <%= t('tryout.subheading') %>
     </p>
   </div>
   <div>
     <span class="badge badge-primary" style="font-size: 0.85rem; padding: 6px 14px; font-weight: 700;">
-      👥 Toplam <%= total %> Kayıtlı Değerlendirme
+      <%= t('tryout.totalRegisteredPrefix') %> <%= total %> <%= t('tryout.totalRegisteredSuffix') %>
     </span>
   </div>
 </div>
@@ -23,9 +23,9 @@
     <div style="width: 64px; height: 64px; border-radius: 20px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.25rem;">
       📊
     </div>
-    <h3 style="color: #ffffff; font-size: 1.4rem; margin-bottom: 0.5rem;">Henüz Tryout Değerlendirmesi Yapılmamış</h3>
+    <h3 style="color: #ffffff; font-size: 1.4rem; margin-bottom: 0.5rem;"><%= t('tryout.emptyTitle') %></h3>
     <p style="max-width: 480px; margin: 0 auto; color: var(--text-muted); font-size: 0.925rem;">
-      Sunucumuzda yetkililer tarafından tamamlanan değerlendirmeler otomatik olarak bu tabloda sıralanacaktır.
+      <%= t('tryout.emptyDesc') %>
     </p>
   </div>
 <% } else { %>
@@ -35,12 +35,12 @@
       <table class="table">
         <thead>
           <tr>
-            <th style="width: 70px; text-align: center;">Sıra</th>
-            <th>Savaşçı Üye</th>
-            <th>Tryout Seviyesi</th>
-            <th style="text-align: center;">Kademe</th>
-            <th style="text-align: center;">Form Sayısı</th>
-            <th style="text-align: right;">Son Güncelleme</th>
+            <th style="width: 70px; text-align: center;"><%= t('tryout.colRank') %></th>
+            <th><%= t('tryout.colMember') %></th>
+            <th><%= t('tryout.colLevel') %></th>
+            <th style="text-align: center;"><%= t('tryout.colTier') %></th>
+            <th style="text-align: center;"><%= t('tryout.colForms') %></th>
+            <th style="text-align: right;"><%= t('tryout.colUpdated') %></th>
           </tr>
         </thead>
         <tbody>
@@ -48,11 +48,11 @@
             <tr>
               <td style="text-align: center; font-weight: 800; font-size: 1.1rem;">
                 <% if (entry.rank === 1) { %>
-                  <span style="color: #ffd700;" title="1. Sıra">🥇</span>
+                  <span style="color: #ffd700;" title="#1">🥇</span>
                 <% } else if (entry.rank === 2) { %>
-                  <span style="color: #c0c0c0;" title="2. Sıra">🥈</span>
+                  <span style="color: #c0c0c0;" title="#2">🥈</span>
                 <% } else if (entry.rank === 3) { %>
-                  <span style="color: #cd7f32;" title="3. Sıra">🥉</span>
+                  <span style="color: #cd7f32;" title="#3">🥉</span>
                 <% } else { %>
                   <span style="color: var(--text-muted); font-family: var(--font-mono);">#<%= entry.rank %></span>
                 <% } %>
@@ -85,7 +85,7 @@
                 <%= entry.formCount %>
               </td>
               <td style="text-align: right; color: var(--text-muted); font-size: 0.85rem; font-family: var(--font-mono);">
-                <%= entry.lastUpdated ? new Date(entry.lastUpdated).toLocaleDateString('tr-TR') : '-' %>
+                <%= entry.lastUpdated ? new Date(entry.lastUpdated).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
               </td>
             </tr>
           <% }); %>
@@ -97,13 +97,13 @@
 
 <!-- Eğlenceli Tryout Öncesi Yetenek Testi Kartı -->
 <div class="glass-card" style="margin-top: 2.5rem; text-align: center; padding: 2.25rem;">
-  <span class="badge badge-primary">Eğlenceli Klan Yetenek Testi</span>
-  <h2 style="margin-top: 0.5rem; margin-bottom: 0.5rem; font-size: 1.5rem;">🎯 Nişancılık ve Refleks Testi (Dart Rating)</h2>
+  <span class="badge badge-primary"><%= t('tryout.dartCardBadge') %></span>
+  <h2 style="margin-top: 0.5rem; margin-bottom: 0.5rem; font-size: 1.5rem;"><%= t('tryout.dartCardTitle') %></h2>
   <p style="color: var(--text-secondary); max-width: 540px; margin: 0 auto 1.5rem; font-size: 0.925rem;">
-    Tryout seviye değerlendirmesi öncesi elini ısıt! Basılı tutarak nişan al, bırak ve dartı tam 12'den (Bullseye) sapla.
+    <%= t('tryout.dartCardDesc') %>
   </p>
   <a href="/etkilesim" class="btn btn-primary">
-    <span>🎯 Dart & Yıldız Alanına Git &rarr;</span>
+    <span><%= t('tryout.dartCardBtn') %></span>
   </a>
 </div>
 

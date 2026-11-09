@@ -5,22 +5,22 @@
     <div style="width: 72px; height: 72px; border-radius: 20px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 1.25rem;">
       🚫
     </div>
-    <span class="badge badge-danger" style="margin-bottom: 0.75rem;">Yetkisiz Erişim (403)</span>
-    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;">Erişim İzniniz Yok</h1>
+    <span class="badge badge-danger" style="margin-bottom: 0.75rem;"><%= t('errors.403Badge') %></span>
+    <h1 style="font-size: 1.85rem; margin-bottom: 0.75rem; color: #ffffff;"><%= t('errors.403Title') %></h1>
     <p style="color: var(--text-secondary); margin-bottom: 1.75rem; font-size: 0.95rem;">
-      <%= typeof message !== 'undefined' ? message : 'Bu alana erişmek için gerekli yetki veya role sahip değilsiniz.' %>
+      <%= typeof message !== 'undefined' ? message : t('errors.403DefaultMsg') %>
     </p>
     <div style="display: flex; gap: 1rem; justify-content: center;">
       <a href="/" class="btn btn-primary">
-        <span>🏠 Anasayfa</span>
+        <span><%= t('errors.btnHome') %></span>
       </a>
       <% if (typeof currentUser !== 'undefined' && currentUser) { %>
         <a href="/profil" class="btn btn-secondary">
-          <span>👤 Profilim</span>
+          <span><%= t('errors.btnMyProfile') %></span>
         </a>
       <% } else { %>
         <a href="/auth/discord" class="btn btn-discord">
-          <span>🎮 Giriş Yap</span>
+          <span><%= t('errors.btnLogin') %></span>
         </a>
       <% } %>
     </div>

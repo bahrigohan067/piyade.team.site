@@ -1,241 +1,353 @@
 const express = require('express');
-const router = express.Router();
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
-const { botApiClient, BotApiUnavailableError, BotApiError } = require('../services/botApiClient');
-const { requireManagement } = require('../middlewares/auth');
-const { formLimiter } = require('../middlewares/rateLimiter');
-const { RULES } = require('../config/rules.config');
-const appConfig = require('../config/app.config');
+const router = express.Router();
+const { getLocalizedRules } = require('../rules');
+const { isDeveloper, isManagement } = require('../config/roles.config');
+const botApiClient = require('../services/botApiClient');
+const { requireManagement, requireFreshManagement } = require('../middlewares/auth');
+const { verifyCsrfToken } = require('../middlewares/csrf');
+const { formActionLimiter } = require('../middlewares/rateLimiter');
+const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
+const { MAX_EVIDENCE_BYTES, validateEvidenceImageBuffer } = require('../utils/fileValidator');
 
-// Uploads klasörü hazırlığı
-const UPLOADS_DIR = path.join(__dirname, '..', 'public', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
-// Multer yapılandırması (Görsel yüklemeleri için)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
-    const unique = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
-    cb(null, unique);
+/**
+ * Madde 1: Kanıt görselleri diske (public/uploads) KAYDEDİLMEZ.
+ * Sadece bellekte (multer.memoryStorage) alınır, maksimum 5 MB sınır uygulanır,
+ * magic-byte kontrolü (sadece PNG, JPG, WEBP; SVG reddedilir) yapılır ve Bot API'ye iletilir.
+ */
+const uploadEvidence = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_EVIDENCE_BYTES, // 5 MB
+    files: 1,
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
-  fileFilter: (req, file, cb) => {
-    const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (allowedMime.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Sadece JPEG, PNG, WEBP veya GIF formatında görseller yüklenebilir.'));
-    }
-  },
+/**
+ * Geçici RAM kanıt görseli sunucusu (Eski bot sürümlerinin URL üzerinden çekmesi gerekirse).
+ * Disk kullanılmaz; 5 dakika sonra RAM'den otomatik silinir.
+ */
+router.get('/kanit-bellek/:fileName', (req, res) => {
+  const item = botApiClient.getEphemeralEvidence(req.params.fileName);
+  if (!item) {
+    return res.status(404).send('Kanıt görseli bulunamadı veya süresi doldu.');
+  }
+  res.setHeader('Content-Type', item.mimeType || 'image/png');
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  return res.send(item.buffer);
 });
 
-// Tüm yönetim rotaları Yönetmenlik ve Developer kontrolünden geçer
+// Tüm yönetim rotaları sunucu tarafında Yönetmenlik veya Developer yetkisi gerektirir
 router.use(requireManagement);
 
 /**
- * GET /yonetim/uyari
- * Uyarı Verme Ekranı: Üye seçimi, ceza türü, kural seçimi, sebep ve kanıt yükleme
- */
-router.get('/uyari', async (req, res, next) => {
-  const actorId = req.session.user.id;
-  const targetId = req.query.targetUserId || '';
-
-  try {
-    let preselectedMember = null;
-    if (targetId && /^\d{1,21}$/.test(targetId)) {
-      try {
-        preselectedMember = await botApiClient.getAdminMemberDetail(actorId, targetId);
-      } catch (e) {
-        console.warn('[ÖN SEÇİM HATASI]:', e.message);
-      }
-    }
-
-    res.render('pages/admin-warn', {
-      title: 'Disiplin & Uyarı Ver | Yönetim Paneli',
-      rules: RULES,
-      preselectedMember,
-      targetId,
-      result: req.session.warnResult || null,
-      error: req.session.warnError || null,
-    });
-
-    req.session.warnResult = null;
-    req.session.warnError = null;
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /yonetim/uyari
- * Ceza Uygulama İşlemi (Bot API /api/admin/warn çağrısı)
- */
-router.post('/uyari', upload.single('evidenceFile'), formLimiter, async (req, res, next) => {
-  const actorId = req.session.user.id;
-  const { targetUserId, type, reason, ruleCode, evidenceUrlInput } = req.body;
-
-  try {
-    // 1. Temel Girdi Doğrulamaları
-    if (!targetUserId || !/^\d{1,21}$/.test(String(targetUserId).trim())) {
-      req.session.warnError = 'Geçerli bir hedef üye Discord ID\'si girilmeli veya listeden seçilmelidir.';
-      return res.redirect('/yonetim/uyari');
-    }
-
-    const cleanType = String(type || '').trim().toLowerCase();
-    if (cleanType !== 'verbal' && cleanType !== 'official') {
-      req.session.warnError = 'Ceza türü Sözlü veya Resmi olarak seçilmelidir.';
-      return res.redirect('/yonetim/uyari');
-    }
-
-    if (cleanType === 'verbal') {
-      if (!reason || reason.trim().length < 2) {
-        req.session.warnError = 'Sözlü uyarı için geçerli bir gerekçe belirtilmelidir (en az 2 karakter).';
-        return res.redirect(`/yonetim/uyari?targetUserId=${targetUserId}`);
-      }
-    }
-
-    if (cleanType === 'official') {
-      if (!ruleCode || !RULES[ruleCode.trim().toUpperCase()]) {
-        req.session.warnError = 'Geçerli bir ihlal kuralı (M1-M13, D1-D3, Y1-Y5) seçilmelidir.';
-        return res.redirect(`/yonetim/uyari?targetUserId=${targetUserId}`);
-      }
-    }
-
-    // 2. Bot API'ye Uyarıyı Uygulat
-    const warnResponse = await botApiClient.applyWarning(actorId, {
-      targetUserId: targetUserId.trim(),
-      type: cleanType,
-      reason: reason ? reason.trim() : null,
-      ruleCode: ruleCode ? ruleCode.trim().toUpperCase() : null,
-    });
-
-    // 3. Kanıt Görseli Varsa Ekle
-    let evidenceUrl = null;
-    if (req.file) {
-      // Yüklenen dosya
-      evidenceUrl = `${appConfig.BASE_URL}/uploads/${req.file.filename}`;
-    } else if (evidenceUrlInput && /^https?:\/\/\S+/i.test(evidenceUrlInput.trim())) {
-      // Dış bağlantı URL'i
-      evidenceUrl = evidenceUrlInput.trim();
-    }
-
-    if (evidenceUrl && warnResponse.warnId) {
-      try {
-        await botApiClient.attachWarningEvidence(actorId, warnResponse.warnId, evidenceUrl);
-        warnResponse.evidenceUrl = evidenceUrl;
-      } catch (evidenceErr) {
-        console.warn('[KANIT EKLEME UYARISI]:', evidenceErr.message);
-      }
-    }
-
-    req.session.warnResult = {
-      success: true,
-      warnId: warnResponse.warnId,
-      type: cleanType,
-      targetUserId: targetUserId.trim(),
-      ruleCode: warnResponse.ruleCode || null,
-      ruleDescription: warnResponse.ruleDescription || null,
-      actionTaken: warnResponse.actionTaken || 'Sicil kaydı oluşturuldu.',
-      newStats: warnResponse.newStats || null,
-      evidenceUrl: evidenceUrl || null,
-    };
-
-    return res.redirect('/yonetim/uyari');
-  } catch (err) {
-    console.error('[UYARI UYGULAMA HATASI]:', err.message);
-
-    // Hiyerarşi veya bot kural hatası
-    const errorMessage =
-      err instanceof BotApiError
-        ? err.message
-        : err instanceof BotApiUnavailableError
-        ? 'Bot API servisine şu anda ulaşılamıyor.'
-        : `Ceza uygulanırken hata oluştu: ${err.message}`;
-
-    req.session.warnError = errorMessage;
-    return res.redirect(`/yonetim/uyari?targetUserId=${targetUserId || ''}`);
-  }
-});
-
-/**
  * GET /yonetim/uyeler
- * Üye Arama ve Listeleme
+ * Üye Arama ve Listeleme Ekranı.
  */
 router.get('/uyeler', async (req, res, next) => {
-  const actorId = req.session.user.id;
   const query = String(req.query.query || '').trim();
+  const actorId = req.session.user.id;
 
   try {
     const searchData = await botApiClient.searchAdminMembers(actorId, query);
 
-    res.render('pages/admin-members', {
-      title: 'Üye Bilgileri & Sicil Arama | Yönetim Paneli',
+    return res.render('pages/admin-members', {
+      title: req.t('adminMembers.pageTitle'),
       query,
       members: searchData.members || [],
       total: searchData.total || 0,
       selectedMember: null,
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
 /**
  * GET /yonetim/uyeler/:id
- * Tekil Üye Detayı (Tüm Discord, Roller, Roblox, Tryout, VS ve Sicil Kartları)
+ * Seçilen üyenin tüm detay kartlarını görüntüler.
+ * Madde 12: Üye Bilgileri ekranına erişimi denetim loguna yazar (kim, kimin detayına, ne zaman).
  */
 router.get('/uyeler/:id', async (req, res, next) => {
-  const actorId = req.session.user.id;
-  const memberId = req.params.id;
-
-  if (!memberId || !/^\d{1,21}$/.test(memberId)) {
-    return res.redirect('/yonetim/uyeler');
-  }
+  const targetId = req.params.id;
+  const actor = req.session.user;
+  const actorId = actor.id;
 
   try {
-    const memberDetail = await botApiClient.getAdminMemberDetail(actorId, memberId);
+    const memberDetail = await botApiClient.getAdminMemberDetail(actorId, targetId, { audit: true });
 
-    res.render('pages/admin-members', {
-      title: `${memberDetail.discord?.displayName || memberId} | Üye Sicil Kartı`,
+    // Madde 12: Denetim Logu (Kim, Kimin Detayına, Ne Zaman Erişti)
+    const timestampIso = new Date().toISOString();
+    const targetName = memberDetail?.discord?.displayName || memberDetail?.discord?.username || targetId;
+    console.info(
+      `[DENETİM LOGU / AUDIT] Yetkili: ${actor.displayName || actor.username} (${actorId}) | İncelenen Üye: ${targetName} (${targetId}) | Zaman: ${timestampIso} | IP: ${req.ip}`
+    );
+
+    return res.render('pages/admin-members', {
+      title: `${targetName} ${req.t('adminMembers.detailPageTitleSuffix')}`,
       query: '',
       members: [],
-      total: 1,
+      total: 0,
       selectedMember: memberDetail,
     });
   } catch (err) {
-    if (err instanceof BotApiError && err.status === 404) {
-      return res.status(404).render('errors/404', {
-        title: 'Üye Bulunamadı',
-        url: req.originalUrl,
-      });
-    }
-    next(err);
+    return next(err);
   }
 });
 
 /**
  * GET /yonetim/api/search
- * Uyarı formunda anlık üye araması (AJAX)
+ * Uyarı Ver ekranındaki üye seçici için JSON arama uç noktası.
  */
 router.get('/api/search', async (req, res) => {
-  const actorId = req.session.user.id;
   const query = String(req.query.q || '').trim();
-
   try {
-    const searchData = await botApiClient.searchAdminMembers(actorId, query);
-    return res.json({ members: searchData.members || [] });
+    const data = await botApiClient.searchAdminMembers(req.session.user.id, query);
+    return res.json({ members: data.members || [] });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
+
+/**
+ * GET /yonetim/uyari
+ * Uyarı Verme Formu.
+ */
+router.get('/uyari', async (req, res) => {
+  const preselectedId = String(req.query.targetUserId || '').trim();
+  let preselectedMember = null;
+
+  if (preselectedId && /^\d{1,21}$/.test(preselectedId)) {
+    try {
+      preselectedMember = await botApiClient.getAdminMemberDetail(req.session.user.id, preselectedId, {
+        audit: false,
+      });
+    } catch (_) {
+      preselectedMember = null;
+    }
+  }
+
+  return res.render('pages/admin-warn', {
+    title: req.t('adminWarn.pageTitle'),
+    rules: getLocalizedRules(req.lang || 'tr'),
+    preselectedMember,
+    targetId: preselectedId,
+    result: null,
+    error: null,
+    idempotencyKey: generateIdempotencyKey(req),
+  });
+});
+
+/**
+ * Multer dosya boyutu / yükleme hatalarını yakalayan yardımcı sarmalayıcı.
+ */
+function handleEvidenceUpload(req, res, next) {
+  uploadEvidence.single('evidenceFile')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        req.fileUploadError = req.t('errors.fileTooLarge');
+      } else {
+        req.fileUploadError = err.message || req.t('errors.invalidFileType');
+      }
+    }
+    return next();
+  });
+}
+
+/**
+ * Madde 7: Sitede Rol Hiyerarşisi Kontrolü
+ * Yetkilinin kendine veya eşit/üst role sahip bir üyeye uyarı vermesini sitede de engeller.
+ */
+async function checkSiteRoleHierarchy(req, actorRolesData, targetUserId) {
+  const actorId = String(req.session.user.id);
+  const cleanTargetId = String(targetUserId);
+
+  // 1. Kendine uyarı verme engeli
+  if (actorId === cleanTargetId) {
+    return {
+      allowed: false,
+      error: req.t('adminWarn.errSelfWarn'),
+    };
+  }
+
+  const actorRoles = actorRolesData?.roles || req.session.user.roles || [];
+  const actorLevel = actorRolesData?.level || req.session.user.level || 'none';
+  const actorIsDev = isDeveloper(actorRoles, actorLevel);
+
+  // Developer kendisi dışındaki üyelere işlem yapabilir
+  if (actorIsDev) {
+    return { allowed: true };
+  }
+
+  // 2. Hedef kullanıcının rollerini Bot API'den çek ve hiyerarşiyi karşılaştır
+  const targetRolesData = await botApiClient.getMemberRoles(cleanTargetId);
+  const targetRoles = targetRolesData.roles || [];
+  const targetLevel = targetRolesData.level || 'none';
+
+  // Hedef Developer veya Yönetmenlik ise ve aktör Developer değilse
+  if (isDeveloper(targetRoles, targetLevel)) {
+    return {
+      allowed: false,
+      error: req.t('adminWarn.errEqualOrHigherRole'),
+    };
+  }
+
+  const actorHighestPos = Number(actorRolesData?.highestRolePosition ?? req.session.user.highestRolePosition ?? 0);
+  const targetHighestPos = Number(targetRolesData?.highestRolePosition ?? 0);
+
+  if (actorHighestPos > 0 && targetHighestPos >= actorHighestPos) {
+    return {
+      allowed: false,
+      error: req.t('adminWarn.errEqualOrHigherRole'),
+    };
+  }
+
+  // Pozisyon bilgisi 0 ise rol seviyesi üzerinden ek koruma
+  if (actorHighestPos === 0 && isManagement(targetRoles, targetLevel)) {
+    return {
+      allowed: false,
+      error: req.t('adminWarn.errEqualOrHigherRole'),
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * POST /yonetim/uyari
+ * Madde 1: Kanıt görselini memoryStorage + magic-byte (PNG/JPG/WEBP, maks 5 MB) ile doğrular, Bot API'ye iletir.
+ * Madde 5: requireFreshManagement ile yetkili rolünü Bot API'den önbelleksiz taze doğrular.
+ * Madde 6: Tekil idempotency anahtarı ile çift gönderimi engeller.
+ * Madde 7: Kendine ve eşit/üst role uyarı verme engelini sitede de kontrol eder.
+ */
+router.post(
+  '/uyari',
+  formActionLimiter,
+  requireFreshManagement,
+  handleEvidenceUpload,
+  verifyCsrfToken,
+  async (req, res) => {
+    const actorId = req.session.user.id;
+    const { targetUserId, type, ruleCode, reason, evidenceUrlInput } = req.body;
+    const cleanTargetId = String(targetUserId || '').trim();
+    const localizedRules = getLocalizedRules(req.lang || 'tr');
+
+    const renderWarnFormError = (status, errorMessage) => {
+      return res.status(status).render('pages/admin-warn', {
+        title: req.t('adminWarn.pageTitle'),
+        rules: localizedRules,
+        preselectedMember: null,
+        targetId: cleanTargetId,
+        result: null,
+        error: errorMessage,
+        idempotencyKey: generateIdempotencyKey(req),
+      });
+    };
+
+    // Madde 6: Çift Gönderim (Idempotency) Kontrolü
+    const idemCheck = consumeIdempotencyKey(req);
+    if (!idemCheck.valid) {
+      return renderWarnFormError(409, req.t('errors.duplicateSubmission'));
+    }
+
+    // Multer boyut hatası varsa
+    if (req.fileUploadError) {
+      return renderWarnFormError(400, req.fileUploadError);
+    }
+
+    // Madde 1: Yüklenen dosya varsa magic-byte kontrolü (PNG, JPG, WEBP; SVG reddedilir)
+    let validatedEvidence = null;
+    if (req.file) {
+      const check = validateEvidenceImageBuffer(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname
+      );
+      if (!check.valid) {
+        return renderWarnFormError(400, check.errorKey ? req.t(check.errorKey) : check.error);
+      }
+      validatedEvidence = {
+        buffer: req.file.buffer,
+        fileName: check.randomFileName,
+        mimeType: check.mimeType,
+      };
+    }
+
+    // Harici kanıt URL'si girildiyse doğrula (SVG linklerini reddet)
+    let cleanEvidenceUrl = null;
+    if (evidenceUrlInput && String(evidenceUrlInput).trim()) {
+      const candidateUrl = String(evidenceUrlInput).trim();
+      if (!/^https?:\/\/\S+/i.test(candidateUrl)) {
+        return renderWarnFormError(400, req.t('adminWarn.errInvalidEvidenceUrl'));
+      }
+      if (/\.svg(\?.*)?$/i.test(candidateUrl)) {
+        return renderWarnFormError(400, req.t('errors.svgNotAllowed'));
+      }
+      cleanEvidenceUrl = candidateUrl;
+    }
+
+    if (!cleanTargetId || !/^\d{1,21}$/.test(cleanTargetId)) {
+      return renderWarnFormError(400, req.t('adminWarn.errSelectTarget'));
+    }
+
+    if (type === 'verbal' && (!reason || String(reason).trim().length < 2)) {
+      return renderWarnFormError(400, req.t('adminWarn.errVerbalReason'));
+    }
+
+    if (type === 'official' && !ruleCode) {
+      return renderWarnFormError(400, req.t('adminWarn.errSelectRule'));
+    }
+
+    try {
+      // Madde 7: Sitede Rol Hiyerarşisi Kontrolü (Kendine ve eşit/üst role ceza verme engeli)
+      const hierarchyCheck = await checkSiteRoleHierarchy(req, req.freshActorRoles, cleanTargetId);
+      if (!hierarchyCheck.allowed) {
+        return renderWarnFormError(403, hierarchyCheck.error);
+      }
+
+      // 1. Uyarıyı Bot REST API'si üzerinden uygula
+      const warnResult = await botApiClient.applyWarning({
+        actorId,
+        targetUserId: cleanTargetId,
+        type,
+        reason: reason ? String(reason).trim() : '',
+        ruleCode: type === 'official' ? String(ruleCode).trim().toUpperCase() : undefined,
+      });
+
+      // 2. Kanıt görseli varsa bellekten doğrudan Bot API'ye ilet
+      let finalEvidenceUrl = null;
+      if (warnResult.warnId && (validatedEvidence || cleanEvidenceUrl)) {
+        try {
+          const evRes = await botApiClient.attachWarningEvidence(warnResult.warnId, {
+            actorId,
+            fileBuffer: validatedEvidence ? validatedEvidence.buffer : null,
+            fileName: validatedEvidence ? validatedEvidence.fileName : null,
+            mimeType: validatedEvidence ? validatedEvidence.mimeType : null,
+            evidenceUrl: cleanEvidenceUrl,
+          });
+          finalEvidenceUrl = evRes.proofUrl || cleanEvidenceUrl;
+        } catch (evErr) {
+          console.error('[KANIT İLETİM HATASI]:', evErr.message);
+        }
+      }
+
+      return res.render('pages/admin-warn', {
+        title: req.t('adminWarn.pageTitle'),
+        rules: localizedRules,
+        preselectedMember: null,
+        targetId: '',
+        result: {
+          ...warnResult,
+          targetUserId: cleanTargetId,
+          evidenceUrl: finalEvidenceUrl,
+        },
+        error: null,
+        idempotencyKey: generateIdempotencyKey(req),
+      });
+    } catch (err) {
+      return renderWarnFormError(err.statusCode || 400, err.message);
+    }
+  }
+);
 
 module.exports = router;

@@ -1,242 +1,392 @@
-const axios = require('axios');
 const appConfig = require('../config/app.config');
 
-class BotApiUnavailableError extends Error {
-  constructor(message, originalError = null) {
-    super(message || 'Bot REST API servisine şu anda ulaşılamıyor.');
-    this.name = 'BotApiUnavailableError';
-    this.status = 503;
-    this.originalError = originalError;
+/**
+ * Geçici Bellek İçi (RAM) Kanıt Deposu (Disk / public/uploads kesinlikle kullanılmaz).
+ * Yüklenen kanıt görseli doğrudan Bot API'ye (base64 Buffer olarak) iletilir;
+ * ayrıca eski bot sürümleriyle geriye dönük uyumluluk için 5 dakika boyunca RAM'de tutulur.
+ */
+const ephemeralEvidenceRamStore = new Map();
+
+function storeEphemeralEvidence(fileName, buffer, mimeType) {
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 dakika
+  ephemeralEvidenceRamStore.set(fileName, { buffer, mimeType, expiresAt });
+
+  // Süresi dolanları temizle
+  for (const [key, val] of ephemeralEvidenceRamStore.entries()) {
+    if (val.expiresAt <= Date.now()) {
+      ephemeralEvidenceRamStore.delete(key);
+    }
   }
 }
 
+function getEphemeralEvidence(fileName) {
+  const item = ephemeralEvidenceRamStore.get(fileName);
+  if (!item) return null;
+  if (item.expiresAt <= Date.now()) {
+    ephemeralEvidenceRamStore.delete(fileName);
+    return null;
+  }
+  return item;
+}
+
+/**
+ * Bot API'den dönen veya bağlantı koptuğunda oluşan hataları net sınıflandıran özel hata sınıfı.
+ */
 class BotApiError extends Error {
-  constructor(message, status = 400, data = null) {
+  /**
+   * @param {string} message - Kullanıcı dostu hata açıklaması
+   * @param {number} statusCode - HTTP durum kodu (503 = erişilemiyor, 504 = timeout vb.)
+   * @param {boolean} isOffline - Bot API'ye ağ düzeyinde ulaşılamıyor mu?
+   * @param {string} errorCategory - Hata sınıfı (TIMEOUT | NETWORK_UNREACHABLE | AUTH_SECRET_MISMATCH | FORBIDDEN_HIERARCHY | NOT_FOUND | VALIDATION_ERROR | RATE_LIMITED | BOT_INTERNAL_ERROR)
+   * @param {object} [details] - Ek hata verisi
+   */
+  constructor(message, statusCode = 500, isOffline = false, errorCategory = 'BOT_INTERNAL_ERROR', details = null) {
     super(message);
     this.name = 'BotApiError';
-    this.status = status;
-    this.data = data;
+    this.statusCode = statusCode;
+    this.isOffline = isOffline;
+    this.errorCategory = errorCategory;
+    this.details = details;
   }
 }
 
-class BotApiClient {
-  constructor() {
-    this.client = axios.create({
-      baseURL: appConfig.BOT_API_URL,
-      timeout: appConfig.API_TIMEOUT_MS,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+/**
+ * HTTP durum koduna göre net hata sınıflaması yapar.
+ */
+function classifyHttpStatus(status) {
+  if (status === 401) return 'AUTH_SECRET_MISMATCH';
+  if (status === 403) return 'FORBIDDEN_HIERARCHY';
+  if (status === 404) return 'NOT_FOUND';
+  if (status === 400 || status === 422) return 'VALIDATION_ERROR';
+  if (status === 429) return 'RATE_LIMITED';
+  if (status === 504) return 'TIMEOUT';
+  if (status === 502 || status === 503) return 'NETWORK_UNREACHABLE';
+  return 'BOT_INTERNAL_ERROR';
+}
 
-    // Her isteğe otomatik Bearer token ekle
-    this.client.interceptors.request.use((req) => {
-      if (appConfig.API_SECRET) {
-        req.headers['Authorization'] = `Bearer ${appConfig.API_SECRET}`;
-      }
-      return req;
-    });
+/**
+ * Geçici ağ hatası veya zaman aşımı durumunda yeniden denenip denenmeyeceğini belirler.
+ */
+function isRetryableError(err) {
+  if (!err) return false;
+  if (err.isOffline) return true;
+  if (err.errorCategory === 'TIMEOUT' || err.errorCategory === 'NETWORK_UNREACHABLE') return true;
+  if (err.statusCode === 502 || err.statusCode === 503 || err.statusCode === 504) return true;
+  return false;
+}
 
-    // Yanıt ve Hata Yönetimi
-    this.client.interceptors.response.use(
-      (res) => res,
-      (err) => {
-        // Ağ / Bağlantı / Zaman Aşımı Hataları
-        if (
-          !err.response ||
-          err.code === 'ECONNREFUSED' ||
-          err.code === 'ENOTFOUND' ||
-          err.code === 'ECONNABORTED' ||
-          err.code === 'ETIMEDOUT' ||
-          err.response?.status === 502 ||
-          err.response?.status === 503 ||
-          err.response?.status === 504
-        ) {
-          console.error(`[BOT API BAĞLANTI HATASI] ${err.config?.url}:`, err.message);
-          throw new BotApiUnavailableError(
-            `Bot REST API (${appConfig.BOT_API_URL}) çevrimdışı veya yanıt vermiyor. Lütfen bot servisinin çalıştığından emin olun.`,
-            err
-          );
-        }
+/**
+ * Tek bir HTTP isteğini 8 saniye zaman aşımı ile çalıştırır.
+ */
+async function executeSingleRequest(endpoint, options = {}) {
+  const url = `${appConfig.BOT_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const timeoutMs = appConfig.API_TIMEOUT_MS || 8000;
 
-        // Botun döndürdüğü yapılandırılmış hata yanıtı
-        const errorData = err.response?.data;
-        const errorMessage = errorData?.error || errorData?.message || `API Hatası: ${err.message}`;
-        const errorStatus = err.response?.status || 500;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        throw new BotApiError(errorMessage, errorStatus, errorData);
-      }
-    );
+  const headers = {
+    Accept: 'application/json',
+    Authorization: `Bearer ${appConfig.API_SECRET}`,
+    ...(options.headers || {}),
+  };
+
+  const fetchOptions = {
+    method: options.method || 'GET',
+    headers,
+    signal: controller.signal,
+  };
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    fetchOptions.body = JSON.stringify(options.body);
   }
 
-  /**
-   * Bot API Sağlık Kontrolü
-   */
-  async getHealth() {
-    try {
-      const res = await this.client.get('/api/health');
-      return res.data;
-    } catch (err) {
-      if (err instanceof BotApiUnavailableError) {
-        return { status: 'offline', botReady: false };
-      }
+  try {
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+
+    let data = null;
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      data = await response.json().catch(() => null);
+    } else {
+      const text = await response.text().catch(() => '');
+      data = { error: text || `HTTP ${response.status}` };
+    }
+
+    if (!response.ok) {
+      const errorMsg = (data && data.error) || `Bot API Hatası (HTTP ${response.status})`;
+      const category = classifyHttpStatus(response.status);
+      const isOfflineStatus = response.status === 502 || response.status === 503 || response.status === 504;
+      throw new BotApiError(errorMsg, response.status, isOfflineStatus, category, data);
+    }
+
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+
+    if (err instanceof BotApiError) {
       throw err;
+    }
+
+    if (err.name === 'AbortError') {
+      throw new BotApiError(
+        `Bot API yanıt vermedi (${Math.round(timeoutMs / 1000)} sn zaman aşımı). Lütfen daha sonra tekrar deneyin.`,
+        504,
+        true,
+        'TIMEOUT'
+      );
+    }
+
+    throw new BotApiError(
+      'Bot API servisine şu anda ulaşılamıyor. Bot çevrimdışı olabilir veya BOT_API_URL bağlantısı hatalı.',
+      503,
+      true,
+      'NETWORK_UNREACHABLE',
+      { originalError: err.message }
+    );
+  }
+}
+
+/**
+ * Bot REST API'sine güvenli, 8 sn zaman aşımlı ve 1 kez otomatik yeniden denemeli (retry) HTTP isteği gönderir.
+ *
+ * @param {string} endpoint - Örn: "/api/health"
+ * @param {object} [options] - method, body, headers, retries (varsayılan: 1)
+ */
+async function requestBotApi(endpoint, options = {}) {
+  const maxRetries = options.retries !== undefined ? options.retries : 1;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await executeSingleRequest(endpoint, options);
+    } catch (err) {
+      lastError = err;
+      const shouldRetry = attempt < maxRetries && isRetryableError(err);
+      if (!shouldRetry) {
+        throw err;
+      }
+      // Kısa bekleme (250ms) sonrası tek yeniden deneme
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
   }
 
-  /**
-   * Üyenin rollerini ve hesaplanan yetki seviyesini getirir
-   * @param {string} discordId
-   */
-  async getMemberRoles(discordId) {
-    const res = await this.client.get(`/api/member/${discordId}/roles`);
-    return res.data;
+  throw lastError;
+}
+
+// ============================================================================
+// 1. SİSTEM & SAĞLIK KONTROLÜ
+// ============================================================================
+
+async function checkHealth() {
+  return requestBotApi('/api/health', { method: 'GET' });
+}
+
+// ============================================================================
+// 2. ÜYE VE ROL SORGULARI
+// ============================================================================
+
+async function getMemberRoles(discordId) {
+  const data = await requestBotApi(`/api/member/${encodeURIComponent(discordId)}/roles`, {
+    method: 'GET',
+  });
+
+  if (data && typeof data.highestRolePosition !== 'number') {
+    const roles = Array.isArray(data.roles) ? data.roles : [];
+    data.highestRolePosition = roles.reduce((max, r) => Math.max(max, Number(r.position) || 0), 0);
   }
 
-  /**
-   * Üyenin detaylı profilini getirir
-   * @param {string} discordId
-   */
-  async getMemberProfile(discordId) {
-    const res = await this.client.get(`/api/member/${discordId}/profile`);
-    return res.data;
+  return data;
+}
+
+async function getMemberProfile(discordId) {
+  const data = await requestBotApi(`/api/member/${encodeURIComponent(discordId)}/profile`, {
+    method: 'GET',
+  });
+
+  if (data) {
+    data.discord = data.discord || {};
+    data.registration = data.registration || { registered: false };
+    data.tryout = data.tryout || { level: 0, formCount: 0 };
+    data.vs = data.vs || { points: 0, wins: 0, losses: 0, kills: 0 };
+    data.warnings = data.warnings || { points: 0, tier: 0, staffWarnings: 0, totalWarnings: 0 };
   }
 
-  /**
-   * Tryout Sıralama Tablosunu getirir
-   */
-  async getTryoutLeaderboard() {
-    const res = await this.client.get('/api/tryout/leaderboard');
-    return res.data;
-  }
+  return data;
+}
 
-  /**
-   * VS Top 10 Liderlik Tablosunu getirir
-   */
-  async getVsTop10() {
-    const res = await this.client.get('/api/vs/top10');
-    return res.data;
-  }
+// ============================================================================
+// 3. KAYIT SİSTEMİ
+// ============================================================================
 
-  /**
-   * Acil Takviye durumunu ve aktif kayıtlı üye sayısını getirir
-   * @param {string|null} actorId
-   */
-  async getHelpStatus(actorId = null) {
-    const headers = {};
-    if (actorId) headers['X-Actor-Id'] = actorId;
-    const res = await this.client.get('/api/help/status', { headers });
-    return res.data;
-  }
+async function getRegistrationStatus(discordId) {
+  return requestBotApi(`/api/register/status/${encodeURIComponent(discordId)}`, {
+    method: 'GET',
+  });
+}
 
-  /**
-   * Acil Takviye Çağrısı Başlatır
-   * @param {string} actorId
-   */
-  async triggerHelpCall(actorId) {
-    const res = await this.client.post(
-      '/api/help/call',
-      {},
-      {
-        headers: { 'X-Actor-Id': actorId },
-      }
-    );
-    return res.data;
-  }
-
-  /**
-   * Site İçi Kayıt Başvurusu Oluşturur
-   * @param {object} payload - { discordId, realName, gender, robloxInput }
-   */
-  async createRegistration({ discordId, realName, gender, robloxInput }) {
-    const res = await this.client.post('/api/register', {
+async function submitRegistration({ discordId, realName, gender, robloxInput }) {
+  return requestBotApi('/api/register', {
+    method: 'POST',
+    body: {
       discordId,
       realName,
       gender,
       robloxInput,
-    });
-    return res.data;
+    },
+    retries: 0, // Kayıt oluşturmada çift tetiklemeyi önlemek için POST retry kapalı
+  });
+}
+
+// ============================================================================
+// 4. TRYOUT VE ACİL TAKVİYE (YARDIM) SİSTEMİ
+// ============================================================================
+
+async function getTryoutLeaderboard() {
+  return requestBotApi('/api/tryout/leaderboard', {
+    method: 'GET',
+  });
+}
+
+async function getHelpStatus(discordId) {
+  const query = discordId ? `?userId=${encodeURIComponent(discordId)}` : '';
+  return requestBotApi(`/api/help/status${query}`, {
+    method: 'GET',
+  });
+}
+
+async function triggerHelpCall(discordId) {
+  return requestBotApi('/api/help/call', {
+    method: 'POST',
+    body: { userId: discordId },
+    retries: 0,
+  });
+}
+
+// ============================================================================
+// 5. YÖNETİM PANELİ (ÜYE ARAMA, DETAY, UYARI VE BELLEKTEN KANIT İLETİMİ)
+// ============================================================================
+
+async function searchAdminMembers(actorId, query = '') {
+  const qParam = query ? `?query=${encodeURIComponent(query)}` : '';
+  return requestBotApi(`/api/admin/members${qParam}`, {
+    method: 'GET',
+    headers: {
+      'X-Actor-Id': String(actorId),
+    },
+  });
+}
+
+async function getAdminMemberDetail(actorId, targetId, options = { audit: true }) {
+  const auditQuery = options && options.audit ? '?audit=1' : '';
+  const data = await requestBotApi(`/api/admin/members/${encodeURIComponent(targetId)}${auditQuery}`, {
+    method: 'GET',
+    headers: {
+      'X-Actor-Id': String(actorId),
+    },
+  });
+
+  if (data) {
+    data.discord = data.discord || { roles: [] };
+    data.registration = data.registration || { registered: false };
+    data.tryout = data.tryout || { current: { level: 0, formCount: 0 }, forms: [] };
+    data.tryout.current = data.tryout.current || { level: 0, formCount: 0 };
+    data.tryout.forms = data.tryout.forms || [];
+    data.vs = data.vs || { points: 0, wins: 0, losses: 0, kills: 0 };
+    data.warnings = data.warnings || { stats: { points: 0, tier: 0 }, history: [] };
+    data.warnings.stats = data.warnings.stats || { points: 0, tier: 0 };
+    data.warnings.history = data.warnings.history || [];
+    data.moderation = data.moderation || { profanityViolationCount: 0 };
   }
 
-  /**
-   * Üyenin Kayıt Başvuru Durumunu Sorgular
-   * @param {string} discordId
-   */
-  async getRegistrationStatus(discordId) {
-    try {
-      const res = await this.client.get(`/api/register/status/${discordId}`);
-      return res.data;
-    } catch (err) {
-      // Eğer /status/:id henüz yoksa fallback olarak profile üzerinden kontrol et
-      if (err.status === 404) {
-        const prof = await this.getMemberProfile(discordId);
-        return {
-          userId: discordId,
-          status: prof.registration?.registered ? 'approved' : 'unregistered',
-          registration: prof.registration,
-        };
-      }
-      throw err;
+  return data;
+}
+
+async function applyWarning({ actorId, targetUserId, type, reason, ruleCode }) {
+  return requestBotApi('/api/admin/warn', {
+    method: 'POST',
+    headers: {
+      'X-Actor-Id': String(actorId),
+    },
+    body: {
+      actorId: String(actorId),
+      targetUserId: String(targetUserId),
+      type,
+      reason,
+      ruleCode,
+    },
+    retries: 0,
+  });
+}
+
+/**
+ * Kanıt görselini diske kaydetmeden doğrudan bellekten (Buffer) veya harici URL olarak Bot API'ye iletir.
+ */
+async function attachWarningEvidence(warnId, { actorId, fileBuffer = null, fileName = null, mimeType = null, evidenceUrl = null }) {
+  let fallbackRamUrl = evidenceUrl;
+
+  if (fileBuffer && Buffer.isBuffer(fileBuffer) && fileName) {
+    storeEphemeralEvidence(fileName, fileBuffer, mimeType || 'image/png');
+    if (!fallbackRamUrl) {
+      fallbackRamUrl = `${appConfig.BASE_URL}/yonetim/kanit-bellek/${encodeURIComponent(fileName)}`;
     }
   }
 
-  /**
-   * Yönetim: Üye Arama
-   * @param {string} actorId - İşlemi yapan yetkili
-   * @param {string} query - Arama kelimesi
-   */
-  async searchAdminMembers(actorId, query = '') {
-    const res = await this.client.get('/api/admin/members', {
-      params: { query },
-      headers: { 'X-Actor-Id': actorId },
+  const payload = {
+    actorId: String(actorId),
+    evidenceUrl: fallbackRamUrl,
+  };
+
+  if (fileBuffer && Buffer.isBuffer(fileBuffer)) {
+    payload.evidenceBase64 = fileBuffer.toString('base64');
+    payload.fileName = fileName;
+    payload.mimeType = mimeType;
+  }
+
+  try {
+    return await requestBotApi(`/api/admin/warn/${encodeURIComponent(warnId)}/evidence`, {
+      method: 'POST',
+      headers: {
+        'X-Actor-Id': String(actorId),
+      },
+      body: payload,
+      retries: 0,
     });
-    return res.data;
-  }
-
-  /**
-   * Yönetim: Tekil Üye Tüm Detayları ve Sicili
-   * @param {string} actorId
-   * @param {string} memberId
-   */
-  async getAdminMemberDetail(actorId, memberId) {
-    const res = await this.client.get(`/api/admin/members/${memberId}`, {
-      headers: { 'X-Actor-Id': actorId },
-    });
-    return res.data;
-  }
-
-  /**
-   * Yönetim: Uyarı Ver (Sözlü veya Resmi)
-   * @param {string} actorId
-   * @param {object} data - { targetUserId, type, reason, ruleCode }
-   */
-  async applyWarning(actorId, { targetUserId, type, reason, ruleCode }) {
-    const res = await this.client.post(
-      '/api/admin/warn',
-      { targetUserId, type, reason, ruleCode },
-      { headers: { 'X-Actor-Id': actorId } }
-    );
-    return res.data;
-  }
-
-  /**
-   * Yönetim: Verilen Uyarıya Kanıt Görseli Ekleme
-   * @param {string} actorId
-   * @param {string|number} warnId
-   * @param {string} evidenceUrl
-   */
-  async attachWarningEvidence(actorId, warnId, evidenceUrl) {
-    const res = await this.client.post(
-      `/api/admin/warn/${warnId}/evidence`,
-      { evidenceUrl },
-      { headers: { 'X-Actor-Id': actorId } }
-    );
-    return res.data;
+  } catch (err) {
+    // Eğer uzak bot sunucusu henüz 10MB JSON güncellemesini almamışsa (HTTP 413), RAM URL ile tekrar dene
+    if (fileBuffer && (err.statusCode === 413 || err.statusCode === 400) && fallbackRamUrl) {
+      return requestBotApi(`/api/admin/warn/${encodeURIComponent(warnId)}/evidence`, {
+        method: 'POST',
+        headers: {
+          'X-Actor-Id': String(actorId),
+        },
+        body: {
+          actorId: String(actorId),
+          evidenceUrl: fallbackRamUrl,
+        },
+        retries: 0,
+      });
+    }
+    throw err;
   }
 }
 
 module.exports = {
-  botApiClient: new BotApiClient(),
-  BotApiUnavailableError,
   BotApiError,
+  requestBotApi,
+  checkHealth,
+  getMemberRoles,
+  getMemberProfile,
+  getRegistrationStatus,
+  submitRegistration,
+  getTryoutLeaderboard,
+  getHelpStatus,
+  triggerHelpCall,
+  searchAdminMembers,
+  getAdminMemberDetail,
+  applyWarning,
+  attachWarningEvidence,
+  getEphemeralEvidence,
 };

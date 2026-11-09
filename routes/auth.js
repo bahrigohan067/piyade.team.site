@@ -2,110 +2,122 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const discordAuthService = require('../services/discordAuthService');
-const { botApiClient, BotApiUnavailableError } = require('../services/botApiClient');
+const botApiClient = require('../services/botApiClient');
 const { authLimiter } = require('../middlewares/rateLimiter');
 
 /**
  * GET /auth/discord
- * Discord OAuth2 Giriş Akışını Başlatır
+ * Kullanıcıyı Discord OAuth2 (scope: identify) yetkilendirme ekranına yönlendirir.
+ * Madde 4: Rastgele "state" üretir ve yönlendirme öncesi oturuma kaydeder.
  */
 router.get('/discord', authLimiter, (req, res) => {
-  const state = crypto.randomBytes(16).toString('hex');
+  const state = crypto.randomBytes(24).toString('hex');
   req.session.oauthState = state;
-  const authorizeUrl = discordAuthService.getAuthorizeUrl(state);
-  res.redirect(authorizeUrl);
+
+  const authorizeUrl = discordAuthService.getAuthorizationUrl(state);
+  req.session.save(() => {
+    return res.redirect(authorizeUrl);
+  });
 });
 
 /**
  * GET /auth/discord/callback
- * Discord OAuth2 Dönüş Noktası
+ * Discord'dan dönen "code" ve "state" parametrelerini alır.
+ * Madde 4: "state" oturumdaki değerle eşleşmezse veya eksikse HTTP 403 döndürür.
  */
 router.get('/discord/callback', authLimiter, async (req, res, next) => {
-  const { code, state, error, error_description } = req.query;
+  const { code, state, error } = req.query;
 
-  // Kullanıcı iptal ettiyse
   if (error) {
-    console.warn('[OAUTH2 İPTAL]:', error, error_description);
-    return res.redirect('/?auth_error=' + encodeURIComponent(error_description || error));
+    return res.redirect('/?error=discord_auth_cancelled');
   }
 
-  // Kod veya State doğrulaması
-  if (!code) {
-    return res.status(400).render('errors/500', {
-      title: 'Yetkilendirme Hatası',
-      message: 'Discord tarafından yetkilendirme kodu dönmedi.',
-    });
+  // Madde 4: Zorunlu OAuth2 State Doğrulaması (Eksik veya eşleşmeyen state -> 403)
+  const expectedState = req.session ? req.session.oauthState : null;
+  if (req.session) {
+    delete req.session.oauthState;
   }
 
-  if (state && req.session.oauthState && state !== req.session.oauthState) {
+  if (
+    !state ||
+    !expectedState ||
+    typeof state !== 'string' ||
+    typeof expectedState !== 'string' ||
+    state !== expectedState
+  ) {
     return res.status(403).render('errors/403', {
-      title: 'Güvenlik Uyarısı (403)',
-      message: 'OAuth2 durum doğrulaması eşleşmedi. Lütfen tekrar giriş yapınız.',
+      title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim (403)',
+      message: req.t
+        ? req.t('errors.oauthStateMismatch')
+        : 'Güvenlik doğrulaması başarısız (OAuth2 state parametresi eşleşmedi veya süresi doldu). Lütfen tekrar giriş yapınız.',
     });
+  }
+
+  if (!code) {
+    return res.redirect('/');
   }
 
   try {
-    // 1. Kodu Access Token ile takas et
-    const tokenData = await discordAuthService.exchangeCode(code);
+    // 1. Kodu Access Token ile değiştir
+    const tokenData = await discordAuthService.exchangeCodeForToken(code);
 
-    // 2. Discord Kullanıcı Profilini al
-    const discordUser = await discordAuthService.fetchUserProfile(tokenData.access_token);
+    // 2. Access Token ile Discord kullanıcı kimliğini çek
+    const discordUser = await discordAuthService.fetchDiscordUser(tokenData.access_token);
 
-    // 3. Bot API'den kullanıcının sunucudaki güncel rollerini al
-    let rolesData = null;
+    // 3. Kullanıcının sunucudaki rollerini Bot REST API'den çek (/api/member/:id/roles)
+    let roles = [];
+    let level = 'none';
+    let highestRolePosition = 0;
     let inGuild = false;
+    let displayName = discordUser.global_name || discordUser.username;
 
     try {
-      rolesData = await botApiClient.getMemberRoles(discordUser.id);
+      const memberRoleData = await botApiClient.getMemberRoles(discordUser.id);
+      roles = memberRoleData.roles || [];
+      level = memberRoleData.level || 'unregistered';
+      highestRolePosition = memberRoleData.highestRolePosition || 0;
+      displayName = memberRoleData.displayName || displayName;
       inGuild = true;
-    } catch (err) {
-      if (err.status === 404) {
-        // Kullanıcı sunucuda üye değil
-        console.log(`[OAUTH2 BİLGİ] Kullanıcı (${discordUser.username}) sunucuda bulunamadı.`);
+    } catch (roleErr) {
+      if (roleErr.statusCode === 404) {
         inGuild = false;
-      } else if (err instanceof BotApiUnavailableError) {
-        console.warn(`[OAUTH2 UYARI] Bot API çevrimdışı, roller alınamadı.`);
+        level = 'none';
       } else {
-        console.warn(`[OAUTH2 ROL ALMA HATASI]:`, err.message);
+        throw roleErr;
       }
     }
 
-    // 4. Kullanıcıyı Oturuma Kaydet
+    // 4. Oturuma kullanıcı bilgilerini kaydet (Access token istemciye asla gönderilmez)
     req.session.user = {
       id: discordUser.id,
       username: discordUser.username,
-      globalName: discordUser.globalName,
-      displayName: rolesData?.displayName || discordUser.globalName || discordUser.username,
-      avatarUrl: rolesData?.avatarUrl || discordUser.avatarUrl,
-      level: rolesData?.level || (inGuild ? 'member' : 'guest'),
-      roles: rolesData?.roles || [],
+      displayName,
+      avatarUrl: discordAuthService.buildAvatarUrl(discordUser),
+      roles,
+      level,
+      highestRolePosition,
       inGuild,
-      lastRoleSync: Date.now(),
+      rolesSyncedAt: Date.now(),
     };
 
-    delete req.session.oauthState;
-
-    // 5. Önceden gitmek istediği URL'ye veya profile yönlendir
-    const redirectUrl = req.session.returnTo || '/profil';
+    const returnTo = req.session.returnTo || '/';
     delete req.session.returnTo;
 
-    return res.redirect(redirectUrl);
+    return req.session.save(() => {
+      res.redirect(returnTo);
+    });
   } catch (err) {
-    console.error('[OAUTH2 CALLBACK HATASI]:', err);
     return next(err);
   }
 });
 
 /**
  * GET /auth/logout
- * Oturumu Kapatır
+ * Kullanıcının oturumunu güvenli şekilde sonlandırır.
  */
 router.get('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('[ÇIKIŞ HATASI]:', err);
-    }
-    res.clearCookie('connect.sid');
+  req.session.destroy(() => {
+    res.clearCookie('piyade.sid');
     res.redirect('/');
   });
 });

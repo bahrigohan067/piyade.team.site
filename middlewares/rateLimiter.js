@@ -8,6 +8,7 @@ const generalLimiter = rateLimit({
   max: 150,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     error: 'Çok fazla istek gönderdiniz. Lütfen bir süre sonra tekrar deneyiniz.',
   },
@@ -21,6 +22,7 @@ const authLimiter = rateLimit({
   max: 25,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     error: 'Giriş işlemleri için çok fazla istek yapıldı. Lütfen 5 dakika sonra deneyiniz.',
   },
@@ -34,6 +36,7 @@ const formLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     error: 'İşlem sınırı aşıldı. Lütfen 1 dakika bekleyiniz.',
   },
@@ -41,6 +44,8 @@ const formLimiter = rateLimit({
 
 module.exports = {
   generalLimiter,
+  globalLimiter: generalLimiter,
   authLimiter,
   formLimiter,
+  formActionLimiter: formLimiter,
 };

@@ -4,12 +4,12 @@
   
   <div style="margin-bottom: 2.5rem;">
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem;">
-      <span class="badge badge-warning">Yönetim & Disiplin Masası</span>
-      <span class="badge badge-neutral">Bot REST API Senkronlu</span>
+      <span class="badge badge-warning"><%= t('adminWarn.badgeTop') %></span>
+      <span class="badge badge-neutral"><%= t('adminWarn.badgeSync') %></span>
     </div>
-    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">⚠️ Üyeye Uyarı / Disiplin Cezası Uygula</h1>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;"><%= t('adminWarn.heading') %></h1>
     <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
-      Sunucu düzeni ve kuralları ihlal eden üyelere Sözlü veya Resmi disiplin işlemi uygular. Bot REST API'si hiyerarşi ve yaptırım kurallarını anlık denetler.
+      <%= t('adminWarn.subheading') %>
     </p>
   </div>
 
@@ -19,39 +19,39 @@
       <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
         <span style="font-size: 2rem;">✅</span>
         <div>
-          <span class="badge badge-success">Ceza Başarıyla Uygulandı</span>
-          <h2 style="font-size: 1.4rem; margin: 4px 0 0; color: #ffffff;">Uyarı Kaydı #<%= result.warnId %> Oluşturuldu</h2>
+          <span class="badge badge-success"><%= t('adminWarn.successBadge') %></span>
+          <h2 style="font-size: 1.4rem; margin: 4px 0 0; color: #ffffff;"><%= t('adminWarn.successTitlePrefix') %><%= result.warnId %><%= t('adminWarn.successTitleSuffix') %></h2>
         </div>
       </div>
 
       <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1rem; background: rgba(8, 9, 13, 0.75);">
         <div class="grid grid-2" style="gap: 1rem;">
           <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Hedef Üye Discord ID</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelTargetId') %></span>
             <div style="font-weight: 700; color: #ffffff;"><code><%= result.targetUserId %></code></div>
           </div>
           <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Ceza Türü</span>
-            <div style="font-weight: 700; color: #60a5fa; text-transform: uppercase;"><%= result.type === 'verbal' ? '🗣️ Sözlü İhtar' : '⚠️ Resmi Uyarı' %></div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelPenaltyType') %></span>
+            <div style="font-weight: 700; color: #60a5fa; text-transform: uppercase;"><%= result.type === 'verbal' ? t('adminWarn.typeVerbalLabel') : t('adminWarn.typeOfficialLabel') %></div>
           </div>
           <% if (result.ruleCode) { %>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">İhlal Kuralı</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelViolatedRule') %></span>
               <div style="font-weight: 700; color: var(--color-danger);"><%= result.ruleCode %> — <%= result.ruleDescription %></div>
             </div>
           <% } %>
           <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Uygulanan Yaptırım</span>
-            <div style="font-weight: 700; color: #ffffff;"><%= result.actionTaken %></div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelActionTaken') %></span>
+            <div style="font-weight: 700; color: #ffffff;"><%= result.actionTaken || '-' %></div>
           </div>
           <% if (result.newStats) { %>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Yeni Toplam Puan</span>
-              <div style="font-weight: 800; color: var(--color-danger); font-size: 1.2rem;"><%= result.newStats.points || 0 %> Puan</div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelNewTotalPoints') %></span>
+              <div style="font-weight: 800; color: var(--color-danger); font-size: 1.2rem;"><%= result.newStats.points || 0 %> <%= t('profile.pointsWord') %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Uyarı Kademesi</span>
-              <div style="font-weight: 700; color: var(--color-warning);">Uyarı <%= result.newStats.tier || 0 %></div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminWarn.labelWarnTier') %></span>
+              <div style="font-weight: 700; color: var(--color-warning);"><%= t('profile.warningTierPrefix') %><%= result.newStats.tier || 0 %></div>
             </div>
           <% } %>
         </div>
@@ -59,7 +59,7 @@
 
       <% if (result.evidenceUrl) { %>
         <div style="font-size: 0.875rem; color: var(--text-secondary);">
-          📎 <strong>Eklenen Kanıt Görseli:</strong> <a href="<%= result.evidenceUrl %>" target="_blank" rel="noopener">Görseli Yeni Sekmede Aç &rarr;</a>
+          📎 <strong><%= t('adminWarn.attachedProofLabel') %></strong> <a href="<%= result.evidenceUrl %>" target="_blank" rel="noopener"><%= t('adminWarn.openProofNewTab') %></a>
         </div>
       <% } %>
     </div>
@@ -70,27 +70,36 @@
     <div class="alert alert-danger" style="margin-bottom: 2rem;">
       <span style="font-size: 1.5rem;">🛑</span>
       <div>
-        <strong>İşlem Engellendi:</strong>
+        <strong><%= t('adminWarn.blockedTitle') %></strong>
         <p style="margin: 4px 0 0;"><%= error %></p>
       </div>
     </div>
   <% } %>
 
-  <!-- Uyarı Verme Formu -->
+  <!-- Uyarı Verme Formu (Madde 6: Tekil Idempotency Anahtarı & Buton Kilitleme) -->
   <div class="glass-card">
-    <form action="/yonetim/uyari" method="POST" enctype="multipart/form-data">
+    <form
+      action="/yonetim/uyari?_csrf=<%= encodeURIComponent(csrfToken) %>&_idempotencyKey=<%= encodeURIComponent(typeof idempotencyKey !== 'undefined' ? idempotencyKey : '') %>"
+      method="POST"
+      enctype="multipart/form-data"
+      data-prevent-double-submit="true"
+      data-confirm="<%= t('adminWarn.confirmWarn') %>"
+    >
       <!-- CSRF Güvenlik Anahtarı -->
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
+      <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
 
       <!-- 1. Üye Seçimi (Arama Destekli) -->
       <div class="form-group" style="position: relative;">
-        <label class="form-label" for="warnMemberSearch">Ceza Verilecek Üye</label>
+        <label class="form-label" for="warnMemberSearch"><%= t('adminWarn.labelSelectMember') %></label>
         <input
           type="text"
           id="warnMemberSearch"
           class="form-control"
-          placeholder="İsim, Discord kullanıcı adı, Roblox nicki veya ID yazın..."
+          placeholder="<%= t('adminWarn.placeholderMemberSearch') %>"
           autocomplete="off"
+          data-selected-label="<%= t('adminWarn.selectedPrefix') %>"
           value="<%= preselectedMember ? (preselectedMember.discord?.displayName + ' (' + preselectedMember.discord?.id + ')') : '' %>"
         />
         <input
@@ -104,68 +113,56 @@
           <% if (preselectedMember) { %>
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 12px; background: rgba(59, 130, 246, 0.15); border-radius: var(--radius-sm); border: 1px solid rgba(59, 130, 246, 0.3);">
               <img src="<%= preselectedMember.discord?.avatarUrl %>" style="width: 24px; height: 24px; border-radius: 50%;" />
-              <span>Seçilen: <strong><%= preselectedMember.discord?.displayName %></strong> (<code><%= preselectedMember.discord?.id %></code>)</span>
+              <span><%= t('adminWarn.selectedPrefix') %> <strong><%= preselectedMember.discord?.displayName %></strong> (<code><%= preselectedMember.discord?.id %></code>)</span>
             </div>
           <% } %>
         </div>
         <!-- Canlı Arama Sonuç Listesi -->
         <div id="warnMemberResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: #0d0f17; border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 250px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg);"></div>
         <div class="form-text">
-          ⚠️ <strong>Hiyerarşi Koruması:</strong> Kendinize veya sizinle aynı/üst düzeydeki yetkililere ceza uygulayamazsınız. Bot bunu denetler.
+          ⚠️ <%= t('adminWarn.hierarchyNote') %>
         </div>
       </div>
 
       <!-- 2. Ceza Türü (Sözlü veya Resmi) -->
       <div class="form-group">
-        <label class="form-label">Ceza Türü</label>
+        <label class="form-label"><%= t('adminWarn.labelPenaltyType') %></label>
         <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
             <input type="radio" name="type" value="official" checked />
-            <strong style="color: var(--color-danger);">⚠️ Resmi Uyarı</strong>
-            <span style="font-size: 0.85rem; color: var(--text-muted);">(Puanlı, M/D/Y Kural Kodlu)</span>
+            <strong style="color: var(--color-danger);"><%= t('adminWarn.radioOfficialTitle') %></strong>
+            <span style="font-size: 0.85rem; color: var(--text-muted);"><%= t('adminWarn.radioOfficialSub') %></span>
           </label>
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
             <input type="radio" name="type" value="verbal" />
-            <strong style="color: var(--color-warning);">🗣️ Sözlü Uyarı</strong>
-            <span style="font-size: 0.85rem; color: var(--text-muted);">(0 Puan, Sicil Kaydı)</span>
+            <strong style="color: var(--color-warning);"><%= t('adminWarn.radioVerbalTitle') %></strong>
+            <span style="font-size: 0.85rem; color: var(--text-muted);"><%= t('adminWarn.radioVerbalSub') %></span>
           </label>
         </div>
       </div>
 
-      <!-- 3. Resmi Uyarı Kural Seçimi -->
+      <!-- 3. Resmi Uyarı Kural Seçimi (Madde 11: data-rules güvenli escape edilmiştir) -->
       <div id="officialRuleFields" class="form-group">
-        <label class="form-label" for="ruleCodeSelect">İhlal Edilen Kural Maddesi</label>
-        <select id="ruleCodeSelect" name="ruleCode" class="form-select">
-          <option value="">Kural maddesi seçiniz...</option>
+        <label class="form-label" for="ruleCodeSelect"><%= t('adminWarn.labelRuleSelect') %></label>
+        <select id="ruleCodeSelect" name="ruleCode" class="form-select" data-rules="<%= JSON.stringify(rules || {}) %>">
+          <option value=""><%= t('adminWarn.placeholderRuleSelect') %></option>
           
-          <optgroup label="🛡️ Katılımcı Kuralları (M1 - M13)">
-            <option value="M1">M1 — Küfür / Hakaret (+2 Puan)</option>
-            <option value="M2">M2 — Reklam & Ticari Faaliyet (Kalıcı Ban)</option>
-            <option value="M3">M3 — Aşırı Övünme (+1 Puan)</option>
-            <option value="M4">M4 — Taciz (2 Gün Timeout)</option>
-            <option value="M5">M5 — Kanal Amacı Dışında Kullanım (+3 Puan)</option>
-            <option value="M6">M6 — Cinsel İçerik (+8 Puan)</option>
-            <option value="M7">M7 — Kavga Ortamı Yaratma (+4 Puan)</option>
-            <option value="M8">M8 — Zorbalık & Soğutma (+5 Puan)</option>
-            <option value="M9">M9 — Başka Sunucuya Davet (Doğrudan Yasaklı)</option>
-            <option value="M10">M10 — +18 & Ayrımcılık (1 Gün Timeout)</option>
-            <option value="M11">M11 — Irkçılık (1 Gün Timeout)</option>
-            <option value="M12">M12 — Küçümseme & Dalga Geçme (+2 Puan)</option>
-            <option value="M13">M13 — 3. Taraf Yazılım / Hile (1 Gün Timeout)</option>
+          <optgroup label="<%= t('adminWarn.optgroupParticipant') %>">
+            <% Object.values(rules || {}).filter(r => r.category === 'participant').forEach(function(r) { %>
+              <option value="<%= r.code %>"><%= r.code %> — <%= r.title %> (<%= r.penaltyLabel %>)</option>
+            <% }); %>
           </optgroup>
 
-          <optgroup label="📢 Düzen & Kanal Kuralları (D1 - D3)">
-            <option value="D1">D1 — Önemli Kanallara Boş Mesaj (+3 Puan)</option>
-            <option value="D2">D2 — Sohbet & Ses Paneli Spamı (+3 Puan)</option>
-            <option value="D3">D3 — Ses Kanalında Bildirim Yağmuru (+3 Puan)</option>
+          <optgroup label="<%= t('adminWarn.optgroupOrder') %>">
+            <% Object.values(rules || {}).filter(r => r.category === 'order').forEach(function(r) { %>
+              <option value="<%= r.code %>"><%= r.code %> — <%= r.title %> (<%= r.penaltyLabel %>)</option>
+            <% }); %>
           </optgroup>
 
-          <optgroup label="⚖️ Yetkili Kuralları (Y1 - Y5)">
-            <option value="Y1">Y1 — Yetkiyi Kendi Lehine Kullanmak (Tüm Yetkiler Alınır)</option>
-            <option value="Y2">Y2 — Katılımcıyı Yanlış Yönlendirmek (+1 Yetkili Uyarısı)</option>
-            <option value="Y3">Y3 — Yanlış İşlem Yapmak (+1 Yetkili Uyarısı)</option>
-            <option value="Y4">Y4 — Kendini Üstün Görmek (+1 Yetkili Uyarısı)</option>
-            <option value="Y5">Y5 — Üst Kademe Yönlendirmesini Dinlememek (+1 Yetkili Uyarısı)</option>
+          <optgroup label="<%= t('adminWarn.optgroupStaff') %>">
+            <% Object.values(rules || {}).filter(r => r.category === 'staff').forEach(function(r) { %>
+              <option value="<%= r.code %>"><%= r.code %> — <%= r.title %> (<%= r.penaltyLabel %>)</option>
+            <% }); %>
           </optgroup>
         </select>
 
@@ -175,55 +172,50 @@
 
       <!-- 4. Gerekçe / Sebep -->
       <div class="form-group" id="reasonGroup">
-        <label class="form-label" for="warnReason">Ceza Gerekçesi / Açıklama</label>
+        <label class="form-label" for="warnReason"><%= t('adminWarn.labelReason') %></label>
         <textarea
           id="warnReason"
           name="reason"
           class="form-control"
           rows="3"
-          placeholder="İhlal hakkında detaylı açıklama giriniz..."
+          placeholder="<%= t('adminWarn.placeholderReason') %>"
         ></textarea>
-        <div class="form-text">Sözlü uyarılarda gerekçe zorunludur. Resmi uyarılarda girilirse kural açıklamasına eklenir.</div>
+        <div class="form-text"><%= t('adminWarn.reasonHelp') %></div>
       </div>
 
-      <!-- 5. Kanıt Görseli Yükleme (Dosya veya Link) -->
+      <!-- 5. Kanıt Görseli Yükleme (Bellekten Bot API'ye veya URL — Sadece PNG/JPG/WEBP, Maks 5 MB) -->
       <div class="form-group" style="background: rgba(8, 9, 13, 0.7); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-        <label class="form-label">📎 Kanıt Görseli (Opsiyonel)</label>
+        <label class="form-label"><%= t('adminWarn.labelEvidenceSection') %></label>
         <div class="grid grid-2" style="gap: 1rem;">
           <div>
-            <label class="form-label" style="font-size: 0.8rem; color: var(--text-muted);" for="evidenceFile">Bilgisayardan Dosya Yükle</label>
-            <input type="file" id="evidenceFile" name="evidenceFile" class="form-control" accept="image/*" />
+            <label class="form-label" style="font-size: 0.8rem; color: var(--text-muted);" for="evidenceFile"><%= t('adminWarn.labelUploadFile') %></label>
+            <input type="file" id="evidenceFile" name="evidenceFile" class="form-control" accept="image/png,image/jpeg,image/webp" />
           </div>
           <div>
-            <label class="form-label" style="font-size: 0.8rem; color: var(--text-muted);" for="evidenceUrlInput">Veya Görsel Bağlantısı (URL)</label>
+            <label class="form-label" style="font-size: 0.8rem; color: var(--text-muted);" for="evidenceUrlInput"><%= t('adminWarn.labelEvidenceUrl') %></label>
             <input
               type="url"
               id="evidenceUrlInput"
               name="evidenceUrlInput"
               class="form-control"
-              placeholder="https://i.imgur.com/... veya Discord cdn linki"
+              placeholder="<%= t('adminWarn.placeholderEvidenceUrl') %>"
             />
           </div>
         </div>
-        <div class="form-text">Yüklenen görsel uyarı log kanalındaki bildirim kartına doğrudan kanıt olarak iliştirilir.</div>
+        <div class="form-text"><%= t('adminWarn.evidenceHelp') %></div>
       </div>
 
       <!-- Gönder Butonu -->
       <div style="margin-top: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
         <a href="/yonetim/uyeler" class="btn btn-secondary">
-          <span>👥 Üye Listesine Git</span>
+          <span><%= t('adminWarn.btnMemberList') %></span>
         </a>
-        <button type="submit" class="btn btn-danger btn-lg" onclick="return confirm('Bu üyeye disiplin cezası uygulamak istediğinize emin misiniz? İşlem Discord sunucusunda anında geçerli olacaktır.');">
-          <span>⚠️ Cezayı Uygula</span>
+        <button type="submit" class="btn btn-danger btn-lg" data-submitting-text="<%= t('adminWarn.btnSubmittingWarn') %>">
+          <span><%= t('adminWarn.btnSubmitWarn') %></span>
         </button>
       </div>
     </form>
   </div>
 </div>
-
-<!-- Kural Listesi İstemci Sözlüğü -->
-<script>
-  window.SERVER_RULES = <%- JSON.stringify(rules) %>;
-</script>
 
 <%- include('../layouts/footer') %>

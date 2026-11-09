@@ -10,20 +10,20 @@
           <span class="badge badge-primary" style="font-size: 0.65rem;">TSB</span>
         </div>
         <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); max-width: 500px;">
-          The Strongest Battlegrounds topluluk ve klan yönetim platformu. Güvenli Discord botu REST API senkronu ile 7/24 aktif.
+          <%= t('footer.description') %>
         </p>
       </div>
 
       <ul class="footer-links">
-        <li><a href="/">Anasayfa</a></li>
-        <li><a href="/kurallar">Genel Kurallar</a></li>
-        <li><a href="/etkilesim">🎯 Atış & Gökyüzü</a></li>
-        <li><a href="/kayit">Kayıt Ol</a></li>
-        <li><a href="https://discord.gg" target="_blank" rel="noopener">Discord Sunucusu</a></li>
+        <li><a href="/"><%= t('nav.home') %></a></li>
+        <li><a href="/kurallar"><%= t('nav.rules') %></a></li>
+        <li><a href="/etkilesim"><%= t('nav.interactive') %></a></li>
+        <li><a href="/kayit"><%= t('nav.register') %></a></li>
+        <li><a href="https://discord.gg" target="_blank" rel="noopener"><%= t('footer.discordServer') %></a></li>
       </ul>
 
       <div style="font-size: 0.8rem; color: var(--text-muted);">
-        &copy; <%= new Date().getFullYear() %> Piyade Team. Tüm hakları saklıdır.
+        &copy; <%= new Date().getFullYear() %> <%= t('footer.copyright') %>
       </div>
     </div>
   </footer>

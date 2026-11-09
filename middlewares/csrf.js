@@ -26,6 +26,7 @@ function csrfProtection(req, res, next) {
   // POST, PUT, DELETE isteklerinde belirteci doğrula
   const token =
     (req.body && req.body._csrf) ||
+    (req.query && req.query._csrf) ||
     req.headers['x-csrf-token'] ||
     req.headers['csrf-token'];
 
@@ -37,12 +38,15 @@ function csrfProtection(req, res, next) {
       });
     }
     return res.status(403).render('errors/403', {
-      title: 'Güvenlik Doğrulama Hatası (403)',
+      title: req.t ? req.t('errors.403Title') : 'Güvenlik Doğrulama Hatası (403)',
       message: 'CSRF güvenlik anahtarınız eşleşmedi veya süresi doldu. Lütfen sayfayı yenileyiniz.',
     });
   }
 
-  next();
+  return next();
 }
+
+csrfProtection.csrfProtection = csrfProtection;
+csrfProtection.verifyCsrfToken = csrfProtection;
 
 module.exports = csrfProtection;

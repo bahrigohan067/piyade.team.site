@@ -3,18 +3,18 @@
 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2.5rem; padding-top: 1rem;">
   <div>
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem;">
-      <span class="badge badge-warning">Yönetim & Denetim Masası</span>
-      <span class="badge badge-neutral">Üye & Sicil Kayıtları</span>
+      <span class="badge badge-warning"><%= t('adminMembers.badgeTop') %></span>
+      <span class="badge badge-neutral"><%= t('adminMembers.badgeSub') %></span>
     </div>
-    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">👥 Üye Bilgileri & Sicil Kayıtları</h1>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;"><%= t('adminMembers.heading') %></h1>
     <p style="color: var(--text-secondary); margin: 0; font-size: 0.95rem;">
-      Sunucu üyelerini arayın, tüm Discord, Roblox, Tryout, VS ve disiplin sicillerini anlık inceleyin.
+      <%= t('adminMembers.subheading') %>
     </p>
   </div>
   <% if (selectedMember) { %>
     <div>
       <a href="/yonetim/uyeler" class="btn btn-secondary">
-        <span>&larr; Üye Arama Listesine Dön</span>
+        <span><%= t('adminMembers.btnBackToList') %></span>
       </a>
     </div>
   <% } %>
@@ -38,11 +38,11 @@
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap;">
             <h2 style="font-size: 1.75rem; margin: 0; color: #ffffff;"><%= selectedMember.discord.displayName %></h2>
             <% if (selectedMember.discord.level === 'developer') { %>
-              <span class="badge badge-danger">Developer</span>
+              <span class="badge badge-danger"><%= t('profile.roleDeveloper') %></span>
             <% } else if (selectedMember.discord.level === 'yonetmenlik') { %>
-              <span class="badge badge-warning">Yönetmenlik</span>
+              <span class="badge badge-warning"><%= t('profile.roleManagement') %></span>
             <% } else { %>
-              <span class="badge badge-success">Üye</span>
+              <span class="badge badge-success"><%= t('nav.roleMember') %></span>
             <% } %>
           </div>
           <p style="margin: 0; font-size: 0.875rem; color: var(--text-muted);">
@@ -53,11 +53,11 @@
 
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <a href="/yonetim/uyari?targetUserId=<%= selectedMember.discord.id %>" class="btn btn-danger">
-          <span>⚠️ Bu Üyeye Ceza Ver</span>
+          <span><%= t('adminMembers.btnWarnMember') %></span>
         </a>
         <% if (selectedMember.registration && selectedMember.registration.robloxProfileUrl) { %>
           <a href="<%= selectedMember.registration.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
-            <span>🟥 Roblox Profili &rarr;</span>
+            <span><%= t('adminMembers.btnRobloxProfile') %></span>
           </a>
         <% } %>
       </div>
@@ -68,53 +68,53 @@
   <div class="grid grid-4" style="margin-bottom: 2rem;">
     <div class="stat-card">
       <div class="stat-header">
-        <span class="stat-label">Tryout Seviyesi</span>
+        <span class="stat-label"><%= t('adminMembers.statTryout') %></span>
         <span style="font-size: 1.2rem;">🏆</span>
       </div>
       <div class="stat-value" style="color: #60a5fa; font-size: 1.4rem;">
-        <%= selectedMember.tryout.current.roleName || 'Yok' %>
+        <%= selectedMember.tryout?.current?.roleName || t('adminMembers.none') %>
       </div>
       <div class="stat-desc">
-        Kademe <%= selectedMember.tryout.current.level || 0 %>/37 • <%= selectedMember.tryout.current.formCount || 0 %> Form
+        <%= t('profile.tierWord') %> <%= selectedMember.tryout?.current?.level || 0 %>/37 • <%= selectedMember.tryout?.current?.formCount || 0 %> <%= t('adminMembers.formSuffix') %>
       </div>
     </div>
 
     <div class="stat-card">
       <div class="stat-header">
-        <span class="stat-label">VS Skoru</span>
+        <span class="stat-label"><%= t('adminMembers.statVs') %></span>
         <span style="font-size: 1.2rem;">⚔️</span>
       </div>
       <div class="stat-value" style="color: #c084fc; font-size: 1.4rem;">
-        <%= selectedMember.vs.points || 0 %> P
+        <%= selectedMember.vs?.points || 0 %> P
       </div>
       <div class="stat-desc">
-        <%= selectedMember.vs.wins || 0 %>W / <%= selectedMember.vs.losses || 0 %>L • <%= selectedMember.vs.kills || 0 %> Kill
+        <%= selectedMember.vs?.wins || 0 %>W / <%= selectedMember.vs?.losses || 0 %>L • <%= selectedMember.vs?.kills || 0 %> Kill
       </div>
     </div>
 
     <div class="stat-card">
       <div class="stat-header">
-        <span class="stat-label">Ceza Puanı</span>
+        <span class="stat-label"><%= t('adminMembers.statPenalty') %></span>
         <span style="font-size: 1.2rem;">⚖️</span>
       </div>
-      <div class="stat-value" style="color: <%= selectedMember.warnings.stats.points > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.4rem;">
-        <%= selectedMember.warnings.stats.points || 0 %> Puan
+      <div class="stat-value" style="color: <%= (selectedMember.warnings?.stats?.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.4rem;">
+        <%= selectedMember.warnings?.stats?.points || 0 %> <%= t('profile.pointsWord') %>
       </div>
       <div class="stat-desc">
-        <%= selectedMember.warnings.stats.tier ? 'Uyarı ' + selectedMember.warnings.stats.tier : 'Sicil Temiz' %>
+        <%= selectedMember.warnings?.stats?.tier ? t('profile.warningTierPrefix') + selectedMember.warnings.stats.tier : t('adminMembers.clean') %>
       </div>
     </div>
 
     <div class="stat-card">
       <div class="stat-header">
-        <span class="stat-label">Küfür / Argo İhlali</span>
+        <span class="stat-label"><%= t('adminMembers.statProfanity') %></span>
         <span style="font-size: 1.2rem;">🛑</span>
       </div>
       <div class="stat-value" style="color: <%= (selectedMember.moderation?.profanityViolationCount || 0) > 0 ? 'var(--color-warning)' : '#ffffff' %>; font-size: 1.4rem;">
         <%= selectedMember.moderation?.profanityViolationCount || 0 %>
       </div>
       <div class="stat-desc">
-        Filtre ve denetim uyarısı
+        <%= t('adminMembers.statProfanityDesc') %>
       </div>
     </div>
   </div>
@@ -125,18 +125,18 @@
     <!-- 1. Discord & Roller Kartı -->
     <div class="glass-card">
       <div class="card-header">
-        <h3 class="card-title"><span>🎮</span> Discord Bilgileri ve Rolleri</h3>
+        <h3 class="card-title"><span>🎮</span> <%= t('adminMembers.cardDiscordTitle') %></h3>
       </div>
       <div>
         <div style="margin-bottom: 1.25rem;">
-          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Sunucuya Katılma</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminMembers.labelJoinedAt') %></span>
           <div style="font-weight: 600; color: #ffffff; font-size: 0.95rem; margin-top: 2px;">
-            <%= selectedMember.discord.joinedAt ? new Date(selectedMember.discord.joinedAt).toLocaleDateString('tr-TR') : '-' %>
+            <%= selectedMember.discord.joinedAt ? new Date(selectedMember.discord.joinedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
           </div>
         </div>
 
         <div>
-          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 8px; font-weight: 700;">Sahip Olduğu Roller</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 8px; font-weight: 700;"><%= t('adminMembers.labelRoles') %></span>
           <div style="display: flex; flex-wrap: wrap; gap: 6px;">
             <% if (selectedMember.discord.roles && selectedMember.discord.roles.length > 0) { %>
               <% selectedMember.discord.roles.forEach(function(r) { %>
@@ -146,7 +146,7 @@
                 </span>
               <% }); %>
             <% } else { %>
-              <span style="color: var(--text-muted); font-size: 0.85rem;">Rol bulunmuyor.</span>
+              <span style="color: var(--text-muted); font-size: 0.85rem;"><%= t('adminMembers.noRoles') %></span>
             <% } %>
           </div>
         </div>
@@ -156,35 +156,35 @@
     <!-- 2. Roblox ve Kayıt Kartı -->
     <div class="glass-card">
       <div class="card-header">
-        <h3 class="card-title"><span>🟥</span> Roblox ve Kayıt Bilgisi</h3>
+        <h3 class="card-title"><span>🟥</span> <%= t('adminMembers.cardRobloxTitle') %></h3>
         <% if (selectedMember.registration && selectedMember.registration.registered) { %>
-          <span class="badge badge-success">Kayıtlı</span>
+          <span class="badge badge-success"><%= t('register.registeredStatus') %></span>
         <% } else { %>
-          <span class="badge badge-warning">Kayıtsız</span>
+          <span class="badge badge-warning"><%= t('profile.badgeUnregistered') %></span>
         <% } %>
       </div>
       <div>
         <% if (selectedMember.registration && selectedMember.registration.registered) { %>
           <div style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Gerçek Ad</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRealName') %></span>
               <div style="font-weight: 700; color: #ffffff; font-size: 1.05rem;"><%= selectedMember.registration.realName || '-' %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cinsiyet</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelGender') %></span>
               <div style="font-weight: 600; color: #ffffff;"><%= selectedMember.registration.gender || '-' %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox Kullanıcı Adı</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxUser') %></span>
               <div style="font-weight: 700; color: #60a5fa; font-size: 1.05rem;">@<%= selectedMember.registration.robloxUsername || '-' %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Roblox ID</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxId') %></span>
               <div><code><%= selectedMember.registration.robloxId || '-' %></code></div>
             </div>
           </div>
         <% } else { %>
-          <p style="color: var(--text-muted); font-size: 0.925rem;">Bu kullanıcı sunucuya henüz kayıt olmamış.</p>
+          <p style="color: var(--text-muted); font-size: 0.925rem;"><%= t('adminMembers.unregisteredMemberMsg') %></p>
         <% } %>
       </div>
     </div>
@@ -194,26 +194,26 @@
   <!-- 3. Disiplin ve Uyarı Sicil Geçmişi -->
   <div class="glass-card" style="margin-bottom: 2rem; padding: 0; overflow: hidden;">
     <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-      <h3 class="card-title" style="margin: 0;"><span>⚖️</span> Disiplin & Uyarı Sicil Geçmişi</h3>
+      <h3 class="card-title" style="margin: 0;"><span>⚖️</span> <%= t('adminMembers.cardHistoryTitle') %></h3>
       <span class="badge badge-primary">
-        Toplam <%= (selectedMember.warnings.history || []).length %> Sicil Kaydı
+        <%= t('adminMembers.totalRecordsPrefix') %> <%= (selectedMember.warnings?.history || []).length %> <%= t('adminMembers.totalRecordsSuffix') %>
       </span>
     </div>
     <div>
-      <% if (!selectedMember.warnings.history || selectedMember.warnings.history.length === 0) { %>
-        <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;">Bu kullanıcının geçmişine ait herhangi bir disiplin cezası veya uyarısı bulunmamaktadır.</p>
+      <% if (!selectedMember.warnings?.history || selectedMember.warnings.history.length === 0) { %>
+        <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;"><%= t('adminMembers.emptyHistoryMsg') %></p>
       <% } else { %>
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Tarih</th>
-                <th>Ceza Türü</th>
-                <th>Kural / Madde</th>
-                <th>Gerekçe</th>
-                <th>İşlemi Yapan</th>
-                <th style="text-align: right;">Kanıt</th>
+                <th><%= t('adminMembers.colId') %></th>
+                <th><%= t('adminMembers.colDate') %></th>
+                <th><%= t('adminMembers.colType') %></th>
+                <th><%= t('adminMembers.colRule') %></th>
+                <th><%= t('adminMembers.colReason') %></th>
+                <th><%= t('adminMembers.colStaff') %></th>
+                <th style="text-align: right;"><%= t('adminMembers.colProof') %></th>
               </tr>
             </thead>
             <tbody>
@@ -221,11 +221,11 @@
                 <tr>
                   <td><code>#<%= w.id %></code></td>
                   <td style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;">
-                    <%= w.createdAt ? new Date(w.createdAt).toLocaleString('tr-TR') : '-' %>
+                    <%= w.createdAt ? new Date(w.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
                   </td>
                   <td>
                     <span class="badge <%= w.type === 'verbal' ? 'badge-warning' : 'badge-danger' %>">
-                      <%= w.type === 'verbal' ? 'Sözlü' : 'Resmi' %>
+                      <%= w.type === 'verbal' ? t('adminMembers.typeVerbal') : t('adminMembers.typeOfficial') %>
                     </span>
                   </td>
                   <td>
@@ -247,10 +247,10 @@
                   <td style="text-align: right;">
                     <% if (w.proofUrl || w.evidenceUrl) { %>
                       <a href="<%= w.proofUrl || w.evidenceUrl %>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="padding: 2px 8px;">
-                        Görsel &rarr;
+                        <%= t('adminMembers.btnViewProof') %>
                       </a>
                     <% } else { %>
-                      <span style="color: var(--text-muted); font-size: 0.8rem;">Yok</span>
+                      <span style="color: var(--text-muted); font-size: 0.8rem;"><%= t('adminMembers.none') %></span>
                     <% } %>
                   </td>
                 </tr>
@@ -265,25 +265,25 @@
   <!-- 4. Tryout Değerlendirme Form Geçmişi -->
   <div class="glass-card" style="padding: 0; overflow: hidden;">
     <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-      <h3 class="card-title" style="margin: 0;"><span>📋</span> Tryout Değerlendirme Form Geçmişi</h3>
+      <h3 class="card-title" style="margin: 0;"><span>📋</span> <%= t('adminMembers.cardTryoutFormsTitle') %></h3>
       <span class="badge badge-primary">
-        <%= (selectedMember.tryout.forms || []).length %> Form
+        <%= (selectedMember.tryout?.forms || []).length %> <%= t('adminMembers.formSuffix') %>
       </span>
     </div>
     <div>
-      <% if (!selectedMember.tryout.forms || selectedMember.tryout.forms.length === 0) { %>
-        <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;">Bu kullanıcı için henüz tryout değerlendirme formu doldurulmamış.</p>
+      <% if (!selectedMember.tryout?.forms || selectedMember.tryout.forms.length === 0) { %>
+        <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;"><%= t('adminMembers.emptyFormsMsg') %></p>
       <% } else { %>
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
-                <th>Form Kodu</th>
-                <th>Tarih</th>
-                <th>Eski Seviye</th>
-                <th>Yeni Seviye</th>
-                <th>Değerlendiren</th>
-                <th>Durum</th>
+                <th><%= t('adminMembers.colFormCode') %></th>
+                <th><%= t('adminMembers.colDate') %></th>
+                <th><%= t('adminMembers.colPrevLevel') %></th>
+                <th><%= t('adminMembers.colNewLevel') %></th>
+                <th><%= t('adminMembers.colEvaluator') %></th>
+                <th><%= t('adminMembers.colStatus') %></th>
               </tr>
             </thead>
             <tbody>
@@ -291,16 +291,16 @@
                 <tr>
                   <td><code><%= f.formCode %></code></td>
                   <td style="font-size: 0.85rem; color: var(--text-muted);">
-                    <%= f.createdAt ? new Date(f.createdAt).toLocaleDateString('tr-TR') : '-' %>
+                    <%= f.createdAt ? new Date(f.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
                   </td>
                   <td><%= f.previousLevel %></td>
                   <td><strong style="color: #60a5fa;"><%= f.newLevel %></strong></td>
-                  <td style="font-size: 0.85rem; color: var(--text-secondary);">Yetkili: <%= f.staffId %></td>
+                  <td style="font-size: 0.85rem; color: var(--text-secondary);">ID: <%= f.staffId %></td>
                   <td>
                     <% if (f.cancelled) { %>
-                      <span class="badge badge-danger">İptal Edildi</span>
+                      <span class="badge badge-danger"><%= t('adminMembers.statusCancelled') %></span>
                     <% } else { %>
-                      <span class="badge badge-success">Geçerli</span>
+                      <span class="badge badge-success"><%= t('adminMembers.statusValid') %></span>
                     <% } %>
                   </td>
                 </tr>
@@ -322,16 +322,16 @@
           type="text"
           name="query"
           class="form-control"
-          placeholder="🔍 İsim, Discord kullanıcı adı, Roblox nicki veya ID ile ara..."
+          placeholder="<%= t('adminMembers.searchPlaceholder') %>"
           value="<%= query || '' %>"
         />
       </div>
       <button type="submit" class="btn btn-primary">
-        <span>Üye Ara</span>
+        <span><%= t('adminMembers.btnSearch') %></span>
       </button>
       <% if (query) { %>
         <a href="/yonetim/uyeler" class="btn btn-secondary">
-          <span>Temizle</span>
+          <span><%= t('adminMembers.btnClear') %></span>
         </a>
       <% } %>
     </form>
@@ -343,9 +343,9 @@
       <div style="width: 64px; height: 64px; border-radius: 20px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.25rem;">
         🔍
       </div>
-      <h3 style="color: #ffffff; font-size: 1.4rem; margin-bottom: 0.5rem;">Aradığınız kriterlere uygun üye bulunamadı</h3>
+      <h3 style="color: #ffffff; font-size: 1.4rem; margin-bottom: 0.5rem;"><%= t('adminMembers.noMembersFoundTitle') %></h3>
       <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto; font-size: 0.925rem;">
-        Lütfen farklı bir Discord kullanıcı adı, ID veya Roblox nicki girerek tekrar deneyiniz.
+        <%= t('adminMembers.noMembersFoundDesc') %>
       </p>
     </div>
   <% } else { %>
@@ -354,11 +354,11 @@
         <table class="table">
           <thead>
             <tr>
-              <th>Üye</th>
-              <th>Roblox Hesabı</th>
-              <th>Yetki Seviyesi</th>
-              <th>Ceza Puanı</th>
-              <th style="text-align: right;">İşlemler</th>
+              <th><%= t('adminMembers.colMember') %></th>
+              <th><%= t('adminMembers.colRobloxAccount') %></th>
+              <th><%= t('adminMembers.colAuthLevel') %></th>
+              <th><%= t('adminMembers.statPenalty') %></th>
+              <th style="text-align: right;"><%= t('adminMembers.colActions') %></th>
             </tr>
           </thead>
           <tbody>
@@ -382,31 +382,31 @@
                     <strong style="color: #60a5fa; font-size: 0.9rem;">@<%= m.registration.robloxUsername %></strong>
                     <div style="font-size: 0.775rem; color: var(--text-muted);"><%= m.registration.realName %></div>
                   <% } else { %>
-                    <span style="color: var(--text-muted); font-size: 0.85rem;">Kayıtsız</span>
+                    <span style="color: var(--text-muted); font-size: 0.85rem;"><%= t('profile.badgeUnregistered') %></span>
                   <% } %>
                 </td>
                 <td>
                   <% if (m.level === 'developer') { %>
-                    <span class="badge badge-danger">Developer</span>
+                    <span class="badge badge-danger"><%= t('profile.roleDeveloper') %></span>
                   <% } else if (m.level === 'yonetmenlik') { %>
-                    <span class="badge badge-warning">Yönetmenlik</span>
+                    <span class="badge badge-warning"><%= t('profile.roleManagement') %></span>
                   <% } else { %>
-                    <span class="badge badge-success">Üye</span>
+                    <span class="badge badge-success"><%= t('nav.roleMember') %></span>
                   <% } %>
                 </td>
                 <td>
                   <% if (m.warnings && m.warnings.points > 0) { %>
-                    <span class="badge badge-danger"><%= m.warnings.points %> Puan</span>
+                    <span class="badge badge-danger"><%= m.warnings.points %> <%= t('profile.pointsWord') %></span>
                   <% } else { %>
-                    <span class="badge badge-success">Temiz</span>
+                    <span class="badge badge-success"><%= t('adminMembers.clean') %></span>
                   <% } %>
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
                   <a href="/yonetim/uyeler/<%= m.id %>" class="btn btn-secondary btn-sm" style="margin-right: 6px;">
-                    <span>Detay / Sicil</span>
+                    <span><%= t('adminMembers.btnDetail') %></span>
                   </a>
                   <a href="/yonetim/uyari?targetUserId=<%= m.id %>" class="btn btn-danger btn-sm">
-                    <span>Ceza Ver</span>
+                    <span><%= t('adminMembers.btnWarn') %></span>
                   </a>
                 </td>
               </tr>

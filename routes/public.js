@@ -1,180 +1,196 @@
 const express = require('express');
 const router = express.Router();
-const { botApiClient, BotApiUnavailableError, BotApiError } = require('../services/botApiClient');
-const { getGroupedRules } = require('../config/rules.config');
-const { requireAuth } = require('../middlewares/auth');
-const { formLimiter } = require('../middlewares/rateLimiter');
+const { getGroupedRules } = require('../rules');
+const botApiClient = require('../services/botApiClient');
+const { requireLogin } = require('../middlewares/auth');
+const { verifyCsrfToken } = require('../middlewares/csrf');
+const { formActionLimiter } = require('../middlewares/rateLimiter');
+const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
 
 /**
  * GET /
- * Anasayfa - Klan tanıtımı ve güncel aktif üye sayısı
+ * Anasayfa: Klan tanıtımı ve canlı aktif üye istatistikleri.
  */
-router.get('/', async (req, res, next) => {
-  try {
-    let activeStats = { activeRegisteredCount: 0, onlineMembersCount: 0 };
-    try {
-      const helpStatus = await botApiClient.getHelpStatus(req.session?.user?.id || null);
-      activeStats = {
-        activeRegisteredCount: helpStatus.activeRegisteredCount || 0,
-        onlineMembersCount: helpStatus.onlineMembersCount || 0,
-      };
-    } catch (apiErr) {
-      // Anasayfa açılırken bot API çevrimdışı olsa bile sayfa düşmesin, varsayılan istatistikle açılsın
-      console.warn('[ANASAYFA UYARI] Bot API istatistiği alınamadı:', apiErr.message);
-    }
+router.get('/', async (req, res) => {
+  let activeStats = {
+    activeRegisteredCount: 0,
+    botOnline: true,
+  };
 
-    res.render('pages/home', {
-      title: 'Piyade Team | The Strongest Battlegrounds',
-      activeStats,
-    });
-  } catch (err) {
-    next(err);
+  try {
+    const [helpData, healthData] = await Promise.all([
+      botApiClient.getHelpStatus(req.session?.user?.id || null).catch(() => null),
+      botApiClient.checkHealth().catch(() => null),
+    ]);
+
+    if (helpData && typeof helpData.activeRegisteredCount === 'number') {
+      activeStats.activeRegisteredCount = helpData.activeRegisteredCount;
+    }
+    if (!healthData || healthData.status !== 'ok') {
+      activeStats.botOnline = false;
+    }
+  } catch (_) {
+    activeStats.botOnline = false;
   }
+
+  return res.render('pages/home', {
+    title: req.t('home.pageTitle'),
+    activeStats,
+  });
 });
 
 /**
  * GET /kurallar
- * Genel Kurallar - M1–M13, D1–D3, Y1–Y5 (rules.config.js'den beslenir)
+ * Genel Kurallar (M1-M13, D1-D3, Y1-Y5) - tek bir rules.js dosyasından beslenir (TR/EN).
  */
 router.get('/kurallar', (req, res) => {
-  const groupedRules = getGroupedRules();
-  res.render('pages/rules', {
-    title: 'Genel Kurallar | Piyade Team',
+  const groupedRules = getGroupedRules(req.lang || 'tr');
+
+  return res.render('pages/rules', {
+    title: req.t('rules.pageTitle'),
     groupedRules,
   });
 });
 
 /**
  * GET /etkilesim
- * Menü: Dart Rating, Meteors ve Scroll Reveal İnteraktif Alanı
+ * Anasayfa dışı özel interaktif bileşenler sayfası (Dart Rating, Meteors, Scroll Reveal Text).
  */
 router.get('/etkilesim', (req, res) => {
-  res.render('pages/interactive', {
-    title: '🎯 Atış & Gökyüzü | Piyade Team',
-  });
-});
-
-/**
- * GET /once-kayit-ol
- * Sunucuda olmayan veya sadece Kayıtsız rolünde olanlar için bilgilendirme ekranı
- */
-router.get('/once-kayit-ol', (req, res) => {
-  res.render('pages/not-registered', {
-    title: 'Kayıt Olmanız Gerekiyor | Piyade Team',
-    user: req.session?.user || null,
-    inGuild: req.session?.user?.inGuild ?? false,
+  return res.render('pages/interactive', {
+    title: req.t('interactive.pageTitle'),
   });
 });
 
 /**
  * GET /kayit
- * Site içi Kayıt Başvuru Ekranı
- * Önce Discord ile giriş istenir, ardından kullanıcının mevcut başvuru durumu sorgulanır.
+ * Site içi kayıt formu ve başvuru durumu ekranı.
  */
 router.get('/kayit', async (req, res, next) => {
   const user = req.session?.user;
 
-  // 1. Kullanıcı henüz Discord ile giriş yapmamışsa
-  if (!user) {
+  // Kullanıcı henüz Discord ile giriş yapmamışsa
+  if (!user || !user.id) {
     return res.render('pages/register', {
-      title: 'Kayıt Ol | Piyade Team',
+      title: req.t('register.pageTitle'),
       state: 'login_required',
-      user: null,
       statusData: null,
       error: null,
       success: null,
+      idempotencyKey: '',
     });
   }
 
-  // 2. Kullanıcı Discord ile giriş yapmışsa, Bot API'den başvuru durumunu al
   try {
     const statusData = await botApiClient.getRegistrationStatus(user.id);
 
-    res.render('pages/register', {
-      title: 'Kayıt Başvurusu | Piyade Team',
-      state: statusData.status, // 'approved' | 'pending' | 'rejected' | 'unregistered'
-      user,
+    return res.render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: statusData.state || 'none',
       statusData,
-      error: req.session.registerError || null,
-      success: req.session.registerSuccess || null,
-    });
-
-    // Flash mesajları temizle
-    req.session.registerError = null;
-    req.session.registerSuccess = null;
-  } catch (err) {
-    if (err instanceof BotApiUnavailableError) {
-      return next(err);
-    }
-    // API hatası durumunda formu yine de göster
-    res.render('pages/register', {
-      title: 'Kayıt Ol | Piyade Team',
-      state: 'unregistered',
-      user,
-      statusData: null,
-      error: `Durum sorgulanamadı: ${err.message}`,
+      error: null,
       success: null,
+      idempotencyKey: generateIdempotencyKey(req),
     });
+  } catch (err) {
+    return next(err);
   }
 });
 
 /**
  * POST /kayit
- * Site içi Kayıt Formu Gönderimi
+ * Kayıt başvurusunu Bot REST API'sine (POST /api/register) iletir.
+ * Madde 6: Tekil idempotency anahtarı ile çift gönderimi engeller.
  */
-router.post('/kayit', requireAuth, formLimiter, async (req, res, next) => {
+router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (req, res) => {
   const user = req.session.user;
   const { realName, gender, robloxInput } = req.body;
 
+  // Madde 6: Idempotency (Çift Gönderim) Kontrolü
+  const idemCheck = consumeIdempotencyKey(req);
+  if (!idemCheck.valid) {
+    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
+    return res.status(409).render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: currentStatus.state || 'none',
+      statusData: currentStatus,
+      error: req.t('errors.duplicateSubmission'),
+      success: null,
+      idempotencyKey: generateIdempotencyKey(req),
+    });
+  }
+
+  const cleanName = String(realName || '').trim();
+  const cleanGender = String(gender || '').trim();
+  const cleanRoblox = String(robloxInput || '').trim();
+
+  if (cleanName.length < 2 || cleanName.length > 32) {
+    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
+    return res.status(400).render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: currentStatus.state || 'none',
+      statusData: currentStatus,
+      error: req.t('register.errRealNameLength'),
+      success: null,
+      idempotencyKey: generateIdempotencyKey(req),
+    });
+  }
+
+  if (cleanGender !== 'Erkek' && cleanGender !== 'Kız') {
+    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
+    return res.status(400).render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: currentStatus.state || 'none',
+      statusData: currentStatus,
+      error: req.t('register.errSelectGender'),
+      success: null,
+      idempotencyKey: generateIdempotencyKey(req),
+    });
+  }
+
+  if (!cleanRoblox) {
+    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
+    return res.status(400).render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: currentStatus.state || 'none',
+      statusData: currentStatus,
+      error: req.t('register.errRobloxRequired'),
+      success: null,
+      idempotencyKey: generateIdempotencyKey(req),
+    });
+  }
+
   try {
-    // 1. Girdi Kontrolleri
-    if (!realName || realName.trim().length < 2 || realName.trim().length > 32) {
-      req.session.registerError = 'Gerçek adınız 2 ila 32 karakter arasında olmalıdır.';
-      return res.redirect('/kayit');
-    }
-
-    if (!gender) {
-      req.session.registerError = 'Lütfen cinsiyet seçimi yapınız.';
-      return res.redirect('/kayit');
-    }
-
-    if (!robloxInput || robloxInput.trim().length < 1) {
-      req.session.registerError = 'Lütfen Roblox kullanıcı adınızı, ID\'nizi veya profil bağlantınızı giriniz.';
-      return res.redirect('/kayit');
-    }
-
-    // 2. Bot API'ye Başvuru İsteği Gönder (POST /api/register)
-    const result = await botApiClient.createRegistration({
+    const result = await botApiClient.submitRegistration({
       discordId: user.id,
-      realName: realName.trim(),
-      gender: gender.trim(),
-      robloxInput: robloxInput.trim(),
+      realName: cleanName,
+      gender: cleanGender,
+      robloxInput: cleanRoblox,
     });
 
-    req.session.registerSuccess =
-      result.message || 'Kayıt başvurunuz başarıyla oluşturuldu ve yetkili onayına gönderildi!';
+    const updatedStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({
+      state: 'pending',
+      application: result.application,
+    }));
 
-    // JSON isteği ise JSON döndür, normal form ise yönlendir
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
-      return res.json({ success: true, message: req.session.registerSuccess, result });
-    }
-
-    return res.redirect('/kayit');
+    return res.render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: updatedStatus.state || 'pending',
+      statusData: updatedStatus,
+      error: null,
+      success: result.message || req.t('register.msgSubmittedSuccess'),
+      idempotencyKey: generateIdempotencyKey(req),
+    });
   } catch (err) {
-    console.error('[KAYIT FORMU HATASI]:', err.message);
-    const errorMsg =
-      err instanceof BotApiError
-        ? err.message
-        : err instanceof BotApiUnavailableError
-        ? 'Bot API servisine şu anda ulaşılamıyor. Lütfen daha sonra tekrar deneyiniz.'
-        : `Başvuru sırasında hata oluştu: ${err.message}`;
-
-    if (req.xhr || req.headers.accept?.includes('application/json')) {
-      return res.status(err.status || 400).json({ error: errorMsg });
-    }
-
-    req.session.registerError = errorMsg;
-    return res.redirect('/kayit');
+    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
+    return res.status(err.statusCode || 400).render('pages/register', {
+      title: req.t('register.pageTitle'),
+      state: currentStatus.state || 'none',
+      statusData: currentStatus,
+      error: err.message,
+      success: null,
+      idempotencyKey: generateIdempotencyKey(req),
+    });
   }
 });
 

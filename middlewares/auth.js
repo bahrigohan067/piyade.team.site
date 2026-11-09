@@ -57,10 +57,21 @@ async function syncRolesMiddleware(req, res, next) {
   return next();
 }
 
+function markNoIndex(req, res) {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  if (req && typeof req.applySeo === 'function') {
+    req.applySeo({ noindex: true, isPublic: false });
+  } else if (res.locals && res.locals.seo) {
+    res.locals.seo.noindex = true;
+    res.locals.seo.isPublic = false;
+  }
+}
+
 /**
  * Sadece Discord ile giriş yapmış kullanıcıların erişebileceği rotalar için.
  */
 function requireLogin(req, res, next) {
+  markNoIndex(req, res);
   if (!req.session || !req.session.user || !req.session.user.id) {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/auth/discord');
@@ -73,6 +84,7 @@ function requireLogin(req, res, next) {
  * Sunucuda olmayan veya sadece Kayıtsız olan kullanıcıya "Önce Kayıt Ol" ekranını gösterir.
  */
 function requireRegisteredMember(req, res, next) {
+  markNoIndex(req, res);
   if (!req.session || !req.session.user || !req.session.user.id) {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/auth/discord');
@@ -81,7 +93,7 @@ function requireRegisteredMember(req, res, next) {
   const user = req.session.user;
   if (!isRegisteredMember(user.roles, user.level)) {
     return res.status(403).render('pages/not-registered', {
-      title: req.t ? req.t('notRegistered.pageTitle') : 'Önce Kayıt Ol — Piyade Team | TSB',
+      title: req.t ? req.t('notRegistered.pageTitle') : 'Önce Kayıt Ol — Piyade Clan | TSB',
       inGuild: Boolean(user.inGuild),
     });
   }
@@ -93,6 +105,7 @@ function requireRegisteredMember(req, res, next) {
  * Yönetim (Yönetmenlik 1559614111128490044 + Developer 1561777507223601353) rotaları için sunucu tarafı yetki kontrolü.
  */
 function requireManagement(req, res, next) {
+  markNoIndex(req, res);
   if (!req.session || !req.session.user || !req.session.user.id) {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/auth/discord');
@@ -101,7 +114,7 @@ function requireManagement(req, res, next) {
   const user = req.session.user;
   if (!isManagement(user.roles, user.level)) {
     return res.status(403).render('errors/403', {
-      title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim — Piyade Team | TSB',
+      title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim — Piyade Clan | TSB',
       message: req.t
         ? req.t('errors.403DefaultMsg')
         : 'Bu yönetim paneline erişmek için Yönetmenlik veya Developer yetkisine sahip olmanız gerekmektedir.',
@@ -116,6 +129,7 @@ function requireManagement(req, res, next) {
  * Kullanıcı Discord sunucusundan çıktıysa veya yönetim yetkisi alındıysa oturumu derhal sonlandırır.
  */
 async function requireFreshManagement(req, res, next) {
+  markNoIndex(req, res);
   if (!req.session || !req.session.user || !req.session.user.id) {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/auth/discord');

@@ -39,8 +39,16 @@ function generateErrorCode() {
  * 404 Bulunamadı Yakalayıcı
  */
 function notFoundHandler(req, res) {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  if (req && typeof req.applySeo === 'function') {
+    req.applySeo({ noindex: true, isPublic: false });
+  } else if (res.locals && res.locals.seo) {
+    res.locals.seo.noindex = true;
+    res.locals.seo.isPublic = false;
+  }
+
   res.status(404).render('errors/404', {
-    title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı — Piyade Team | TSB',
+    title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı — Piyade Clan | TSB',
     url: req.originalUrl,
   });
 }
@@ -67,6 +75,14 @@ function globalErrorHandler(err, req, res, next) {
   console.error(`💬 Hata Mesajı : ${safeMessage}`);
   console.error(`📄 Stack İzleri:\n${safeStack}`);
   console.error('================================================================');
+
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  if (req && typeof req.applySeo === 'function') {
+    req.applySeo({ noindex: true, isPublic: false });
+  } else if (res.locals && res.locals.seo) {
+    res.locals.seo.noindex = true;
+    res.locals.seo.isPublic = false;
+  }
 
   // Bot API'ye ulaşılamıyorsa 500 yerine özel "bot-offline" sayfasını göster
   if ((err instanceof BotApiError && err.isOffline) || (err && err.isOffline)) {

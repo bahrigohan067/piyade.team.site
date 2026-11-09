@@ -65,6 +65,9 @@ Proje kök dizininde `.env.example` dosyasını `.env` olarak kopyalayıp veya *
 | `PORT` | `3001` | Web sitesinin çalışacağı port (Railway otomatik atar, `1–65535` arası tam sayı) | `3001` |
 | `NODE_ENV` | `development` | Çalışma ortamı (`development` veya `production`; Railway'de `production` önerilir) | `production` |
 | `RAILWAY_VOLUME_MOUNT_PATH` | `.sessions` (yerel) | Railway Volume bağlandığında Railway tarafından otomatik sağlanan kalıcı disk dizini | `/data` |
+| `GOOGLE_SITE_VERIFICATION` | *(boş)* | Google Search Console HTML etiketi doğrulama kodu (`content` değeri). Tanımlıysa herkese açık sayfalarda `<meta name="google-site-verification" content="...">` basılır; boşsa hiçbir şey basılmaz. | `abc123xyz...` |
+| `DISCORD_INVITE_URL` | *(boş)* | Resmi Discord sunucu davet bağlantısı (JSON-LD `Organization.sameAs` ve alt bilgi için) | `https://discord.gg/...` |
+| `ROBLOX_GROUP_URL` | *(boş)* | Resmi Roblox klan/topluluk sayfası bağlantısı (JSON-LD `Organization.sameAs` için) | `https://www.roblox.com/communities/...` |
 
 ---
 

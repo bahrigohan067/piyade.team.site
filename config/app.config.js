@@ -13,6 +13,9 @@ const OPTIONAL_ENV_KEYS = [
   'PORT',
   'NODE_ENV',
   'RAILWAY_VOLUME_MOUNT_PATH',
+  'GOOGLE_SITE_VERIFICATION',
+  'DISCORD_INVITE_URL',
+  'ROBLOX_GROUP_URL',
 ];
 
 function isValidHttpUrl(value) {
@@ -106,6 +109,9 @@ const appConfig = {
   // Oturum Güvenliği & Kalıcı Depolama (Railway Volume)
   SESSION_SECRET: process.env.SESSION_SECRET || '',
   RAILWAY_VOLUME_MOUNT_PATH: (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim(),
+
+  // Google Search Console Doğrulama Kodu (Opsiyonel)
+  GOOGLE_SITE_VERIFICATION: (process.env.GOOGLE_SITE_VERIFICATION || '').trim(),
 
   // Bot REST API Bağlantısı (Asla istemciye sızdırılmaz)
   BOT_API_URL: (process.env.BOT_API_URL || 'http://localhost:3000').replace(/\/+$/, ''),

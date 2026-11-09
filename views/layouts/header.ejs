@@ -1,9 +1,109 @@
 <!DOCTYPE html>
-<html lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>" data-sidebar="open">
+<%
+  const fallbackBrand = (typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade Clan | TSB';
+  const activeLang = (typeof seo !== 'undefined' && seo.htmlLang) ? seo.htmlLang : (typeof lang !== 'undefined' ? lang : 'tr');
+  const pageSeo = (typeof seo !== 'undefined' && seo) ? seo : {
+    brandName: fallbackBrand,
+    shortBrandName: 'Piyade Clan',
+    alternateName: 'Piyade Team',
+    assetVersion: '1.2.0',
+    baseUrl: 'http://localhost:3001',
+    htmlLang: activeLang,
+    title: typeof title !== 'undefined' ? title : t('meta.defaultTitle'),
+    description: fallbackBrand,
+    canonicalUrl: 'http://localhost:3001/',
+    alternateUrls: {
+      tr: 'http://localhost:3001/tr',
+      en: 'http://localhost:3001/en',
+      xDefault: 'http://localhost:3001/',
+    },
+    ogType: 'website',
+    ogLocale: activeLang === 'en' ? 'en_US' : 'tr_TR',
+    ogLocaleAlternate: activeLang === 'en' ? 'tr_TR' : 'en_US',
+    ogImageUrl: 'http://localhost:3001/images/og-cover.png',
+    logoUrl: 'http://localhost:3001/images/logo.png',
+    noindex: true,
+    isPublic: false,
+    googleSiteVerification: '',
+    sameAs: [],
+  };
+  const effectiveTitle = (!pageSeo.noindex && pageSeo.title) ? pageSeo.title : (typeof title !== 'undefined' && title ? title : pageSeo.title);
+%>
+<html lang="<%= pageSeo.htmlLang %>" data-sidebar="open">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof title !== 'undefined' ? title : t('meta.defaultTitle') %></title>
+  <title><%= effectiveTitle %></title>
+  <meta name="description" content="<%= pageSeo.description %>">
+  <meta name="robots" content="<%= pageSeo.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' %>">
+
+  <% if (!pageSeo.noindex) { %>
+    <!-- Canonical & Çok Dilli (hreflang) Etiketleri -->
+    <link rel="canonical" href="<%= pageSeo.canonicalUrl %>">
+    <link rel="alternate" hreflang="tr" href="<%= pageSeo.alternateUrls.tr %>">
+    <link rel="alternate" hreflang="en" href="<%= pageSeo.alternateUrls.en %>">
+    <link rel="alternate" hreflang="x-default" href="<%= pageSeo.alternateUrls.xDefault %>">
+
+    <!-- Open Graph (Discord, Facebook, WhatsApp) -->
+    <meta property="og:type" content="<%= pageSeo.ogType %>">
+    <meta property="og:site_name" content="<%= pageSeo.brandName %>">
+    <meta property="og:title" content="<%= effectiveTitle %>">
+    <meta property="og:description" content="<%= pageSeo.description %>">
+    <meta property="og:url" content="<%= pageSeo.canonicalUrl %>">
+    <meta property="og:image" content="<%= pageSeo.ogImageUrl %>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="<%= pageSeo.brandName %>">
+    <meta property="og:locale" content="<%= pageSeo.ogLocale %>">
+    <meta property="og:locale:alternate" content="<%= pageSeo.ogLocaleAlternate %>">
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= effectiveTitle %>">
+    <meta name="twitter:description" content="<%= pageSeo.description %>">
+    <meta name="twitter:image" content="<%= pageSeo.ogImageUrl %>">
+
+    <% if (pageSeo.googleSiteVerification) { %>
+      <!-- Google Search Console Doğrulama Etiketi -->
+      <meta name="google-site-verification" content="<%= pageSeo.googleSiteVerification %>">
+    <% } %>
+
+    <!-- JSON-LD Yapılandırılmış Veri (Organization & WebSite) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "<%= pageSeo.baseUrl %>/#organization",
+          "name": "<%= pageSeo.brandName %>",
+          "alternateName": "<%= pageSeo.alternateName %>",
+          "url": "<%= pageSeo.baseUrl %>",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "<%= pageSeo.logoUrl %>",
+            "width": 512,
+            "height": 512
+          },
+          "image": "<%= pageSeo.ogImageUrl %>",
+          "description": "<%= pageSeo.description %>",
+          "sameAs": [<% if (Array.isArray(pageSeo.sameAs)) { pageSeo.sameAs.forEach(function (link, idx) { %>"<%= link %>"<%= idx < pageSeo.sameAs.length - 1 ? ', ' : '' %><% }); } %>]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "<%= pageSeo.baseUrl %>/#website",
+          "name": "<%= pageSeo.brandName %>",
+          "alternateName": "<%= pageSeo.alternateName %>",
+          "url": "<%= pageSeo.baseUrl %>",
+          "inLanguage": ["tr", "en"],
+          "publisher": {
+            "@id": "<%= pageSeo.baseUrl %>/#organization"
+          }
+        }
+      ]
+    }
+    </script>
+  <% } %>
 
   <!-- Boyamadan Önce (Zero-Flicker) Sol Menü Açık/Kapalı Tercihini Uygula -->
   <script>
@@ -18,13 +118,15 @@
   </script>
 
   <!-- Favicon & Fonts -->
+  <link rel="icon" type="image/png" href="/images/logo.png?v=<%= pageSeo.assetVersion %>">
+  <link rel="apple-touch-icon" href="/images/logo.png?v=<%= pageSeo.assetVersion %>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 
   <!-- CSS Dosyaları (Tüm renkler yalnızca theme.css değişkenlerinden okunur) -->
-  <link rel="stylesheet" href="/css/theme.css">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/theme.css?v=<%= pageSeo.assetVersion %>">
+  <link rel="stylesheet" href="/css/style.css?v=<%= pageSeo.assetVersion %>">
 </head>
 <body
   data-lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>"
@@ -70,8 +172,7 @@
         <div class="brand-icon brand-icon-sm">
           <div class="brand-icon-inner">⚔️</div>
         </div>
-        <span class="brand-title-text">PİYADE <span class="gradient-text">TEAM</span></span>
-        <span class="badge badge-primary badge-xs">TSB</span>
+        <span class="brand-title-text"><%= pageSeo.brandName %></span>
       </a>
 
       <div class="mobile-topbar-actions">
@@ -95,8 +196,7 @@
           </div>
           <div class="sidebar-brand-copy">
             <div class="sidebar-brand-row">
-              <span class="sidebar-brand-title">PİYADE <span class="gradient-text">TEAM</span></span>
-              <span class="badge badge-primary badge-xs">TSB</span>
+              <span class="sidebar-brand-title"><%= pageSeo.brandName %></span>
             </div>
             <div class="sidebar-brand-sub"><%= t('meta.brandSubtitle') %></div>
           </div>
@@ -233,6 +333,10 @@
           <img
             src="<%= currentUser.avatarUrl %>"
             alt="<%= currentUser.displayName %>"
+            width="38"
+            height="38"
+            loading="lazy"
+            decoding="async"
             class="sidebar-user-avatar"
           />
           <div class="sidebar-user-info">
@@ -279,8 +383,7 @@
           </div>
           <div>
             <div class="brand-header-row">
-              <span class="brand-title-text">PİYADE <span class="gradient-text">TEAM</span></span>
-              <span class="badge badge-primary badge-xs">TSB</span>
+              <span class="brand-title-text"><%= pageSeo.brandName %></span>
             </div>
             <div class="brand-subtitle-text"><%= t('meta.brandSubtitle') %></div>
           </div>
@@ -312,8 +415,8 @@
         <!-- Sağ Aksiyon Alanı: Dil Seçici, Canlı Durum ve Giriş Butonu -->
         <div class="nav-actions">
           <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
-            <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
-            <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+            <a href="<%= !pageSeo.noindex && pageSeo.alternateUrls ? pageSeo.alternateUrls.tr : '/lang/tr' %>" hreflang="tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
+            <a href="<%= !pageSeo.noindex && pageSeo.alternateUrls ? pageSeo.alternateUrls.en : '/lang/en' %>" hreflang="en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
           </div>
 
           <div class="nav-status-pill hidden-sm">

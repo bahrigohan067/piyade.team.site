@@ -4,8 +4,10 @@ const session = require('express-session');
 const helmet = require('helmet');
 
 const appConfig = require('./config/app.config');
+const siteConfig = require('./config/site.config');
 const PersistentSessionStore = require('./services/sessionStore');
 const botApiClient = require('./services/botApiClient');
+const { compressionMiddleware } = require('./middlewares/compression');
 const { globalLimiter } = require('./middlewares/rateLimiter');
 const { i18nMiddleware, handleLanguageSwitch } = require('./middlewares/i18n');
 const { csrfProtection } = require('./middlewares/csrf');
@@ -61,8 +63,29 @@ function createServerApp() {
     })
   );
 
-  // Statik Dosyalar (CSS, JS, Görseller — public/uploads kaldırıldı)
-  app.use(express.static(path.join(__dirname, 'public')));
+  // Gzip / Brotli Yanıt Sıkıştırması (Core Web Vitals / Hız)
+  app.use(compressionMiddleware);
+
+  // Statik Dosyalar (CSS, JS, Görseller — uzun süreli önbellek başlıkları ile)
+  app.use(
+    express.static(path.join(__dirname, 'public'), {
+      etag: true,
+      lastModified: true,
+      setHeaders(res, filePath) {
+        const reqUrl = (res.req && res.req.originalUrl) || '';
+        const normalizedFile = String(filePath || '').replace(/\\/g, '/');
+        if (
+          reqUrl.includes('?v=') ||
+          normalizedFile.includes('/public/vendor/') ||
+          normalizedFile.includes('/public/images/')
+        ) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        }
+      },
+    })
+  );
 
   // Gövde Ayrıştırıcılar (Form & JSON)
   app.use(express.urlencoded({ extended: true, limit: '2mb' }));
@@ -145,7 +168,7 @@ if (require.main === module) {
   const app = createServerApp();
   app.listen(appConfig.PORT, () => {
     console.log('====================================================');
-    console.log(`🌐 Piyade Team | TSB Web Sitesi Aktif!`);
+    console.log(`🌐 ${siteConfig.BRAND_NAME} Web Sitesi Aktif!`);
     console.log(`📍 Adres: http://localhost:${appConfig.PORT}`);
     console.log('====================================================');
 

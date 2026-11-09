@@ -183,6 +183,35 @@
 </section>
 
 <!-- ==============================================================================
+ * 2.5 SUNUCU TARAFLI KLAN TANITIM METNİ (SEO & KURUMSAL GENEL BAKIŞ — 185+ KELİME)
+ * ============================================================================== -->
+<%
+  const seoIntro = (typeof seo !== 'undefined' && seo && seo.homeSeoIntro)
+    ? seo.homeSeoIntro
+    : (typeof siteConfig !== 'undefined' && siteConfig.HOME_SEO_INTRO ? siteConfig.HOME_SEO_INTRO.tr : null);
+  const homeDiscordLink = (typeof seo !== 'undefined' && seo && Array.isArray(seo.sameAs) && seo.sameAs.length > 0)
+    ? seo.sameAs[0]
+    : '/kayit';
+%>
+<% if (seoIntro) { %>
+<section aria-labelledby="homeSeoIntroHeading" style="margin-bottom: 4rem;">
+  <article class="glass-card" style="padding: 2.25rem; border-left: 4px solid var(--accent-primary);">
+    <div style="margin-bottom: 1rem;">
+      <span class="badge badge-primary"><%= seoIntro.badge %></span>
+    </div>
+    <h2 id="homeSeoIntroHeading" style="font-size: clamp(1.35rem, 2.6vw, 1.85rem); margin-bottom: 1.15rem;">
+      <%= seoIntro.heading %>
+    </h2>
+    <div style="display: flex; flex-direction: column; gap: 1rem; color: var(--text-secondary); font-size: 0.98rem; line-height: 1.75;">
+      <% seoIntro.paragraphs.forEach(function (para) { %>
+        <p style="margin: 0;"><%= para %></p>
+      <% }); %>
+    </div>
+  </article>
+</section>
+<% } %>
+
+<!-- ==============================================================================
  * 3. SCROLL REVEAL METNİ (KLAN MANİFESTOSU)
  * ============================================================================== -->
 <section class="scroll-reveal-section" style="padding: 4rem 1rem 5rem;">
@@ -221,7 +250,7 @@
     </p>
   </div>
   <div style="display: flex; gap: 1rem; align-items: center;">
-    <a href="https://discord.gg" target="_blank" rel="noopener" class="btn btn-discord">
+    <a href="<%= homeDiscordLink %>" <% if (homeDiscordLink.startsWith('http')) { %>target="_blank" rel="noopener"<% } %> class="btn btn-discord">
       <span><%= t('home.discordCtaBtn') %></span>
     </a>
   </div>

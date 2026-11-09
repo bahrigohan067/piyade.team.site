@@ -1928,9 +1928,24 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAeroShards);
-  } else {
+  let hasStarted = false;
+  function startAeroShardsOnce() {
+    if (hasStarted) return;
+    hasStarted = true;
     initAeroShards();
+  }
+
+  function scheduleDeferredStart() {
+    if (typeof global.requestIdleCallback === 'function') {
+      global.requestIdleCallback(startAeroShardsOnce, { timeout: 600 });
+    } else {
+      global.setTimeout(startAeroShardsOnce, 80);
+    }
+  }
+
+  if (document.readyState === 'complete') {
+    scheduleDeferredStart();
+  } else {
+    global.addEventListener('load', scheduleDeferredStart, { once: true });
   }
 })(window);

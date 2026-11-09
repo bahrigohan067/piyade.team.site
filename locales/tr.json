@@ -1,6 +1,6 @@
 {
   "meta": {
-    "defaultTitle": "Piyade Team | The Strongest Battlegrounds",
+    "defaultTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Klanı",
     "brandSubtitle": "Roblox Topluluk & Savaş Portalı"
   },
   "nav": {
@@ -26,13 +26,13 @@
   "footer": {
     "description": "The Strongest Battlegrounds topluluk ve klan yönetim platformu. Güvenli Discord botu REST API senkronu ile 7/24 aktif.",
     "discordServer": "Discord Sunucusu",
-    "copyright": "Piyade Team. Tüm hakları saklıdır."
+    "copyright": "Tüm hakları saklıdır."
   },
   "home": {
-    "pageTitle": "Piyade Team | TSB — Resmi Klan & Topluluk Portalı",
-    "pillTitle": "Piyade Team Web Portalı",
+    "pageTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Klanı",
+    "pillTitle": "Piyade Clan | TSB Web Portalı",
     "pillSubtitle": "The Strongest Battlegrounds",
-    "heroTitleLine1": "Piyade Team",
+    "heroTitleLine1": "Piyade Clan | TSB",
     "heroTitleLine2": "The Strongest Battlegrounds'ın",
     "heroTitleLine3": "En Prestijli Savaş Klanı",
     "heroSubtitle": "Roblox TSB evreninde birlik, rekabet ve sarsılmaz disiplini buluşturan elit savaş klanı. Seviyeni kanıtla, VS kapışmalarında yüksel ve klanınla zaferin tadını çıkar.",
@@ -55,7 +55,7 @@
     "statBackupValue": "7/24 HAZIR",
     "statBackupDesc": "Bot Entegre Hızlı Çağrı",
     "featuresBadge": "Klan Özellikleri",
-    "featuresTitle": "Piyade Team'i Güçlü Kılan Ayrıcalıklar",
+    "featuresTitle": "Piyade Clan | TSB'yi Güçlü Kılan Ayrıcalıklar",
     "featuresSubtitle": "Roblox ve Discord altyapımız, botumuzun güçlü REST API'si ile kesintisiz olarak senkronize çalışır.",
     "feat1Title": "37 Kademeli Tryout",
     "feat1Desc": "Low weak 4 seviyesinden High strong 0 zirvesine uzanan profesyonel yetenek değerlendirme hiyerarşisi.",
@@ -72,7 +72,7 @@
     "manifestoBadge": "Piyade Manifestosu",
     "manifestoLine1": "Hız için inşa edildi.",
     "manifestoLine2": "Disiplinle yoğruldu.",
-    "manifestoLine3": "Piyade Team | TSB Zirvesi.",
+    "manifestoLine3": "Piyade Clan | TSB Zirvesi.",
     "meteorsTitle": "Make a wish.",
     "meteorsSubtitle": "Click the sky to call one down. (Gökyüzüne tıkla, yıldızını kaydır.)",
     "discordCtaTitle": "Discord Sunucumuza Katılın",
@@ -80,9 +80,9 @@
     "discordCtaBtn": "Discord Sunucusuna Git →"
   },
   "rules": {
-    "pageTitle": "Genel Kurallar — Piyade Team | TSB",
+    "pageTitle": "Genel Kurallar ve Disiplin Yönetmeliği | Piyade Clan | TSB",
     "badgeTop": "Disiplin & Topluluk Standartları",
-    "heading": "📜 Piyade Team Genel Kuralları",
+    "heading": "📜 Piyade Clan | TSB Genel Kuralları",
     "subheading": "Sunucumuzun huzurunu, saygılı rekabet ortamını ve adil yönetim düzenini korumak amacıyla belirlenen maddeler aşağıda listelenmiştir. Kurallar tek bir merkezi dosyadan (rules.js) beslenir.",
     "searchPlaceholder": "🔍 Kural kodu veya anahtar kelime ile ara (ör: M1, saygı, chat, jail)...",
     "filterAll": "Tümü",

@@ -1,4 +1,5 @@
 const appConfig = require('../config/app.config');
+const siteConfig = require('../config/site.config');
 const trLocale = require('../locales/tr.json');
 const enLocale = require('../locales/en.json');
 
@@ -108,31 +109,69 @@ function setLanguageCookie(res, lang) {
 }
 
 /**
- * Çok Dilli (i18n) Middleware
+ * Çok Dilli (i18n) ve SEO Meta Middleware
+ * - /tr, /en URL öneklerini ve ?lang=tr|en sorgu parametrelerini doğrudan destekler.
+ * - Çerez ve Accept-Language yalnızca URL'de dil belirtilmediğinde varsayılan dil için kullanılır.
+ * - Her istek için res.locals.seo ve res.locals.siteConfig nesnelerini hazırlar.
+ * - Girişli/özel sayfalarda otomatik olarak X-Robots-Tag: noindex, nofollow başlığı ekler.
  */
 function i18nMiddleware(req, res, next) {
-  // 1. Önce ?lang=tr|en sorgu parametresi varsa çereze kaydet
+  const originalPath = req.path || '/';
+  const prefixMatch = originalPath.match(/^\/(tr|en)(?:(\/.*))?$/i);
   const queryLang = req.query && req.query.lang ? String(req.query.lang).toLowerCase() : null;
-  let activeLang = null;
 
-  if (queryLang && SUPPORTED_LANGS.includes(queryLang)) {
+  let activeLang = null;
+  let langPrefix = null;
+  let strippedPath = originalPath;
+
+  if (prefixMatch) {
+    langPrefix = prefixMatch[1].toLowerCase();
+    activeLang = langPrefix;
+    strippedPath = prefixMatch[2] || '/';
+    setLanguageCookie(res, activeLang);
+
+    // Express rotalarının (/ , /kurallar, /kayit, /etkilesim) aynı şekilde eşleşmesi için iç URL'yi normalize et
+    const queryIndex = req.url.indexOf('?');
+    const querySuffix = queryIndex !== -1 ? req.url.slice(queryIndex) : '';
+    req.url = `${strippedPath}${querySuffix}`;
+  } else if (queryLang && SUPPORTED_LANGS.includes(queryLang)) {
     activeLang = queryLang;
+    langPrefix = queryLang;
     setLanguageCookie(res, activeLang);
   } else {
-    // 2. Çerezden ('lang') kontrol et
     const cookieLang = parseCookieHeader(req.headers.cookie, 'lang');
     if (cookieLang && SUPPORTED_LANGS.includes(cookieLang.toLowerCase())) {
       activeLang = cookieLang.toLowerCase();
     } else {
-      // 3. Varsayılan olarak Accept-Language başlığından algıla
       activeLang = detectFromAcceptLanguage(req.headers['accept-language']);
     }
   }
 
   req.lang = activeLang;
+  req.langPrefix = langPrefix;
+  req.canonicalRoutePath = siteConfig.normalizeRoutePath(strippedPath);
+
   res.locals.lang = activeLang;
+  res.locals.siteConfig = siteConfig;
   req.t = (key, fallback) => translate(activeLang, key, fallback);
   res.locals.t = req.t;
+
+  const seo = siteConfig.buildPageSeo(req);
+  res.locals.seo = seo;
+
+  // Giriş gerektiren veya herkese açık olmayan sayfalara otomatik X-Robots-Tag: noindex, nofollow uygula
+  if (seo.noindex) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  }
+
+  req.applySeo = (overrides = {}) => {
+    const updated = siteConfig.buildPageSeo(req, overrides);
+    res.locals.seo = updated;
+    if (updated.noindex) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+    return updated;
+  };
 
   next();
 }
@@ -144,6 +183,8 @@ function handleLanguageSwitch(req, res) {
   const requested = String(req.params.code || '').toLowerCase();
   const targetLang = SUPPORTED_LANGS.includes(requested) ? requested : 'tr';
 
+  // /lang/* yolu arama motorları tarafından indekslenmemelidir
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   setLanguageCookie(res, targetLang);
 
   // Güvenli açık yönlendirme (open-redirect) kontrolü: sadece site içi yollara yönlendir
@@ -158,6 +199,12 @@ function handleLanguageSwitch(req, res) {
     }
   } catch (_) {
     redirectPath = '/';
+  }
+
+  const cleanRoute = siteConfig.normalizeRoutePath(redirectPath);
+  if (siteConfig.isPublicIndexablePath(cleanRoute)) {
+    const suffix = cleanRoute === '/' ? '' : cleanRoute;
+    return res.redirect(`/${targetLang}${suffix}`);
   }
 
   return res.redirect(redirectPath);

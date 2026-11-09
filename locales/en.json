@@ -1,6 +1,6 @@
 {
   "meta": {
-    "defaultTitle": "Piyade Team | The Strongest Battlegrounds",
+    "defaultTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Clan",
     "brandSubtitle": "Roblox Community & Battle Portal"
   },
   "nav": {
@@ -26,13 +26,13 @@
   "footer": {
     "description": "The Strongest Battlegrounds community and clan management platform. Active 24/7 with secure Discord bot REST API synchronization.",
     "discordServer": "Discord Server",
-    "copyright": "Piyade Team. All rights reserved."
+    "copyright": "All rights reserved."
   },
   "home": {
-    "pageTitle": "Piyade Team | TSB — Official Clan & Community Portal",
-    "pillTitle": "Piyade Team Web Portal",
+    "pageTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Clan",
+    "pillTitle": "Piyade Clan | TSB Web Portal",
     "pillSubtitle": "The Strongest Battlegrounds",
-    "heroTitleLine1": "Piyade Team",
+    "heroTitleLine1": "Piyade Clan | TSB",
     "heroTitleLine2": "The Most Prestigious Battle Clan",
     "heroTitleLine3": "in The Strongest Battlegrounds",
     "heroSubtitle": "An elite battle clan uniting camaraderie, competition, and unwavering discipline in the Roblox TSB universe. Prove your tier, rise in official VS matches, and claim victory with your clan.",
@@ -55,7 +55,7 @@
     "statBackupValue": "24/7 READY",
     "statBackupDesc": "Bot-Integrated Instant Call",
     "featuresBadge": "Clan Highlights",
-    "featuresTitle": "What Makes Piyade Team Unstoppable",
+    "featuresTitle": "What Makes Piyade Clan | TSB Unstoppable",
     "featuresSubtitle": "Our Roblox and Discord infrastructure runs in real-time synchronization with our bot's REST API.",
     "feat1Title": "37-Tier Tryout System",
     "feat1Desc": "A professional skill evaluation hierarchy spanning from Low weak 4 all the way to the pinnacle of High strong 0.",
@@ -72,7 +72,7 @@
     "manifestoBadge": "Piyade Manifesto",
     "manifestoLine1": "Built for speed.",
     "manifestoLine2": "Forged in discipline.",
-    "manifestoLine3": "Piyade Team | Apex of TSB.",
+    "manifestoLine3": "Piyade Clan | TSB — Apex of TSB.",
     "meteorsTitle": "Make a wish.",
     "meteorsSubtitle": "Click the sky to call one down.",
     "discordCtaTitle": "Join Our Official Discord Server",
@@ -80,9 +80,9 @@
     "discordCtaBtn": "Join Discord Server →"
   },
   "rules": {
-    "pageTitle": "General Rules — Piyade Team | TSB",
+    "pageTitle": "Official Clan Rules & Code of Conduct | Piyade Clan | TSB",
     "badgeTop": "Discipline & Community Standards",
-    "heading": "📜 Piyade Team General Rules",
+    "heading": "📜 Piyade Clan | TSB General Rules",
     "subheading": "The articles below are established to preserve peace, respectful competition, and fair administration across our server. All rules are served from a single central configuration (rules.js).",
     "searchPlaceholder": "🔍 Search by rule code or keyword (e.g., M1, respect, spam, jail)...",
     "filterAll": "All",

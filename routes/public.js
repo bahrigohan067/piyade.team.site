@@ -1,11 +1,104 @@
 const express = require('express');
 const router = express.Router();
+const siteConfig = require('../config/site.config');
 const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
 const { requireLogin } = require('../middlewares/auth');
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
 const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
+
+/**
+ * GET /robots.txt
+ * Arama motoru botları için tarama izinleri ve dinamik Sitemap adresi.
+ * Yalnızca herkese açık sayfalar taranabilir; yönetim, profil, tryout, takviye ve auth kapalıdır.
+ */
+router.get('/robots.txt', (req, res) => {
+  res.removeHeader('X-Robots-Tag');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+
+  const baseUrl = siteConfig.getBaseUrl();
+  const lines = [
+    'User-agent: *',
+    'Allow: /',
+    'Allow: /tr',
+    'Allow: /en',
+    'Allow: /kurallar',
+    'Allow: /kayit',
+    'Allow: /etkilesim',
+    'Disallow: /yonetim',
+    'Disallow: /profil',
+    'Disallow: /tryout',
+    'Disallow: /takviye',
+    'Disallow: /yardim',
+    'Disallow: /auth',
+    'Disallow: /lang',
+    'Disallow: /health',
+    '',
+    `Sitemap: ${baseUrl}/sitemap.xml`,
+    '',
+  ];
+
+  return res.send(lines.join('\n'));
+});
+
+/**
+ * GET /sitemap.xml
+ * BASE_URL üzerinden dinamik üretilen, yalnızca herkese açık sayfaları ve dil alternatiflerini (hreflang) içeren site haritası.
+ */
+router.get('/sitemap.xml', (req, res) => {
+  res.removeHeader('X-Robots-Tag');
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+
+  const baseUrl = siteConfig.getBaseUrl();
+  const today = new Date().toISOString().split('T')[0];
+
+  const routeConfigs = [
+    { path: '/', priority: '1.0', changefreq: 'daily' },
+    { path: '/kurallar', priority: '0.9', changefreq: 'weekly' },
+    { path: '/kayit', priority: '0.9', changefreq: 'weekly' },
+    { path: '/etkilesim', priority: '0.8', changefreq: 'monthly' },
+  ];
+
+  const urlEntries = [];
+
+  for (const item of routeConfigs) {
+    const alternates = siteConfig.buildAlternateUrls(baseUrl, item.path);
+    const variants = [
+      alternates.xDefault,
+      alternates.tr,
+      alternates.en,
+    ];
+
+    for (const loc of variants) {
+      urlEntries.push(
+        [
+          '  <url>',
+          `    <loc>${loc}</loc>`,
+          `    <lastmod>${today}</lastmod>`,
+          `    <changefreq>${item.changefreq}</changefreq>`,
+          `    <priority>${item.priority}</priority>`,
+          `    <xhtml:link rel="alternate" hreflang="tr" href="${alternates.tr}" />`,
+          `    <xhtml:link rel="alternate" hreflang="en" href="${alternates.en}" />`,
+          `    <xhtml:link rel="alternate" hreflang="x-default" href="${alternates.xDefault}" />`,
+          '  </url>',
+        ].join('\n')
+      );
+    }
+  }
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    ...urlEntries,
+    '</urlset>',
+    '',
+  ].join('\n');
+
+  return res.send(xml);
+});
 
 /**
  * GET /
@@ -38,7 +131,7 @@ router.get('/', async (req, res) => {
   }
 
   return res.render('pages/home', {
-    title: req.t('home.pageTitle'),
+    title: res.locals.seo ? res.locals.seo.title : req.t('home.pageTitle'),
     activeStats,
   });
 });
@@ -51,7 +144,7 @@ router.get('/kurallar', (req, res) => {
   const groupedRules = getGroupedRules(req.lang || 'tr');
 
   return res.render('pages/rules', {
-    title: req.t('rules.pageTitle'),
+    title: res.locals.seo ? res.locals.seo.title : req.t('rules.pageTitle'),
     groupedRules,
   });
 });
@@ -62,7 +155,7 @@ router.get('/kurallar', (req, res) => {
  */
 router.get('/etkilesim', (req, res) => {
   return res.render('pages/interactive', {
-    title: req.t('interactive.pageTitle'),
+    title: res.locals.seo ? res.locals.seo.title : req.t('interactive.pageTitle'),
   });
 });
 
@@ -72,11 +165,12 @@ router.get('/etkilesim', (req, res) => {
  */
 router.get('/kayit', async (req, res, next) => {
   const user = req.session?.user;
+  const pageTitle = res.locals.seo ? res.locals.seo.title : req.t('register.pageTitle');
 
   // Kullanıcı henüz Discord ile giriş yapmamışsa
   if (!user || !user.id) {
     return res.render('pages/register', {
-      title: req.t('register.pageTitle'),
+      title: pageTitle,
       state: 'login_required',
       statusData: null,
       error: null,
@@ -89,7 +183,7 @@ router.get('/kayit', async (req, res, next) => {
     const statusData = await botApiClient.getRegistrationStatus(user.id);
 
     return res.render('pages/register', {
-      title: req.t('register.pageTitle'),
+      title: pageTitle,
       state: statusData.state || 'none',
       statusData,
       error: null,

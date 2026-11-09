@@ -5,14 +5,11 @@ const { requireRegisteredMember } = require('../middlewares/auth');
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
 
-// Tüm üye rotaları sunucu tarafında Kayıtlı Üye (1559604702143062016) ve üstü yetki gerektirir
-router.use(requireRegisteredMember);
-
 /**
  * GET /profil
  * Kullanıcının kişisel klan profili, Roblox bilgileri, Tryout kademesi, VS istatistikleri ve Ceza puanı.
  */
-router.get('/profil', async (req, res, next) => {
+router.get('/profil', requireRegisteredMember, async (req, res, next) => {
   try {
     const profileData = await botApiClient.getMemberProfile(req.session.user.id);
 
@@ -29,7 +26,7 @@ router.get('/profil', async (req, res, next) => {
  * GET /tryout
  * 37 kademeli Tryout sıralama tablosu.
  */
-router.get('/tryout', async (req, res, next) => {
+router.get('/tryout', requireRegisteredMember, async (req, res, next) => {
   try {
     const tryoutData = await botApiClient.getTryoutLeaderboard();
 
@@ -47,7 +44,7 @@ router.get('/tryout', async (req, res, next) => {
  * GET /takviye
  * Acil Takviye / Yardım çağrısı sayfası (aktif kayıtlı üye sayısı ve cooldown gösterimli).
  */
-router.get('/takviye', async (req, res, next) => {
+router.get('/takviye', requireRegisteredMember, async (req, res, next) => {
   try {
     const helpStatus = await botApiClient.getHelpStatus(req.session.user.id);
 
@@ -71,7 +68,7 @@ router.get('/takviye', async (req, res, next) => {
  * POST /takviye
  * Acil Takviye çağrısını Bot REST API'sine (POST /api/help/call) gönderir.
  */
-router.post('/takviye', formActionLimiter, verifyCsrfToken, async (req, res) => {
+router.post('/takviye', requireRegisteredMember, formActionLimiter, verifyCsrfToken, async (req, res) => {
   try {
     const result = await botApiClient.triggerHelpCall(req.session.user.id);
     req.session.flashSuccess = result.message || req.t('help.msgCallSuccess');

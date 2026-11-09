@@ -252,9 +252,13 @@ function verifyServerStartupWithFakeEnv() {
         try {
           const homeRes = await httpGet(`http://localhost:${testPort}/`);
           const healthRes = await httpGet(`http://localhost:${testPort}/health`);
+          const authRes = await httpGet(`http://localhost:${testPort}/auth/discord`);
 
           if (homeRes.statusCode !== 200) {
             throw new Error(`GET / beklenen 200, alınan: ${homeRes.statusCode}`);
+          }
+          if (authRes.statusCode !== 302 || !String(authRes.headers.location || '').startsWith('https://discord.com/api/oauth2/authorize')) {
+            throw new Error(`GET /auth/discord beklenen 302 Discord yönlendirmesi, alınan: ${authRes.statusCode} (${authRes.headers.location})`);
           }
           if (!homeRes.body.includes('👥 —')) {
             throw new Error('GET / yanıtında Bot API kapalıyken "👥 — Aktif" gösterilmedi!');

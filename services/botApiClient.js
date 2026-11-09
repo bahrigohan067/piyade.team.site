@@ -272,24 +272,32 @@ async function probeBotApiStatus() {
   const startMs = Date.now();
   try {
     const data = await requestBotApi('/api/health', { method: 'GET', retries: 0 });
-    const latencyMs = Date.now() - startMs;
-    if (data && data.status === 'ok') {
+    if (!data || data.status !== 'ok') {
+      const latencyMs = Date.now() - startMs;
       return {
-        reachable: true,
-        statusText: 'ulaşıldı',
-        category: 'OK',
+        reachable: false,
+        statusText: 'ulaşılamadı',
+        category: 'UNEXPECTED_RESPONSE',
         httpStatus: 200,
         latencyMs,
-        explanation: 'Bot REST API servisine başarıyla ulaşıldı.',
+        explanation: 'Bot API yanıt verdi ancak beklenen sağlık durumunu (status: ok) döndürmedi.',
       };
     }
+
+    // /api/health şifresiz olabileceği için API_SECRET doğrulamasını korumalı /api/help/status üzerinden de test et
+    const helpData = await requestBotApi('/api/help/status', { method: 'GET', retries: 0 });
+    if (helpData && typeof helpData.activeRegisteredCount === 'number') {
+      updateActiveStatsCache(helpData.activeRegisteredCount, true);
+    }
+
+    const latencyMs = Date.now() - startMs;
     return {
-      reachable: false,
-      statusText: 'ulaşılamadı',
-      category: 'UNEXPECTED_RESPONSE',
+      reachable: true,
+      statusText: 'ulaşıldı',
+      category: 'OK',
       httpStatus: 200,
       latencyMs,
-      explanation: 'Bot API yanıt verdi ancak beklenen sağlık durumunu (status: ok) döndürmedi.',
+      explanation: 'Bot REST API servisine ve korumalı uç noktasına başarıyla ulaşıldı.',
     };
   } catch (err) {
     const latencyMs = Date.now() - startMs;

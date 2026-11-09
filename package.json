@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Piyade Team | TSB Discord Sunucusu İnce Ön Yüz (Thin Client) Web Sitesi",
   "main": "server.js",
+  "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=20.0.0"
   },

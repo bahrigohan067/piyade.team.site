@@ -7,9 +7,27 @@ const session = require('express-session');
  * Varsayılan MemoryStore'un bellek sızıntısı ve yeniden başlatmada oturum kaybı sorunlarını giderir.
  */
 class PersistentSessionStore extends session.Store {
+  /**
+   * Railway Volume bağlıysa RAILWAY_VOLUME_MOUNT_PATH altındaki 'sessions' klasörünü,
+   * tanımlı değilse yerel '.sessions' klasörünü döndürür.
+   *
+   * @param {NodeJS.ProcessEnv} [envObj=process.env]
+   * @returns {string}
+   */
+  static resolveDefaultDir(envObj = process.env) {
+    const volumeMountPath =
+      envObj && typeof envObj.RAILWAY_VOLUME_MOUNT_PATH === 'string'
+        ? envObj.RAILWAY_VOLUME_MOUNT_PATH.trim()
+        : '';
+    if (volumeMountPath) {
+      return path.join(volumeMountPath, 'sessions');
+    }
+    return path.join(process.cwd(), '.sessions');
+  }
+
   constructor(options = {}) {
     super(options);
-    this.dirPath = options.dirPath || path.join(process.cwd(), '.sessions');
+    this.dirPath = options.dirPath || PersistentSessionStore.resolveDefaultDir(options.env || process.env);
     this.filePath = path.join(this.dirPath, 'sessions.json');
     this.ttlMs = options.ttlMs || 24 * 60 * 60 * 1000; // 24 saat
     this.sessions = new Map();

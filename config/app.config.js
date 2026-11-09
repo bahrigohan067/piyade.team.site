@@ -9,6 +9,12 @@ const REQUIRED_ENV_KEYS = [
   'API_SECRET',
 ];
 
+const OPTIONAL_ENV_KEYS = [
+  'PORT',
+  'NODE_ENV',
+  'RAILWAY_VOLUME_MOUNT_PATH',
+];
+
 function isValidHttpUrl(value) {
   if (!value || typeof value !== 'string') return false;
   try {
@@ -97,8 +103,9 @@ const appConfig = {
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || '',
   DISCORD_REDIRECT_URI: `${(process.env.BASE_URL || 'http://localhost:3001').replace(/\/+$/, '')}/auth/discord/callback`,
 
-  // Oturum Güvenliği
+  // Oturum Güvenliği & Kalıcı Depolama (Railway Volume)
   SESSION_SECRET: process.env.SESSION_SECRET || '',
+  RAILWAY_VOLUME_MOUNT_PATH: (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim(),
 
   // Bot REST API Bağlantısı (Asla istemciye sızdırılmaz)
   BOT_API_URL: (process.env.BOT_API_URL || 'http://localhost:3000').replace(/\/+$/, ''),
@@ -110,7 +117,9 @@ const appConfig = {
   // İstek Zaman Aşımı (8 saniye - Madde 8)
   API_TIMEOUT_MS: 8000,
 
-  // Doğrulama yardımcıları
+  // Ortam Değişkeni Anahtar Listeleri ve Doğrulama Yardımcıları
+  REQUIRED_ENV_KEYS,
+  OPTIONAL_ENV_KEYS,
   validateEnvConfig,
   assertValidEnvOnStartup,
 };

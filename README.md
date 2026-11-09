@@ -43,20 +43,50 @@ Bu proje, **"Piyade Team | TSB"** Discord topluluğu ve Roblox *The Strongest Ba
 
 ---
 
-## ⚙️ Ortam Değişkenleri (`.env`)
+## ⚙️ Ortam Değişkenleri (`.env` / Railway Variables)
 
-Proje kök dizininde `.env.example` dosyasını `.env` olarak kopyalayıp aşağıdaki değişkenleri doldurun:
+Proje kök dizininde `.env.example` dosyasını `.env` olarak kopyalayıp veya **Railway > Variables** sekmesinde aşağıdaki değişkenleri tanımlayın. Uygulama açılışında (`config/app.config.js`) tüm zorunlu değişkenler doğrulanır; eksik veya hatalı bir değişken varsa **gizli anahtar (secret) değerleri asla loglanmadan** yalnızca eksik değişkenlerin adları listelenir ve uygulama güvenli şekilde durur.
 
-| Değişken | Açıklama | Örnek Değer |
-| :--- | :--- | :--- |
-| `PORT` | Web sitesinin çalışacağı port (Railway otomatik atar) | `3001` |
-| `NODE_ENV` | Çalışma ortamı (`development` veya `production`) | `production` |
-| `BASE_URL` | Sitenin yayınlandığı tam adres (sonunda `/` olmadan) | `https://piyade-site.up.railway.app` |
-| `DISCORD_CLIENT_ID` | Discord Developer Portal Application Client ID | `1234567890123456789` |
-| `DISCORD_CLIENT_SECRET` | Discord Developer Portal OAuth2 Client Secret | `sizin_client_secret_degeriniz` |
-| `SESSION_SECRET` | Oturum çerezlerini imzalamak için en az 16 karakterli gizli anahtar | `cok_guclu_rastgele_session_anahtari_123` |
-| `BOT_API_URL` | Discord botunun REST API adresi (Railway Private Network veya genel URL) | `http://piyade-bot.railway.internal:3000` |
-| `API_SECRET` | Botun `.env` dosyasındaki `API_SECRET` ile **birebir aynı** şifre | `bot_ile_ayni_gizli_api_anahtari` |
+### 1. Zorunlu Değişkenler (`REQUIRED_ENV_KEYS`)
+
+| Değişken | Zorunluluk | Açıklama | Örnek Değer |
+| :--- | :--- | :--- | :--- |
+| `DISCORD_CLIENT_ID` | **Zorunlu** | Discord Developer Portal Application Client ID | `1234567890123456789` |
+| `DISCORD_CLIENT_SECRET` | **Zorunlu** | Discord Developer Portal OAuth2 Client Secret | `sizin_client_secret_degeriniz` |
+| `SESSION_SECRET` | **Zorunlu** | Oturum çerezlerini imzalamak için **en az 16 karakterli** gizli anahtar | `cok_guclu_rastgele_session_anahtari_123` |
+| `BASE_URL` | **Zorunlu** | Sitenin yayınlandığı tam `http://` veya `https://` adresi (sonunda `/` olmadan) | `https://piyade-site.up.railway.app` |
+| `BOT_API_URL` | **Zorunlu** | Discord botunun REST API adresi (Railway Private Network veya genel URL) | `http://piyade-bot.railway.internal:3000` |
+| `API_SECRET` | **Zorunlu** | Bot servisindeki `API_SECRET` ile **birebir aynı** gizli anahtar | `bot_ile_ayni_gizli_api_anahtari` |
+
+### 2. Opsiyonel / Platform Değişkenleri (`OPTIONAL_ENV_KEYS`)
+
+| Değişken | Varsayılan | Açıklama | Örnek Değer |
+| :--- | :--- | :--- | :--- |
+| `PORT` | `3001` | Web sitesinin çalışacağı port (Railway otomatik atar, `1–65535` arası tam sayı) | `3001` |
+| `NODE_ENV` | `development` | Çalışma ortamı (`development` veya `production`; Railway'de `production` önerilir) | `production` |
+| `RAILWAY_VOLUME_MOUNT_PATH` | `.sessions` (yerel) | Railway Volume bağlandığında Railway tarafından otomatik sağlanan kalıcı disk dizini | `/data` |
+
+---
+
+## 💾 Railway Volume ile Kalıcı Oturum Deposu (`RAILWAY_VOLUME_MOUNT_PATH`)
+
+Railway üzerinde her yeni dağıtımda (deploy) konteyner dosya sistemi sıfırlanır. Kullanıcı oturumlarının (`services/sessionStore.js`) yeni deploy sonrasında silinmemesi için **Site** servisinize bir **Railway Volume** bağlamanız önerilir:
+
+1. Railway panelinizde **Site** servisinize sağ tıklayın (veya `Ctrl+K` / `+ New` menüsünü açın) ve **Volume** seçin.
+2. Volume'u **Site** servisinize bağlayın ve **Mount Path** olarak örneğin `/data` girin.
+3. Railway, Volume bağlandığında servisinize otomatik olarak `RAILWAY_VOLUME_MOUNT_PATH=/data` ortam değişkenini enjekte eder.
+4. `services/sessionStore.js` bu değişkeni otomatik olarak okur ve oturumları `/data/sessions/sessions.json` dosyasına yazar.
+5. `RAILWAY_VOLUME_MOUNT_PATH` tanımlı değilse (örneğin yerel geliştirmede veya Volume bağlanmamışsa), oturum deposu otomatik olarak proje kök dizinindeki yerel `.sessions/sessions.json` klasörüne düşer.
+
+---
+
+## 🧪 Temiz Kurulum Doğrulama Testi (`verify:clean`)
+
+Railway ortamını birebir taklit eden (mevcut `node_modules` klasörünü silip `npm ci --omit=dev` ile yalnızca `dependencies` paketlerini kuran ve sahte ortam değişkenleriyle `node server.js` başlatıp `GET /` `200 OK` döndüğünü doğrulayan) kalıcı test komutunu çalıştırmak için:
+
+```bash
+npm run verify:clean
+```
 
 ---
 

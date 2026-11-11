@@ -430,6 +430,24 @@ async function triggerHelpCall(discordId) {
   });
 }
 
+/**
+ * Feedback Pill mesajını Bot REST API'sine (POST /api/feedback) iletir.
+ */
+async function sendFeedback({ actorId, message, page, lang }) {
+  return requestBotApi('/api/feedback', {
+    method: 'POST',
+    headers: {
+      'X-Actor-Id': String(actorId),
+    },
+    body: {
+      message,
+      page,
+      lang,
+    },
+    retries: 0,
+  });
+}
+
 // ============================================================================
 // 5. YÖNETİM PANELİ (ÜYE ARAMA, DETAY, UYARI VE BELLEKTEN KANIT İLETİMİ)
 // ============================================================================
@@ -558,4 +576,5 @@ module.exports = {
   applyWarning,
   attachWarningEvidence,
   getEphemeralEvidence,
+  sendFeedback,
 };

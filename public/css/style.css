@@ -679,6 +679,7 @@ textarea:focus-visible,
 
   body.has-sidebar .app-sidebar {
     width: var(--sidebar-width-open);
+    z-index: 320;
     transform: translateX(-100%);
   }
 
@@ -690,7 +691,7 @@ textarea:focus-visible,
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 210;
+    z-index: 310;
     background: var(--sidebar-backdrop-bg);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
@@ -2036,6 +2037,449 @@ code {
 }
 
 /* ==========================================
+ * 5) FEEDBACK PILL (SAĞ ALT GERİ BİLDİRİM HAPI)
+ * ========================================== */
+.feedback-pill-root {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--feedback-kb-offset, 0px));
+  z-index: 260;
+  transform-origin: bottom right;
+  max-width: calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+}
+
+/* Mobil çekmece veya Orbital Loader açıkken hap gizlenir */
+html[data-mobile-sidebar="open"] .feedback-pill-root,
+body.is-orbital-open .feedback-pill-root,
+body:has(.orbital-overlay.is-open) .feedback-pill-root {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.feedback-pill-surface {
+  position: relative;
+  overflow: hidden;
+  background: var(--feedback-surface-bg);
+  color: var(--feedback-text-primary);
+  border-radius: 999px;
+  box-shadow: var(--feedback-shadow);
+  transform-origin: bottom right;
+  max-width: 100%;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+.feedback-pill-surface.is-closed {
+  border-radius: 999px;
+}
+
+.feedback-pill-surface.is-open,
+.feedback-pill-surface.is-sending,
+.feedback-pill-surface.is-sent {
+  border-radius: 24px;
+}
+
+/* İçerik görünümleri ve 120ms çıkış / 110ms gecikmeli 220ms giriş geçişleri */
+.feedback-view {
+  width: 100%;
+  opacity: 1;
+  filter: blur(0px);
+  transform-origin: bottom right;
+}
+
+.feedback-view[hidden] {
+  display: none;
+}
+
+.feedback-view.is-exiting {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  filter: blur(6px);
+  pointer-events: none;
+  transition: opacity 120ms ease-out, filter 120ms ease-out;
+}
+
+.feedback-view.is-entering {
+  opacity: 0;
+  filter: blur(6px);
+}
+
+.feedback-view.is-active {
+  opacity: 1;
+  filter: blur(0px);
+  transition: opacity 220ms ease-out 110ms, filter 220ms ease-out 110ms;
+}
+
+/* Kapalı Durum: Hap (Pill) Butonu */
+.feedback-pill-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--feedback-text-primary);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.feedback-pill-trigger:hover {
+  background: var(--bg-subtle-hover);
+}
+
+.feedback-pill-trigger:active {
+  transform: scale(0.97);
+}
+
+.feedback-pill-trigger:focus-visible {
+  outline: 2px solid var(--feedback-accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+.feedback-pill-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--feedback-accent);
+}
+
+.feedback-pill-label {
+  color: var(--feedback-text-primary);
+}
+
+/* Açık Durum: Not Formu */
+.feedback-form {
+  width: min(360px, calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feedback-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feedback-form-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--feedback-text-primary);
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.feedback-close-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--feedback-close-bg);
+  color: var(--feedback-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+/* Dokunmatik hedefi en az 44x44px yapan görünmez alan */
+.feedback-close-btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.feedback-close-btn:hover {
+  background: var(--feedback-close-hover-bg);
+  color: var(--feedback-text-primary);
+}
+
+.feedback-close-btn:active {
+  transform: scale(0.92);
+}
+
+.feedback-close-btn:focus-visible {
+  outline: 2px solid var(--feedback-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.feedback-close-icon {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.feedback-textarea-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-textarea {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--feedback-border-subtle);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--feedback-input-bg);
+  color: var(--feedback-text-primary);
+  font-family: var(--font-family);
+  font-size: 15px;
+  line-height: 1.45;
+  outline: none;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+@media (pointer: coarse), (max-width: 767px) {
+  .feedback-textarea {
+    font-size: 16px;
+  }
+}
+
+.feedback-textarea::placeholder {
+  color: var(--feedback-text-tertiary);
+}
+
+.feedback-textarea:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--feedback-accent);
+}
+
+.feedback-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feedback-privacy-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--feedback-text-tertiary);
+}
+
+.feedback-char-counter {
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--feedback-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.feedback-char-counter[hidden] {
+  display: none;
+}
+
+.feedback-error-alert {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-danger-text);
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-xs);
+  padding: 7px 10px;
+}
+
+.feedback-error-alert[hidden] {
+  display: none;
+}
+
+.feedback-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.feedback-shortcut-hint {
+  font-size: 12px;
+  color: var(--feedback-text-tertiary);
+  line-height: 1.25;
+}
+
+.feedback-submit-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  min-width: 76px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--feedback-accent);
+  color: var(--feedback-on-accent);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  overflow: visible;
+  transition: opacity 0.16s ease, transform 0.12s ease, background 0.16s ease;
+}
+
+/* Gönder butonunda görünmez 44x44px dokunmatik hedef */
+.feedback-submit-btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
+.feedback-submit-btn:hover:not(:disabled) {
+  background: var(--feedback-accent-hover);
+}
+
+.feedback-submit-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.feedback-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.feedback-submit-btn:focus-visible {
+  outline: 2px solid var(--feedback-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.feedback-submit-label {
+  display: inline-block;
+  transition: transform 180ms ease-out, opacity 160ms ease-out;
+}
+
+.feedback-submit-spinner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--feedback-spinner-track);
+  border-top-color: var(--feedback-on-accent);
+  opacity: 0;
+  transform: scale(0);
+  transition: transform 180ms ease-out, opacity 160ms ease-out;
+  pointer-events: none;
+}
+
+.feedback-submit-sending-text {
+  display: none;
+}
+
+.feedback-submit-btn.is-sending .feedback-submit-label {
+  transform: translateY(-12px);
+  opacity: 0;
+}
+
+.feedback-submit-btn.is-sending .feedback-submit-spinner {
+  opacity: 1;
+  transform: scale(1);
+  animation: feedbackSpinnerRotate 0.7s linear infinite;
+}
+
+.feedback-submit-btn.is-returning .feedback-submit-label {
+  animation: feedbackLabelReturn 200ms ease-out forwards;
+}
+
+@keyframes feedbackSpinnerRotate {
+  to {
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+@keyframes feedbackLabelReturn {
+  0% {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Teşekkür Kartı */
+.feedback-sent-card {
+  width: 220px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.feedback-sent-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--feedback-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.feedback-sent-check {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.feedback-sent-check-path {
+  fill: none;
+  stroke: var(--feedback-on-accent);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+}
+
+.feedback-sent-card.is-active .feedback-sent-check-path {
+  animation: feedbackCheckDraw 400ms ease-out 250ms forwards;
+}
+
+@keyframes feedbackCheckDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.feedback-sent-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--feedback-text-primary);
+  line-height: 1.35;
+}
+
+/* ==========================================
  * BACKDROP-FILTER DESTEKLENMEYEN TARAYICILAR İÇİN OPAK YÜZEY (FALLBACK)
  * ========================================== */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -2083,6 +2527,33 @@ code {
   .sidebar-link-icon {
     transform: none !important;
     opacity: 1 !important;
+  }
+
+  .feedback-view,
+  .feedback-view.is-exiting,
+  .feedback-view.is-entering,
+  .feedback-view.is-active {
+    opacity: 1 !important;
+    filter: none !important;
+    transition: none !important;
+  }
+
+  .feedback-submit-btn.is-sending .feedback-submit-spinner {
+    display: none;
+    animation: none !important;
+  }
+
+  .feedback-submit-btn.is-sending .feedback-submit-label {
+    display: none;
+  }
+
+  .feedback-submit-btn.is-sending .feedback-submit-sending-text {
+    display: inline;
+  }
+
+  .feedback-sent-check-path {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
   }
 }
 

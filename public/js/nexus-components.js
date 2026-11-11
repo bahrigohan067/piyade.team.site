@@ -87,6 +87,12 @@
     return !settled;
   }
 
+  // Diğer bileşenlerin (örn. Feedback Pill) yeniden kullanabilmesi için dışa aktar
+  global.NexusSpring = {
+    create: createSpring,
+    step: stepSpring,
+  };
+
   // ============================================================================
   // YARDIMCI 2: THEME.CSS DEĞİŞKENLERİNDEN CANVAS RENKLERİNİ ÇÖZÜMLEME
   // ============================================================================
@@ -1687,6 +1693,7 @@
 
     function openOverlayUploading() {
       mode = 'uploading';
+      if (document.body) document.body.classList.add('is-orbital-open');
       overlay.classList.remove('is-success', 'is-error', 'is-indeterminate');
       overlay.hidden = false;
       if (closeBtn) closeBtn.hidden = true;
@@ -1728,6 +1735,7 @@
     function closeOverlay() {
       mode = 'idle';
       stopCometLoop();
+      if (document.body) document.body.classList.remove('is-orbital-open');
       overlay.classList.remove('is-open', 'is-success', 'is-error', 'is-indeterminate');
       overlay.hidden = true;
     }

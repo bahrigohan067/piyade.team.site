@@ -3,8 +3,16 @@
 
     <%
       const footerBrand = (typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade Clan | TSB';
-      const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '1.2.0';
+      const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '1.4.0';
       const discordUrl = (typeof seo !== 'undefined' && Array.isArray(seo.sameAs) && seo.sameAs.length > 0) ? seo.sameAs[0] : '';
+      const showFeedbackPill = Boolean(
+        (typeof feedbackConfig === 'undefined' || feedbackConfig.enabled !== false) &&
+        (typeof disableFeedbackPill === 'undefined' || !disableFeedbackPill) &&
+        typeof currentUser !== 'undefined' &&
+        currentUser &&
+        currentUser.id &&
+        currentUser.inGuild === true
+      );
     %>
 
     <!-- Alt Bilgi / Footer -->
@@ -36,12 +44,22 @@
     </footer>
   </div><!-- /.app-layout-shell -->
 
+  <% if (showFeedbackPill) { %>
+    <!-- Sağ Alt Köşe: Nexus UI Feedback Pill Bileşeni (Yalnızca girişli ve sunucudaki üyelere) -->
+    <%- include('../partials/feedback-pill') %>
+  <% } %>
+
   <!-- Aero Shards WebGL Yardımcı Katmanı (Yerel Vendor) ve Parametrik Arka Plan Motoru -->
   <script src="/vendor/aero-webgl.js?v=<%= assetVer %>" defer></script>
   <script src="/js/background/aero-shards.js?v=<%= assetVer %>" defer></script>
 
-  <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text) -->
+  <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text, NexusSpring) -->
   <script src="/js/nexus-components.js?v=<%= assetVer %>" defer></script>
+
+  <% if (showFeedbackPill) { %>
+    <!-- Feedback Pill Mantığı ve Web Audio Sentezleyici (Yalnızca gösterildiğinde yüklenir) -->
+    <script src="/js/feedback-pill.js?v=<%= assetVer %>" defer></script>
+  <% } %>
 
   <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>

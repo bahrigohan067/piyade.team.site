@@ -1,0 +1,166 @@
+<%
+  const fbCfg = (typeof feedbackConfig !== 'undefined' && feedbackConfig) ? feedbackConfig : {
+    enabled: true,
+    minLength: 3,
+    maxLength: 1000,
+    soundEnabled: true,
+    accent: '--color-accent',
+    sendMinDurationMs: 900,
+    sentVisibleMs: 1700,
+    requestTimeoutMs: 10000,
+    counterShowAt: 800,
+  };
+  const fbCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+  const fbIdemKey = typeof feedbackIdempotencyKey !== 'undefined' ? feedbackIdempotencyKey : '';
+%>
+<div
+  id="feedbackPillRoot"
+  class="feedback-pill-root"
+  data-feedback-config="<%= JSON.stringify({
+    enabled: Boolean(fbCfg.enabled),
+    minLength: fbCfg.minLength || 3,
+    maxLength: fbCfg.maxLength || 1000,
+    soundEnabled: fbCfg.soundEnabled !== false,
+    accent: fbCfg.accent || '--color-accent',
+    sendMinDurationMs: fbCfg.sendMinDurationMs || 900,
+    sentVisibleMs: fbCfg.sentVisibleMs || 1700,
+    requestTimeoutMs: fbCfg.requestTimeoutMs || 10000,
+    counterShowAt: fbCfg.counterShowAt || 800
+  }) %>"
+  data-feedback-i18n="<%= JSON.stringify({
+    pillLabel: t('feedback.pillLabel'),
+    title: t('feedback.title'),
+    placeholder: t('feedback.placeholder'),
+    hintMac: t('feedback.hintMac'),
+    hintOther: t('feedback.hintOther'),
+    send: t('feedback.send'),
+    sending: t('feedback.sending'),
+    close: t('feedback.close'),
+    thanks: t('feedback.thanks'),
+    privacy: t('feedback.privacy'),
+    errTooShort: t('feedback.errTooShort'),
+    errTooLong: t('feedback.errTooLong'),
+    errRate: t('feedback.errRate'),
+    errDuplicate: t('feedback.errDuplicate'),
+    errSession: t('feedback.errSession'),
+    errOffline: t('feedback.errOffline'),
+    errGeneric: t('feedback.errGeneric')
+  }) %>"
+  data-csrf-token="<%= fbCsrf %>"
+  data-idempotency-key="<%= fbIdemKey %>"
+>
+  <div id="feedbackPillSurface" class="feedback-pill-surface is-closed">
+    <!-- Aşama 1: Kapalı Durum (Hap / Pill) -->
+    <div id="feedbackClosedView" class="feedback-view is-active" data-feedback-view="closed">
+      <button
+        type="button"
+        id="feedbackPillTrigger"
+        class="feedback-pill-trigger"
+        aria-expanded="false"
+        aria-controls="feedbackPillDialog"
+      >
+        <svg
+          class="feedback-pill-icon"
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.1"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span class="feedback-pill-label"><%= t('feedback.pillLabel') %></span>
+      </button>
+    </div>
+
+    <!-- Aşama 2 & 3: Açık Form & Gönderiliyor -->
+    <form
+      id="feedbackPillDialog"
+      class="feedback-view feedback-form"
+      data-feedback-view="open"
+      role="dialog"
+      aria-labelledby="feedbackFormTitle"
+      novalidate
+      hidden
+    >
+      <div class="feedback-form-header">
+        <label id="feedbackFormTitle" for="feedbackMessageInput" class="feedback-form-title">
+          <%= t('feedback.title') %>
+        </label>
+        <button
+          type="button"
+          id="feedbackCloseBtn"
+          class="feedback-close-btn"
+          aria-label="<%= t('feedback.close') %>"
+        >
+          <svg
+            class="feedback-close-icon"
+            viewBox="0 0 12 12"
+            width="11"
+            height="11"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3.2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <line x1="2" y1="2" x2="10" y2="10" />
+            <line x1="10" y1="2" x2="2" y2="10" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="feedback-textarea-wrap">
+        <textarea
+          id="feedbackMessageInput"
+          class="feedback-textarea"
+          rows="3"
+          maxlength="<%= fbCfg.maxLength || 1000 %>"
+          placeholder="<%= t('feedback.placeholder') %>"
+        ></textarea>
+
+        <div id="feedbackErrorAlert" class="feedback-error-alert" role="alert" hidden></div>
+
+        <div class="feedback-meta-row">
+          <p class="feedback-privacy-note"><%= t('feedback.privacy') %></p>
+          <span id="feedbackCharCounter" class="feedback-char-counter" hidden></span>
+        </div>
+      </div>
+
+      <div class="feedback-form-footer">
+        <span id="feedbackShortcutHint" class="feedback-shortcut-hint"><%= t('feedback.hintOther') %></span>
+        <button
+          type="submit"
+          id="feedbackSubmitBtn"
+          class="feedback-submit-btn"
+          disabled
+        >
+          <span class="feedback-submit-label"><%= t('feedback.send') %></span>
+          <span class="feedback-submit-sending-text"><%= t('feedback.sending') %></span>
+          <span class="feedback-submit-spinner" aria-hidden="true"></span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Aşama 4: Teşekkürler Kartı -->
+    <div
+      id="feedbackSentView"
+      class="feedback-view feedback-sent-card"
+      data-feedback-view="sent"
+      role="status"
+      aria-live="polite"
+      hidden
+    >
+      <div class="feedback-sent-circle" aria-hidden="true">
+        <svg class="feedback-sent-check" viewBox="0 0 24 24" width="20" height="20">
+          <path class="feedback-sent-check-path" d="M5 12.5 L10 17.5 L19 7.5" />
+        </svg>
+      </div>
+      <span class="feedback-sent-text"><%= t('feedback.thanks') %></span>
+    </div>
+  </div>
+</div>

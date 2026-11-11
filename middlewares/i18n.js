@@ -1,6 +1,8 @@
 const appConfig = require('../config/app.config');
 const siteConfig = require('../config/site.config');
 const nexusConfig = require('../config/nexus.config');
+const feedbackConfig = require('../config/feedback.config');
+const { generateIdempotencyKey } = require('./idempotency');
 const trLocale = require('../locales/tr.json');
 const enLocale = require('../locales/en.json');
 
@@ -155,6 +157,15 @@ function i18nMiddleware(req, res, next) {
   res.locals.lang = activeLang;
   res.locals.siteConfig = siteConfig;
   res.locals.nexusConfig = nexusConfig;
+  res.locals.feedbackConfig = feedbackConfig;
+  if (req.session && req.session.user && req.session.user.inGuild) {
+    if (!req.session.feedbackPendingIdemKey) {
+      req.session.feedbackPendingIdemKey = generateIdempotencyKey(req);
+    }
+    res.locals.feedbackIdempotencyKey = req.session.feedbackPendingIdemKey;
+  } else {
+    res.locals.feedbackIdempotencyKey = '';
+  }
   req.t = (key, fallback) => translate(activeLang, key, fallback);
   res.locals.t = req.t;
 

@@ -47,6 +47,7 @@ function notFoundHandler(req, res) {
     res.locals.seo.isPublic = false;
   }
 
+  res.locals.disableFeedbackPill = true;
   res.status(404).render('errors/404', {
     title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı — Piyade Clan | TSB',
     url: req.originalUrl,
@@ -76,6 +77,7 @@ function globalErrorHandler(err, req, res, next) {
   console.error(`📄 Stack İzleri:\n${safeStack}`);
   console.error('================================================================');
 
+  res.locals.disableFeedbackPill = true;
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   if (req && typeof req.applySeo === 'function') {
     req.applySeo({ noindex: true, isPublic: false });

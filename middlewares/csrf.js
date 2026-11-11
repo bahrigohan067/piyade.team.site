@@ -23,6 +23,18 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
+  // /geri-bildirim oturum süresi dolmuş veya girişsiz isteklerde 403 CSRF yerine net 401 SESSION_EXPIRED dön
+  if (
+    req.method === 'POST' &&
+    req.path === '/geri-bildirim' &&
+    (!req.session.user || !req.session.user.id)
+  ) {
+    return res.status(401).json({
+      code: 'SESSION_EXPIRED',
+      error: 'Oturumun sona ermiş, lütfen tekrar giriş yap.',
+    });
+  }
+
   // POST, PUT, DELETE isteklerinde belirteci doğrula
   const token =
     (req.body && req.body._csrf) ||
@@ -34,6 +46,7 @@ function csrfProtection(req, res, next) {
     console.warn(`[CSRF UYARISI] Geçersiz CSRF belirteci. IP: ${req.ip}, URL: ${req.originalUrl}`);
     if (req.xhr || req.headers.accept?.includes('application/json')) {
       return res.status(403).json({
+        code: 'CSRF_INVALID',
         error: 'Geçersiz veya süresi dolmuş CSRF güvenlik doğrulaması. Lütfen sayfayı yenileyip tekrar deneyin.',
       });
     }

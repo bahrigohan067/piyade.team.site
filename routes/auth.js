@@ -45,6 +45,7 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
     typeof expectedState !== 'string' ||
     state !== expectedState
   ) {
+    res.locals.disableFeedbackPill = true;
     return res.status(403).render('errors/403', {
       title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim (403)',
       message: req.t

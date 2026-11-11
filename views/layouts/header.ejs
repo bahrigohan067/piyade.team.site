@@ -130,6 +130,7 @@
 </head>
 <body
   data-lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>"
+  data-feedback="<%= (typeof disableFeedbackPill !== 'undefined' && disableFeedbackPill) ? 'off' : 'on' %>"
   class="<%= (typeof currentUser !== 'undefined' && currentUser) ? 'has-sidebar' : 'no-sidebar' %>"
 >
 

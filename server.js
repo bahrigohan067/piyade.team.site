@@ -19,6 +19,7 @@ const publicRoutes = require('./routes/public');
 const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/member');
 const adminRoutes = require('./routes/admin');
+const feedbackRoutes = require('./routes/feedback');
 
 function createServerApp() {
   const app = express();
@@ -149,10 +150,14 @@ function createServerApp() {
   });
 
   // Sayfa Rotaları
-  app.use('/auth', authRoutes);
+  app.use('/auth', (req, res, next) => {
+    res.locals.disableFeedbackPill = true;
+    next();
+  }, authRoutes);
   app.use('/', publicRoutes);
   app.use('/', memberRoutes);
   app.use('/yonetim', adminRoutes);
+  app.use('/geri-bildirim', feedbackRoutes);
 
   // 404 ve Global Hata Yakalayıcılar
   app.use(notFoundHandler);

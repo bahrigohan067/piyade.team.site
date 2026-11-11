@@ -113,6 +113,7 @@ function requireManagement(req, res, next) {
 
   const user = req.session.user;
   if (!isManagement(user.roles, user.level)) {
+    res.locals.disableFeedbackPill = true;
     return res.status(403).render('errors/403', {
       title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim — Piyade Clan | TSB',
       message: req.t
@@ -173,6 +174,7 @@ async function requireFreshManagement(req, res, next) {
         return res.status(403).render('errors/403', {
           title: req.t ? req.t('errors.403Title') : 'Yetkisiz Erişim',
           message: revokedMsg,
+          disableFeedbackPill: true,
         });
       });
     }
@@ -204,6 +206,7 @@ async function requireFreshManagement(req, res, next) {
         return res.status(403).render('errors/403', {
           title: req.t ? req.t('errors.403Title') : 'Oturum Sonlandırıldı',
           message: leftMsg,
+          disableFeedbackPill: true,
         });
       });
     }

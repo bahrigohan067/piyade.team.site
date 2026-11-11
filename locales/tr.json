@@ -427,5 +427,24 @@
     "fileTooLarge": "Kanıt görseli boyutu en fazla 5 MB olabilir.",
     "svgNotAllowed": "Güvenlik nedeniyle SVG dosyaları kabul edilmemektedir. Sadece PNG, JPG veya WEBP yükleyiniz.",
     "invalidFileType": "Geçersiz dosya formatı (magic-byte doğrulaması başarısız). Sadece gerçek PNG, JPG veya WEBP görselleri yüklenebilir."
+  },
+  "feedback": {
+    "pillLabel": "Geri Bildirim",
+    "title": "Geri Bildirim",
+    "placeholder": "Bu site nasıl daha iyi olabilir?",
+    "hintMac": "⌘ Enter ile gönder",
+    "hintOther": "Ctrl + Enter ile gönder",
+    "send": "Gönder",
+    "sending": "Gönderiliyor…",
+    "close": "Kapat",
+    "thanks": "Teşekkürler, ulaştı.",
+    "privacy": "Mesajın, Discord kullanıcı adınla yetkililere iletilir.",
+    "errTooShort": "Lütfen en az 3 karakter yaz.",
+    "errTooLong": "Mesaj en fazla 1000 karakter olabilir.",
+    "errRate": "Çok sık geri bildirim gönderdin. Biraz sonra tekrar dene.",
+    "errDuplicate": "Bu mesajı zaten gönderdin.",
+    "errSession": "Oturumun sona ermiş, lütfen tekrar giriş yap.",
+    "errOffline": "Şu an ulaşılamıyor. Mesajın silinmedi, tekrar dene.",
+    "errGeneric": "Gönderilemedi, lütfen tekrar dene."
   }
 }

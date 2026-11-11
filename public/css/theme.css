@@ -240,4 +240,19 @@
   --orbital-success-glow: drop-shadow(0 0 12px rgba(16, 185, 129, 0.7));
   --orbital-error-color: #ef4444;
   --orbital-error-glow: drop-shadow(0 0 12px rgba(239, 68, 68, 0.7));
+
+  /* Feedback Pill (Sağ Alt Geri Bildirim Hapı — Karanlık + Mor Vurgu) */
+  --feedback-surface-bg: #131624;
+  --feedback-input-bg: #1b1f33;
+  --feedback-accent: var(--color-accent);
+  --feedback-accent-hover: var(--color-accent-hover);
+  --feedback-on-accent: #ffffff;
+  --feedback-text-primary: var(--text-primary);
+  --feedback-text-secondary: var(--text-secondary);
+  --feedback-text-tertiary: #8e98ad;
+  --feedback-border-subtle: rgba(255, 255, 255, 0.1);
+  --feedback-close-bg: rgba(255, 255, 255, 0.08);
+  --feedback-close-hover-bg: rgba(139, 92, 246, 0.24);
+  --feedback-spinner-track: rgba(255, 255, 255, 0.4);
+  --feedback-shadow: 0 0 0 1px var(--feedback-border-subtle), 0 18px 40px -20px rgba(0, 0, 0, 0.7);
 }

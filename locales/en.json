@@ -427,5 +427,24 @@
     "fileTooLarge": "Evidence image size cannot exceed 5 MB.",
     "svgNotAllowed": "SVG files are not permitted for security reasons. Please upload PNG, JPG, or WEBP only.",
     "invalidFileType": "Invalid file format (magic-byte check failed). Only genuine PNG, JPG, or WEBP images are allowed."
+  },
+  "feedback": {
+    "pillLabel": "Feedback",
+    "title": "Feedback",
+    "placeholder": "What would make this better?",
+    "hintMac": "Press ⌘ Enter to send",
+    "hintOther": "Press Ctrl + Enter to send",
+    "send": "Send",
+    "sending": "Sending…",
+    "close": "Close",
+    "thanks": "Thanks, got it.",
+    "privacy": "Your message is shared with staff along with your Discord username.",
+    "errTooShort": "Please write at least 3 characters.",
+    "errTooLong": "Message cannot exceed 1000 characters.",
+    "errRate": "You're sending feedback too fast. Please try again shortly.",
+    "errDuplicate": "You have already sent this message.",
+    "errSession": "Your session has expired. Please sign in again.",
+    "errOffline": "Currently unavailable. Your message was kept, please try again.",
+    "errGeneric": "Could not send feedback, please try again."
   }
 }

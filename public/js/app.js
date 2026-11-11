@@ -156,6 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const protectedForms = document.querySelectorAll('form[data-prevent-double-submit="true"]');
   protectedForms.forEach((form) => {
     form.addEventListener('submit', (e) => {
+      // Uyarı formunda kanıt DOSYASI seçilmişse Orbital Loader XHR akışı yönetimi devralır
+      if (form.dataset.orbitalLoader === 'true' && window.NexusOrbitalUploadReady) {
+        const evidenceFileInput = form.querySelector('input[type="file"][name="evidenceFile"]');
+        if (evidenceFileInput && evidenceFileInput.files && evidenceFileInput.files.length > 0) {
+          return;
+        }
+      }
+
       if (form.dataset.submitted === 'true') {
         e.preventDefault();
         return;

@@ -9,7 +9,7 @@ const BRAND_NAME = 'Piyade Clan | TSB';
 const SHORT_BRAND_NAME = 'Piyade Clan';
 const ALTERNATE_NAME = 'Piyade Team';
 const CLAN_TAG = '﹝πB1﹞ Piyade Clan | TSB';
-const ASSET_VERSION = '1.2.0';
+const ASSET_VERSION = '1.3.0';
 
 const PUBLIC_ROUTE_PATHS = ['/', '/kurallar', '/kayit', '/etkilesim'];
 

@@ -186,8 +186,12 @@
     <!-- Mobil/Tablet Yarı Saydam Karartma Katmanı -->
     <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
-    <!-- Sol Sabit Kenar Çubuğu (Sidebar) -->
-    <aside id="appSidebar" class="app-sidebar">
+    <!-- Sol Sabit Kenar Çubuğu (Sidebar + Floating Dock Animasyonu) -->
+    <aside
+      id="appSidebar"
+      class="app-sidebar"
+      data-dock-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.floatingDock) : '{}' %>"
+    >
       <!-- Üst Başlık ve Aç/Kapa Butonu -->
       <div class="sidebar-header">
         <a href="/" class="sidebar-brand">
@@ -244,9 +248,10 @@
         </div>
       </div>
 
-      <!-- Dinamik Gezinme Menüsü (menu.config.js üzerinden okunur) -->
-      <nav class="sidebar-nav" aria-label="<%= t('nav.sidebarAriaLabel') %>">
-        <span id="sidebarDockDot" class="sidebar-dock-dot" aria-hidden="true"></span>
+      <!-- Dinamik Gezinme Menüsü (menu.config.js üzerinden okunur, Floating Dock destekli) -->
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="<%= t('nav.sidebarAriaLabel') %>">
+        <!-- Floating Dock Kayan Aktif Gösterge Noktası -->
+        <span class="sidebar-dock-dot" id="sidebarDockDot" aria-hidden="true"></span>
         <!-- GRUP 1: ÜYE MENÜLERİ -->
         <% if (memberMenus.length > 0) { %>
           <div class="sidebar-group">
@@ -369,6 +374,9 @@
           </a>
         </div>
       </div>
+
+      <!-- Daraltılmış Dock Modu İçin Kırpılmayan Sağ Etiket (Tooltip) -->
+      <div id="sidebarDockTooltip" class="sidebar-dock-tooltip" role="tooltip" aria-hidden="true"></div>
     </aside>
 
   <% } else { %>

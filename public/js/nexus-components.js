@@ -1,663 +1,750 @@
 /**
  * ==============================================================================
- * 🌟 PIYADE CLAN | TSB — NEXUS UI BİLEŞENLERİ (SAF VANİLLA JS + YAY FİZİĞİ)
+ * 🌟 NEXUS UI BAĞIMSIZ VANİLLA JS BİLEŞENLERİ (REACT / TAILWIND / CDN YOK)
  * ==============================================================================
- * 1. NexusSpring   : Hafif Hooke yay fiziği çözücüsü (bağımsız)
- * 2. Meteors       : Tek canvas katmanlı, imleç bükümlü ve kıvılcımlı meteor gökyüzü
- * 3. Dart Rating   : Mor hedef tahtası, titreyen nişangah, güç çubuğu ve ARIA slider
- * 4. Scroll Reveal : Aşağı kaydırınca netleşen tek birleşik .is-revealed sınıfı
- * 5. Floating Dock : Giriş sonrası sol menü için yaylı yakınlık & kayar aktif nokta
- * 6. Orbital Loader: Kanıt dosyası yüklenirken XHR ilerlemeli yörünge yükleyici
+ * 1) Meteors      : Tek Canvas katmanı, imleç çekimi, tıklama/dokunma meteor + kıvılcım halkası
+ * 2) Dart Rating  : Bas-tut nişan alma, artan titreme, güç çubuğu, tek dart yaylanma, ARIA slider
+ * 3) ScrollReveal : Tek sınıf (.is-revealed), reduced-motion uyumlu bulanıklıktan netliğe geçiş
+ * 4) FloatingDock : Giriş sonrası sol menü için yaylı macOS dock + mobil kademeli giriş
+ * 5) OrbitalLoader: Uyarı Formunda yalnızca kanıt dosyası seçiliyken gerçek % yükleme halkası
  *
- * Not: Harici CDN, React/Tailwind veya sabit renk kodu içermez.
- * Tüm renkler yalnızca public/css/theme.css değişkenlerinden okunur.
+ * Tüm renkler yalnızca public/css/theme.css içindeki mor tema değişkenlerinden okunur.
  * ==============================================================================
  */
-
 (function (global) {
   'use strict';
 
+  const reducedMotionQuery =
+    typeof global.matchMedia === 'function'
+      ? global.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+
   function prefersReducedMotion() {
-    return Boolean(
-      global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
+    return Boolean(reducedMotionQuery && reducedMotionQuery.matches);
   }
 
-  function isTouchDevice() {
-    return Boolean(
-      global.matchMedia &&
-        global.matchMedia('(hover: none) and (pointer: coarse)').matches
-    );
+  function hasFinePointer() {
+    if (typeof global.matchMedia !== 'function') return true;
+    return global.matchMedia('(hover: hover) and (pointer: fine)').matches;
   }
 
-  function readCssVar(name, fallback) {
-    if (!document.documentElement || !global.getComputedStyle) return fallback || '';
-    const val = global.getComputedStyle(document.documentElement).getPropertyValue(name);
-    return (val && val.trim()) || fallback || '';
-  }
-
-  function safeParseJson(str, fallback) {
-    if (!str) return fallback;
+  function parseJsonAttr(el, attrName, fallback = {}) {
+    if (!el) return fallback;
+    const raw = el.getAttribute(attrName);
+    if (!raw) return fallback;
     try {
-      return JSON.parse(str);
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : fallback;
     } catch (_) {
       return fallback;
     }
   }
 
-  /**
-   * Hafif Hooke yay fiziği (damped harmonic oscillator)
-   */
-  function createSpring(options) {
-    const opts = options || {};
-    const stiffness = typeof opts.stiffness === 'number' ? opts.stiffness : 320;
-    const damping = typeof opts.damping === 'number' ? opts.damping : 24;
-    const mass = typeof opts.mass === 'number' ? opts.mass : 0.85;
-    let value = typeof opts.initialValue === 'number' ? opts.initialValue : 0;
-    let target = value;
-    let velocity = 0;
+  function clamp(val, min, max) {
+    return Math.min(max, Math.max(min, val));
+  }
 
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function smoothstep(edge0, edge1, x) {
+    const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function randBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  // ============================================================================
+  // YARDIMCI 1: KÜÇÜK YAYLANMA (SPRING) FİZİK MOTORU (Vanilla JS)
+  // ============================================================================
+  function createSpring(initialValue = 0, options = {}) {
     return {
-      get value() {
-        return value;
-      },
-      get target() {
-        return target;
-      },
-      setTarget(nextTarget) {
-        target = nextTarget;
-      },
-      snap(nextVal) {
-        value = nextVal;
-        target = nextVal;
-        velocity = 0;
-      },
-      impulse(velDelta) {
-        velocity += velDelta;
-      },
-      isSettled() {
-        return Math.abs(target - value) < 0.002 && Math.abs(velocity) < 0.002;
-      },
-      step(dt) {
-        const clampedDt = Math.min(0.032, Math.max(0.001, dt || 0.016));
-        const force = -stiffness * (value - target) - damping * velocity;
-        const accel = force / mass;
-        velocity += accel * clampedDt;
-        value += velocity * clampedDt;
-        if (this.isSettled()) {
-          value = target;
-          velocity = 0;
-        }
-        return value;
-      },
+      value: initialValue,
+      target: initialValue,
+      velocity: 0,
+      stiffness: Number.isFinite(options.stiffness) ? options.stiffness : 340,
+      damping: Number.isFinite(options.damping) ? options.damping : 24,
+      mass: Number.isFinite(options.mass) ? options.mass : 0.85,
     };
   }
 
-  global.NexusSpring = { createSpring };
+  function stepSpring(spring, dt) {
+    const displacement = spring.value - spring.target;
+    const force = -spring.stiffness * displacement - spring.damping * spring.velocity;
+    const acceleration = force / spring.mass;
+    spring.velocity += acceleration * dt;
+    spring.value += spring.velocity * dt;
 
-  // ============================================================================
-  // 1. 🌠 METEORS CANVAS BİLEŞENİ
-  // ============================================================================
-  const METEOR_INTENSITY_MAP = {
-    low: 0.65,
-    medium: 1,
-    high: 1.45,
-  };
-
-  function initAllMeteors() {
-    const containers = document.querySelectorAll('#meteorsContainer, [data-nexus-meteors]');
-    containers.forEach((container) => initSingleMeteors(container));
+    const settled =
+      Math.abs(spring.velocity) < 0.002 && Math.abs(spring.target - spring.value) < 0.002;
+    if (settled) {
+      spring.value = spring.target;
+      spring.velocity = 0;
+    }
+    return !settled;
   }
 
-  function initSingleMeteors(container) {
-    if (!container || container.dataset.meteorsBound === 'true') return;
-    container.dataset.meteorsBound = 'true';
+  // ============================================================================
+  // YARDIMCI 2: THEME.CSS DEĞİŞKENLERİNDEN CANVAS RENKLERİNİ ÇÖZÜMLEME
+  // ============================================================================
+  let colorProbeEl = null;
 
-    const rawConfig = safeParseJson(container.getAttribute('data-meteors-config'), {});
-    const config = Object.assign(
-      {
-        number: 18,
-        intensity: 'medium',
-        angle: 215,
-        minDelay: 0.12,
-        maxDelay: 2.4,
-        minDuration: 3.2,
-        maxDuration: 7.2,
-        glow: true,
-        colorVar: '--meteors-color',
-        tailColorVar: '--meteors-tail-color',
-        sparkColorVar: '--meteors-spark-color',
-        starColorVar: '--meteors-star-color',
-        hoverOnly: false,
-        interactive: true,
-        stars: 0,
-        autoplay: false,
-      },
-      rawConfig
-    );
-
-    const canvas = document.createElement('canvas');
-    canvas.className = 'meteors-canvas';
-    canvas.setAttribute('aria-hidden', 'true');
-    container.insertBefore(canvas, container.firstChild);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Açı vektörü: sağa bakmaktan (+X) saat yönünün tersi (215° -> sol-aşağı)
-    const angleRad = ((Number(config.angle) || 215) * Math.PI) / 180;
-    const dirX = Math.cos(angleRad);
-    const dirY = -Math.sin(angleRad);
-    const perpX = -dirY;
-    const perpY = dirX;
-
-    let width = 0;
-    let height = 0;
-    let dpr = 1;
-    let isHovered = false;
-    let isInViewport = true;
-    let pointerX = -9999;
-    let pointerY = -9999;
-    let hasPointer = false;
-    let rafId = null;
-    let lastTimestamp = 0;
-
-    let resolvedColors = {
-      head: '',
-      tail: '',
-      spark: '',
-      star: '',
-    };
-
-    function refreshPalette() {
-      resolvedColors = {
-        head: readCssVar(config.colorVar || '--meteors-color', ''),
-        tail: readCssVar(config.tailColorVar || '--meteors-tail-color', ''),
-        spark: readCssVar(config.sparkColorVar || '--meteors-spark-color', ''),
-        star: readCssVar(config.starColorVar || '--meteors-star-color', ''),
-      };
+  function getColorProbe() {
+    if (!colorProbeEl && document.body) {
+      colorProbeEl = document.createElement('span');
+      colorProbeEl.setAttribute('aria-hidden', 'true');
+      colorProbeEl.style.position = 'fixed';
+      colorProbeEl.style.visibility = 'hidden';
+      colorProbeEl.style.pointerEvents = 'none';
+      colorProbeEl.style.width = '0';
+      colorProbeEl.style.height = '0';
+      document.body.appendChild(colorProbeEl);
     }
+    return colorProbeEl;
+  }
 
-    function computeEffectiveCount() {
-      const mult = METEOR_INTENSITY_MAP[config.intensity] || 1;
-      let count = Math.min(72, Math.max(1, Math.round((Number(config.number) || 18) * mult)));
-      if (global.innerWidth < 768 || width < 520) {
-        count = Math.max(4, Math.round(count * 0.55));
-      }
-      return count;
-    }
-
-    let ambientMeteors = [];
-    let strikeMeteors = [];
-    let sparkRings = [];
-    let sparkParticles = [];
-    let bgStars = [];
-
-    function randomBetween(min, max) {
-      return min + Math.random() * (max - min);
-    }
-
-    function createAmbientMeteor(initialSpread) {
-      const minDur = Number(config.minDuration) || 3.2;
-      const maxDur = Math.max(minDur, Number(config.maxDuration) || 7.2);
-      const minDel = Number(config.minDelay) || 0.12;
-      const maxDel = Math.max(minDel, Number(config.maxDelay) || 2.4);
-
-      const duration = randomBetween(minDur, maxDur);
-      const delay = initialSpread ? randomBetween(0, maxDel) : randomBetween(minDel, maxDel);
-
-      const spanW = Math.max(300, width);
-      const spanH = Math.max(240, height);
-      const diag = Math.hypot(spanW, spanH);
-      const centerX = spanW * 0.5;
-      const centerY = spanH * 0.5;
-      const startBackOffset = diag * randomBetween(0.52, 0.72);
-      const lateralOffset = randomBetween(-diag * 0.65, diag * 0.65);
-
-      const originX = centerX - dirX * startBackOffset + perpX * lateralOffset;
-      const originY = centerY - dirY * startBackOffset + perpY * lateralOffset;
-      const travelDistance = diag * randomBetween(1.15, 1.45);
-
+  function resolveCssRgb(varName) {
+    const probe = getColorProbe();
+    if (!probe || !varName) return { r: 192, g: 132, b: 252, a: 1 };
+    probe.style.color = '';
+    probe.style.color = `var(${varName})`;
+    const computed = global.getComputedStyle(probe).color;
+    const nums = computed && computed.match(/[\d.]+/g);
+    if (nums && nums.length >= 3) {
       return {
-        originX,
-        originY,
-        x: originX,
-        y: originY,
-        bendX: 0,
-        bendY: 0,
-        bendVx: 0,
-        bendVy: 0,
-        travelDistance,
-        duration,
-        elapsed: initialSpread ? -delay : -delay,
-        tailLength: randomBetween(95, 175),
-        headRadius: randomBetween(1.5, 2.6),
-        opacityScale: randomBetween(0.65, 1),
+        r: Number(nums[0]),
+        g: Number(nums[1]),
+        b: Number(nums[2]),
+        a: nums.length >= 4 ? Number(nums[3]) : 1,
       };
     }
+    return { r: 192, g: 132, b: 252, a: 1 };
+  }
 
-    function rebuildAmbientPool() {
-      const targetCount = computeEffectiveCount();
-      ambientMeteors = [];
-      for (let i = 0; i < targetCount; i++) {
-        ambientMeteors.push(createAmbientMeteor(true));
-      }
+  function rgbaStr(rgb, alphaMultiplier = 1) {
+    const alpha = clamp((rgb.a ?? 1) * alphaMultiplier, 0, 1);
+    return `rgba(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}, ${alpha.toFixed(3)})`;
+  }
 
-      const starCount = Math.max(0, Math.min(200, Number(config.stars) || 0));
-      bgStars = [];
-      for (let s = 0; s < starCount; s++) {
-        bgStars.push({
-          x: Math.random() * Math.max(width, 320),
-          y: Math.random() * Math.max(height, 240),
-          r: randomBetween(0.7, 1.6),
-          phase: Math.random() * Math.PI * 2,
-          speed: randomBetween(1.2, 2.8),
-        });
-      }
-    }
+  // ============================================================================
+  // 1) METEORS BİLEŞENİ (Tek Canvas Katmanı, İmleç Çekimi, Tıklama Kıvılcımı)
+  // ============================================================================
+  function initMeteors() {
+    const containers = document.querySelectorAll('#meteorsContainer, .meteors-container');
+    if (!containers.length) return;
 
-    function resizeCanvas() {
-      const rect = container.getBoundingClientRect();
-      width = Math.max(1, Math.round(rect.width));
-      height = Math.max(1, Math.round(rect.height));
-      dpr = Math.min(2, global.devicePixelRatio || 1);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      refreshPalette();
-      rebuildAmbientPool();
-      if (prefersReducedMotion()) {
-        drawReducedStatic();
-      }
-    }
+    const defaults = {
+      number: 18,
+      intensity: 'medium',
+      intensityMultipliers: { low: 0.65, medium: 1, high: 1.45 },
+      maxCount: 72,
+      mobileFactor: 0.55,
+      angle: 215,
+      minDelay: 0.12,
+      maxDelay: 2.4,
+      minDuration: 3.2,
+      maxDuration: 7.2,
+      glow: true,
+      colorVar: '--meteor-color',
+      coreColorVar: '--meteor-core-color',
+      sparkColorVar: '--meteor-spark-color',
+      glowColorVar: '--meteor-glow-color',
+      starColorVar: '--meteor-star-color',
+      hoverOnly: false,
+      interactive: true,
+      stars: 0,
+      autoplay: false,
+    };
 
-    function spawnStrikeAt(targetX, targetY) {
-      if (!config.interactive) return;
-      const spawnDist = Math.max(240, Math.hypot(width, height) * 0.65);
-      const startX = targetX - dirX * spawnDist;
-      const startY = targetY - dirY * spawnDist;
+    containers.forEach((container) => {
+      if (container.dataset.meteorsInit === 'true') return;
+      container.dataset.meteorsInit = 'true';
 
-      strikeMeteors.push({
-        startX,
-        startY,
-        targetX,
-        targetY,
-        x: startX,
-        y: startY,
-        progress: 0,
-        duration: 0.46,
-        tailLength: 185,
-        headRadius: 3.1,
-      });
-    }
+      const userCfg = parseJsonAttr(container, 'data-meteors-config', {});
+      const cfg = Object.assign({}, defaults, userCfg);
+      cfg.intensityMultipliers = Object.assign(
+        {},
+        defaults.intensityMultipliers,
+        userCfg.intensityMultipliers || {}
+      );
 
-    function spawnSparkBurst(x, y) {
-      sparkRings.push({
-        x,
-        y,
-        radius: 4,
-        maxRadius: 68,
-        alpha: 0.95,
+      // Canvas dışında yalnızca üst başlık overlay öğesini koru
+      Array.from(container.children).forEach((child) => {
+        if (!child.classList.contains('meteors-overlay')) {
+          child.remove();
+        }
       });
 
-      const count = 18;
-      for (let i = 0; i < count; i++) {
-        const ang = (Math.PI * 2 * i) / count + randomBetween(-0.18, 0.18);
-        const speed = randomBetween(85, 220);
-        sparkParticles.push({
+      const canvas = document.createElement('canvas');
+      canvas.className = 'meteors-canvas';
+      canvas.setAttribute('aria-hidden', 'true');
+      container.insertBefore(canvas, container.firstChild);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Tema renklerini theme.css'ten çöz
+      let palette = {
+        meteor: resolveCssRgb(cfg.colorVar),
+        core: resolveCssRgb(cfg.coreColorVar),
+        spark: resolveCssRgb(cfg.sparkColorVar),
+        glow: resolveCssRgb(cfg.glowColorVar),
+        star: resolveCssRgb(cfg.starColorVar),
+      };
+
+      const rad = (Number(cfg.angle || 215) * Math.PI) / 180;
+      // Ekran koordinatı (X sağ, Y aşağı) için sağdan saat yönünün tersine açı
+      const dirX = Math.cos(rad);
+      const dirY = -Math.sin(rad);
+
+      let width = 1;
+      let height = 1;
+      let dpr = 1;
+      let rafId = null;
+      let lastTs = 0;
+      let elapsedSec = 0;
+      let isInViewport = true;
+      let isHovered = false;
+
+      const pointer = {
+        active: false,
+        x: 0,
+        y: 0,
+      };
+
+      let ambientMeteors = [];
+      let calledMeteors = [];
+      let sparks = [];
+      let shockwaves = [];
+      let bgStars = [];
+
+      function getTargetCount() {
+        const mult =
+          (cfg.intensityMultipliers && cfg.intensityMultipliers[cfg.intensity]) || 1;
+        let base = Math.min(cfg.maxCount || 72, Math.round((cfg.number || 18) * mult));
+        if (width < 640 || !hasFinePointer()) {
+          base = Math.max(5, Math.round(base * (cfg.mobileFactor || 0.55)));
+        }
+        return clamp(base, 1, cfg.maxCount || 72);
+      }
+
+      function createBgStars() {
+        const count = Math.max(0, Math.round(Number(cfg.stars) || 0));
+        bgStars = [];
+        for (let i = 0; i < count; i++) {
+          bgStars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            radius: randBetween(0.6, 1.6),
+            phase: randBetween(0, Math.PI * 2),
+            speed: randBetween(0.8, 2.4),
+            baseAlpha: randBetween(0.15, 0.55),
+          });
+        }
+      }
+
+      function spawnAmbientMeteor(staggerInitially = false) {
+        const margin = 90;
+        const spanX = width + margin * 2;
+        const spanY = height + margin * 2;
+
+        // Hareket yönüne göre giriş kenarından doğur
+        let startX;
+        let startY;
+        const pickHorizontalEdge = Math.random() < 0.65;
+        if (pickHorizontalEdge) {
+          startX = randBetween(-margin * 0.4, width + margin);
+          startY = dirY >= 0 ? randBetween(-margin, 10) : randBetween(height - 10, height + margin);
+        } else {
+          startX = dirX <= 0 ? randBetween(width - 10, width + margin) : randBetween(-margin, 10);
+          startY = randBetween(-margin * 0.4, height + margin * 0.6);
+        }
+
+        const duration = randBetween(cfg.minDuration, cfg.maxDuration);
+        const travelDist = Math.hypot(spanX, spanY) * randBetween(0.55, 0.95);
+        const baseSpeed = travelDist / duration;
+
+        return {
+          x: startX,
+          y: startY,
+          vx: dirX * baseSpeed,
+          vy: dirY * baseSpeed,
+          baseSpeed,
+          age: staggerInitially ? -randBetween(0, cfg.maxDelay * 0.6) : -randBetween(cfg.minDelay, cfg.maxDelay),
+          duration,
+          thickness: randBetween(1.3, 2.5),
+          maxTrail: Math.round(randBetween(12, 22)),
+          trail: [],
+          opacityScale: randBetween(0.55, 1),
+        };
+      }
+
+      function syncMeteorPool(initial = false) {
+        const target = getTargetCount();
+        while (ambientMeteors.length < target) {
+          ambientMeteors.push(spawnAmbientMeteor(initial));
+        }
+        if (ambientMeteors.length > target) {
+          ambientMeteors.length = target;
+        }
+      }
+
+      function spawnSparkRing(x, y) {
+        shockwaves.push({
           x,
           y,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed,
-          life: 0,
-          maxLife: randomBetween(0.45, 0.8),
-          radius: randomBetween(1.4, 2.7),
+          radius: 4,
+          maxRadius: randBetween(34, 52),
+          age: 0,
+          duration: 0.52,
+        });
+
+        const count = 18;
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2 + randBetween(-0.18, 0.18);
+          const speed = randBetween(55, 165);
+          sparks.push({
+            x,
+            y,
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed,
+            size: randBetween(1.1, 2.4),
+            age: 0,
+            life: randBetween(0.32, 0.62),
+          });
+        }
+      }
+
+      function spawnCalledMeteor(targetX, targetY) {
+        if (!cfg.interactive) return;
+        const speed = 960;
+        const distBack = Math.max(width, height) * 0.65 + 120;
+        const startX = targetX - dirX * distBack;
+        const startY = targetY - dirY * distBack;
+
+        calledMeteors.push({
+          x: startX,
+          y: startY,
+          targetX,
+          targetY,
+          vx: dirX * speed,
+          vy: dirY * speed,
+          speed,
+          distRemaining: distBack,
+          trail: [],
+          thickness: 2.8,
         });
       }
-    }
 
-    function drawMeteorBody(x, y, vxNorm, vyNorm, tailLen, headR, alpha) {
-      if (alpha <= 0.01) return;
-      const tailX = x - vxNorm * tailLen;
-      const tailY = y - vyNorm * tailLen;
-
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-      // İncelen üçgen iz (tapering trail)
-      const pX = -vyNorm * headR;
-      const pY = vxNorm * headR;
-
-      const grad = ctx.createLinearGradient(x, y, tailX, tailY);
-      grad.addColorStop(0, resolvedColors.head);
-      grad.addColorStop(0.28, resolvedColors.tail);
-      grad.addColorStop(1, 'transparent');
-
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(x + pX, y + pY);
-      ctx.lineTo(x - pX, y - pY);
-      ctx.lineTo(tailX, tailY);
-      ctx.closePath();
-      ctx.fill();
-
-      // Meteor başı ve parlama (glow)
-      if (config.glow) {
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = resolvedColors.spark || resolvedColors.head;
-      }
-      ctx.fillStyle = resolvedColors.head;
-      ctx.beginPath();
-      ctx.arc(x, y, headR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    function drawReducedStatic() {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-
-      // Soluk yanıp sönmeyen sabit yıldızlar (stars > 0 ise)
-      bgStars.forEach((st) => {
-        ctx.save();
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = resolvedColors.star;
-        ctx.beginPath();
-        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      });
-
-      // Reduced-motion: soluk sabit çapraz çizgiler
-      const staticCount = Math.min(ambientMeteors.length, 14);
-      for (let i = 0; i < staticCount; i++) {
-        const sx = ((i + 0.7) / staticCount) * width;
-        const sy = (((i * 37) % 85) / 100) * height;
-        drawMeteorBody(sx, sy, dirX, dirY, 110, 1.5, 0.28);
-      }
-    }
-
-    function updateAndRender(dt, timeSec) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-
-      // Arka plan yıldızları (stars > 0 ise)
-      for (let s = 0; s < bgStars.length; s++) {
-        const st = bgStars[s];
-        const twinkle = 0.22 + 0.38 * (0.5 + 0.5 * Math.sin(timeSec * st.speed + st.phase));
-        ctx.save();
-        ctx.globalAlpha = twinkle;
-        ctx.fillStyle = resolvedColors.star;
-        ctx.beginPath();
-        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      const ambientActive = !config.hoverOnly || isHovered;
-
-      // Normal meteorlar: yanarak belirir, hızlanır, imleç çekimine bükülür
-      for (let i = 0; i < ambientMeteors.length; i++) {
-        const m = ambientMeteors[i];
-        m.elapsed += dt;
-        if (m.elapsed < 0) continue;
-
-        const normT = m.elapsed / m.duration;
-        if (normT >= 1) {
-          if (ambientActive) {
-            ambientMeteors[i] = createAmbientMeteor(false);
-          } else {
-            m.elapsed = -999;
-          }
-          continue;
-        }
-
-        // Hızlanma eğrisi (easeInQuad karışımı: başlangıçta belirip hızlanır)
-        const easedPos = 0.32 * normT + 0.68 * normT * normT;
-        const baseX = m.originX + dirX * (m.travelDistance * easedPos);
-        const baseY = m.originY + dirY * (m.travelDistance * easedPos);
-
-        // İmleç yakınından geçerken kendine doğru bükme (gravitational pointer bend)
-        if (config.interactive && hasPointer) {
-          const dxP = pointerX - (baseX + m.bendX);
-          const dyP = pointerY - (baseY + m.bendY);
-          const distP = Math.hypot(dxP, dyP);
-          const attractRadius = 210;
-          if (distP > 4 && distP < attractRadius) {
-            const falloff = (1 - distP / attractRadius) * (1 - distP / attractRadius);
-            const pullStrength = 340 * falloff;
-            m.bendVx += (dxP / distP) * pullStrength * dt;
-            m.bendVy += (dyP / distP) * pullStrength * dt;
-          }
-        }
-
-        // Yumuşak yaylı geri dönüş ve sönümleme
-        m.bendVx *= Math.pow(0.28, dt);
-        m.bendVy *= Math.pow(0.28, dt);
-        m.bendVx -= m.bendX * 2.2 * dt;
-        m.bendVy -= m.bendY * 2.2 * dt;
-        m.bendX += m.bendVx * dt;
-        m.bendY += m.bendVy * dt;
-
-        const prevX = m.x;
-        const prevY = m.y;
-        m.x = baseX + m.bendX;
-        m.y = baseY + m.bendY;
-
-        // Yanarak belirme (burn-in) ve çıkış solması
-        const burnIn = Math.min(1, normT / 0.16);
-        const fadeOut = normT > 0.8 ? Math.max(0, (1 - normT) / 0.2) : 1;
-        const alpha = burnIn * fadeOut * m.opacityScale;
-
-        // Hız vektörü (bükülme açısını da izlesin)
-        const stepDx = m.x - prevX;
-        const stepDy = m.y - prevY;
-        const stepLen = Math.hypot(stepDx, stepDy);
-        const vx = stepLen > 0.2 ? stepDx / stepLen : dirX;
-        const vy = stepLen > 0.2 ? stepDy / stepLen : dirY;
-
-        const dynamicTail = m.tailLength * (0.45 + 0.55 * Math.min(1, normT * 1.4));
-        drawMeteorBody(m.x, m.y, vx, vy, dynamicTail, m.headRadius, alpha);
-      }
-
-      // Tıklanan noktaya düşen özel meteorlar
-      for (let j = strikeMeteors.length - 1; j >= 0; j--) {
-        const sm = strikeMeteors[j];
-        sm.progress += dt / sm.duration;
-        if (sm.progress >= 1) {
-          spawnSparkBurst(sm.targetX, sm.targetY);
-          strikeMeteors.splice(j, 1);
-          continue;
-        }
-        const t = sm.progress;
-        const eased = t * t * (2 - t * 0.45) * 0.65 + t * 0.35;
-        sm.x = sm.startX + (sm.targetX - sm.startX) * Math.min(1, eased);
-        sm.y = sm.startY + (sm.targetY - sm.startY) * Math.min(1, eased);
-        drawMeteorBody(sm.x, sm.y, dirX, dirY, sm.tailLength, sm.headRadius, 1);
-      }
-
-      // Çarpma kıvılcım halkası (spark ring)
-      for (let r = sparkRings.length - 1; r >= 0; r--) {
-        const ring = sparkRings[r];
-        ring.radius += 165 * dt;
-        ring.alpha -= 1.85 * dt;
-        if (ring.alpha <= 0 || ring.radius >= ring.maxRadius) {
-          sparkRings.splice(r, 1);
-          continue;
-        }
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, ring.alpha);
-        ctx.strokeStyle = resolvedColors.spark || resolvedColors.head;
-        ctx.lineWidth = 2.2;
-        if (config.glow) {
-          ctx.shadowBlur = 14;
-          ctx.shadowColor = resolvedColors.spark;
-        }
-        ctx.beginPath();
-        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Çarpma kıvılcım parçacıkları
-      for (let p = sparkParticles.length - 1; p >= 0; p--) {
-        const sp = sparkParticles[p];
-        sp.life += dt;
-        if (sp.life >= sp.maxLife) {
-          sparkParticles.splice(p, 1);
-          continue;
-        }
-        sp.vx *= Math.pow(0.18, dt);
-        sp.vy *= Math.pow(0.18, dt);
-        sp.vy += 90 * dt;
-        sp.x += sp.vx * dt;
-        sp.y += sp.vy * dt;
-
-        const alpha = 1 - sp.life / sp.maxLife;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = resolvedColors.spark || resolvedColors.head;
-        if (config.glow) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = resolvedColors.spark;
-        }
-        ctx.beginPath();
-        ctx.arc(sp.x, sp.y, sp.radius * alpha, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    function tick(now) {
-      if (document.hidden || !isInViewport || prefersReducedMotion()) {
-        rafId = null;
-        return;
-      }
-      if (!lastTimestamp) lastTimestamp = now;
-      const dt = Math.min(0.05, (now - lastTimestamp) / 1000);
-      lastTimestamp = now;
-
-      updateAndRender(dt, now / 1000);
-      rafId = global.requestAnimationFrame(tick);
-    }
-
-    function ensureRunning() {
-      if (prefersReducedMotion()) {
-        drawReducedStatic();
-        return;
-      }
-      if (!document.hidden && isInViewport && !rafId) {
-        lastTimestamp = 0;
-        rafId = global.requestAnimationFrame(tick);
-      }
-    }
-
-    // Etkileşim dinleyicileri (imleç çekimi + tıklama/dokunma çarpma halkası)
-    if (config.interactive || config.hoverOnly) {
-      container.addEventListener(
-        'pointermove',
-        (e) => {
-          const rect = container.getBoundingClientRect();
-          pointerX = e.clientX - rect.left;
-          pointerY = e.clientY - rect.top;
-          hasPointer = true;
-          isHovered = true;
-        },
-        { passive: true }
-      );
-
-      container.addEventListener(
-        'pointerenter',
-        () => {
-          isHovered = true;
-          ensureRunning();
-        },
-        { passive: true }
-      );
-
-      container.addEventListener(
-        'pointerleave',
-        () => {
-          isHovered = false;
-          hasPointer = false;
-        },
-        { passive: true }
-      );
-
-      container.addEventListener('pointerdown', (e) => {
-        if (!config.interactive) return;
+      function updateCanvasSize() {
         const rect = container.getBoundingClientRect();
-        const cx = e.clientX - rect.left;
-        const cy = e.clientY - rect.top;
-        pointerX = cx;
-        pointerY = cy;
-        hasPointer = true;
+        width = Math.max(1, Math.round(rect.width));
+        height = Math.max(1, Math.round(rect.height));
+        dpr = Math.min(global.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        syncMeteorPool(false);
+        createBgStars();
 
         if (prefersReducedMotion()) {
-          // Reduced-motion'da tıklamada sadece sakin nokta/halka yenile
-          drawReducedStatic();
-          ctx.save();
-          ctx.globalAlpha = 0.55;
-          ctx.strokeStyle = resolvedColors.spark;
-          ctx.lineWidth = 2;
+          drawReducedMotionSnapshot();
+        }
+      }
+
+      function drawTaperedTrail(trail, headX, headY, alpha, thickness, isSparkHighlight) {
+        const points = trail.concat([{ x: headX, y: headY }]);
+        if (points.length < 2) return;
+
+        const baseRgb = isSparkHighlight ? palette.spark : palette.meteor;
+        const segments = points.length - 1;
+
+        for (let i = 0; i < segments; i++) {
+          const p0 = points[i];
+          const p1 = points[i + 1];
+          const t = (i + 1) / segments; // 0 kuyruk ucu -> 1 kafa
+          const segAlpha = alpha * Math.pow(t, 1.75) * 0.92;
+          const segWidth = Math.max(0.3, thickness * Math.pow(t, 1.25));
+
           ctx.beginPath();
-          ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.strokeStyle = rgbaStr(baseRgb, segAlpha);
+          ctx.lineWidth = segWidth;
+          ctx.lineCap = 'round';
           ctx.stroke();
-          ctx.restore();
-          return;
         }
 
-        spawnStrikeAt(cx, cy);
-        ensureRunning();
+        // Parlak kafa noktası ve parlama (glow)
+        ctx.save();
+        if (cfg.glow) {
+          ctx.shadowColor = rgbaStr(palette.glow, alpha * 0.95);
+          ctx.shadowBlur = isSparkHighlight ? 14 : 9;
+        }
+        ctx.beginPath();
+        ctx.arc(headX, headY, thickness * 0.85, 0, Math.PI * 2);
+        ctx.fillStyle = rgbaStr(palette.core, alpha);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawReducedMotionSnapshot() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Soluk sabit arka plan yıldızları (stars > 0 ise)
+        for (const s of bgStars) {
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+          ctx.fillStyle = rgbaStr(palette.star, s.baseAlpha);
+          ctx.fill();
+        }
+
+        // prefers-reduced-motion: hareket etmeyen soluk sabit meteor çizgileri
+        const staticCount = Math.min(12, getTargetCount());
+        const trailLen = 78;
+        for (let i = 0; i < staticCount; i++) {
+          const ratioX = ((i * 37 + 19) % 100) / 100;
+          const ratioY = ((i * 53 + 11) % 100) / 100;
+          const hx = width * (0.1 + ratioX * 0.8);
+          const hy = height * (0.12 + ratioY * 0.76);
+          const tx = hx - dirX * trailLen;
+          const ty = hy - dirY * trailLen;
+
+          const grad = ctx.createLinearGradient(tx, ty, hx, hy);
+          grad.addColorStop(0, rgbaStr(palette.meteor, 0));
+          grad.addColorStop(1, rgbaStr(palette.meteor, 0.28));
+
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(hx, hy);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1.4;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+      }
+
+      function stepSimulation(dt) {
+        elapsedSec += dt;
+
+        const runAmbient = !cfg.hoverOnly || isHovered;
+        const attractRadius = 175;
+
+        // 1. Ortam meteorları (yanarak belirir, hızlanır, imlece doğru bükülür)
+        if (runAmbient) {
+          for (let i = 0; i < ambientMeteors.length; i++) {
+            const m = ambientMeteors[i];
+            m.age += dt;
+            if (m.age < 0) continue;
+
+            if (m.age >= m.duration) {
+              ambientMeteors[i] = spawnAmbientMeteor(false);
+              continue;
+            }
+
+            const lifeT = clamp(m.age / m.duration, 0, 1);
+            // Hızlanma eğrisi
+            const accelFactor = 0.55 + Math.pow(lifeT, 1.35) * 1.45;
+            let targetVx = dirX * m.baseSpeed * accelFactor;
+            let targetVy = dirY * m.baseSpeed * accelFactor;
+
+            // İmleç yakınsa meteorun rotasını imlece doğru bük (çekim)
+            if (cfg.interactive && pointer.active) {
+              const dx = pointer.x - m.x;
+              const dy = pointer.y - m.y;
+              const dist = Math.hypot(dx, dy);
+              if (dist > 6 && dist < attractRadius) {
+                const pull = Math.pow(1 - dist / attractRadius, 1.7) * 340;
+                targetVx += (dx / dist) * pull;
+                targetVy += (dy / dist) * pull;
+              }
+            }
+
+            const steerBlend = clamp(dt * 7.5, 0, 1);
+            m.vx = lerp(m.vx, targetVx, steerBlend);
+            m.vy = lerp(m.vy, targetVy, steerBlend);
+
+            m.trail.push({ x: m.x, y: m.y });
+            if (m.trail.length > m.maxTrail) {
+              m.trail.shift();
+            }
+
+            m.x += m.vx * dt;
+            m.y += m.vy * dt;
+          }
+        }
+
+        // 2. Tıklama / dokunma ile çağrılan meteorlar
+        for (let i = calledMeteors.length - 1; i >= 0; i--) {
+          const cm = calledMeteors[i];
+          cm.trail.push({ x: cm.x, y: cm.y });
+          if (cm.trail.length > 18) cm.trail.shift();
+
+          const step = cm.speed * dt;
+          if (step >= cm.distRemaining) {
+            spawnSparkRing(cm.targetX, cm.targetY);
+            calledMeteors.splice(i, 1);
+          } else {
+            cm.x += cm.vx * dt;
+            cm.y += cm.vy * dt;
+            cm.distRemaining -= step;
+          }
+        }
+
+        // 3. Çarpma halkaları ve kıvılcım parçacıkları
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.age += dt;
+          if (sw.age >= sw.duration) {
+            shockwaves.splice(i, 1);
+          }
+        }
+
+        for (let i = sparks.length - 1; i >= 0; i--) {
+          const sp = sparks[i];
+          sp.age += dt;
+          if (sp.age >= sp.life) {
+            sparks.splice(i, 1);
+            continue;
+          }
+          const drag = Math.pow(0.08, dt);
+          sp.vx *= drag;
+          sp.vy *= drag;
+          sp.x += sp.vx * dt;
+          sp.y += sp.vy * dt;
+        }
+      }
+
+      function renderFrame() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Soluk yanıp sönen yıldızlar (stars > 0 ise)
+        if (bgStars.length > 0) {
+          for (const s of bgStars) {
+            const twinkle = 0.55 + 0.45 * Math.sin(elapsedSec * s.speed + s.phase);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = rgbaStr(palette.star, s.baseAlpha * twinkle);
+            ctx.fill();
+          }
+        }
+
+        const runAmbient = !cfg.hoverOnly || isHovered;
+        if (runAmbient) {
+          for (const m of ambientMeteors) {
+            if (m.age < 0) continue;
+            const lifeT = clamp(m.age / m.duration, 0, 1);
+            const burnIn = smoothstep(0, 0.14, lifeT);
+            const fadeOut = 1 - smoothstep(0.76, 1, lifeT);
+            const alpha = burnIn * fadeOut * m.opacityScale;
+            if (alpha <= 0.01) continue;
+            drawTaperedTrail(m.trail, m.x, m.y, alpha, m.thickness, false);
+          }
+        }
+
+        for (const cm of calledMeteors) {
+          drawTaperedTrail(cm.trail, cm.x, cm.y, 1, cm.thickness, true);
+        }
+
+        for (const sw of shockwaves) {
+          const t = clamp(sw.age / sw.duration, 0, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          const radCur = lerp(4, sw.maxRadius, eased);
+          const alpha = (1 - t) * 0.72;
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, radCur, 0, Math.PI * 2);
+          ctx.strokeStyle = rgbaStr(palette.spark, alpha);
+          ctx.lineWidth = 2 * (1 - t) + 0.5;
+          ctx.stroke();
+        }
+
+        for (const sp of sparks) {
+          const t = clamp(sp.age / sp.life, 0, 1);
+          const alpha = 1 - t;
+          ctx.save();
+          if (cfg.glow) {
+            ctx.shadowColor = rgbaStr(palette.glow, alpha);
+            ctx.shadowBlur = 7;
+          }
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, sp.size * (1 - t * 0.4), 0, Math.PI * 2);
+          ctx.fillStyle = rgbaStr(palette.core, alpha);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function tick(ts) {
+        if (!shouldAnimate()) {
+          rafId = null;
+          return;
+        }
+        if (!lastTs) lastTs = ts;
+        const dt = clamp((ts - lastTs) / 1000, 0.001, 0.05);
+        lastTs = ts;
+
+        stepSimulation(dt);
+        renderFrame();
+
+        rafId = global.requestAnimationFrame(tick);
+      }
+
+      function shouldAnimate() {
+        return (
+          !prefersReducedMotion() &&
+          document.visibilityState === 'visible' &&
+          isInViewport
+        );
+      }
+
+      function startLoop() {
+        if (prefersReducedMotion()) {
+          stopLoop();
+          drawReducedMotionSnapshot();
+          return;
+        }
+        if (rafId === null && shouldAnimate()) {
+          lastTs = 0;
+          rafId = global.requestAnimationFrame(tick);
+        }
+      }
+
+      function stopLoop() {
+        if (rafId !== null) {
+          global.cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+
+      // Etkileşim Olayları (İmleç çekimi + Tıklama/Dokunma Meteor Çağırma)
+      if (cfg.interactive) {
+        container.addEventListener('pointermove', (e) => {
+          if (e.pointerType !== 'mouse') return;
+          const rect = container.getBoundingClientRect();
+          pointer.x = e.clientX - rect.left;
+          pointer.y = e.clientY - rect.top;
+          pointer.active = true;
+        });
+
+        container.addEventListener('pointerenter', (e) => {
+          isHovered = true;
+          if (e.pointerType === 'mouse') {
+            const rect = container.getBoundingClientRect();
+            pointer.x = e.clientX - rect.left;
+            pointer.y = e.clientY - rect.top;
+            pointer.active = true;
+          }
+        });
+
+        container.addEventListener('pointerleave', () => {
+          isHovered = false;
+          pointer.active = false;
+        });
+
+        container.addEventListener('pointerdown', (e) => {
+          const rect = container.getBoundingClientRect();
+          const targetX = clamp(e.clientX - rect.left, 8, width - 8);
+          const targetY = clamp(e.clientY - rect.top, 8, height - 8);
+          if (prefersReducedMotion()) {
+            // Reduced-motion modunda hareketli düşüş yerine sessiz kısa pırıltı halkası
+            drawReducedMotionSnapshot();
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, 16, 0, Math.PI * 2);
+            ctx.strokeStyle = rgbaStr(palette.spark, 0.55);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            return;
+          }
+          spawnCalledMeteor(targetX, targetY);
+        });
+      }
+
+      // Sekme gizlenince / görünür olunca dur-başlat
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          stopLoop();
+        } else {
+          startLoop();
+        }
       });
-    }
 
-    // Boyut değişimi & görünürlük yönetimi
-    if (typeof global.ResizeObserver === 'function') {
-      const ro = new global.ResizeObserver(() => resizeCanvas());
-      ro.observe(container);
-    } else {
-      global.addEventListener('resize', resizeCanvas, { passive: true });
-    }
+      // Ekranda görünürlük izleme (Viewport dışında GPU/CPU tasarrufu)
+      if (typeof global.IntersectionObserver === 'function') {
+        const observer = new global.IntersectionObserver(
+          (entries) => {
+            const entry = entries[0];
+            isInViewport = Boolean(entry && entry.isIntersecting);
+            if (isInViewport) startLoop();
+            else stopLoop();
+          },
+          { threshold: 0.05 }
+        );
+        observer.observe(container);
+      }
 
-    if (typeof global.IntersectionObserver === 'function') {
-      const io = new global.IntersectionObserver(
-        (entries) => {
-          isInViewport = entries.some((entry) => entry.isIntersecting);
-          if (isInViewport) ensureRunning();
-        },
-        { threshold: 0.05 }
-      );
-      io.observe(container);
-    }
+      // Konteyner boyutu değiştikçe Canvas'ı yeniden boyutlandır
+      if (typeof global.ResizeObserver === 'function') {
+        const ro = new global.ResizeObserver(() => updateCanvasSize());
+        ro.observe(container);
+      } else {
+        global.addEventListener('resize', updateCanvasSize, { passive: true });
+      }
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) ensureRunning();
+      if (reducedMotionQuery && typeof reducedMotionQuery.addEventListener === 'function') {
+        reducedMotionQuery.addEventListener('change', () => {
+          if (prefersReducedMotion()) {
+            stopLoop();
+            drawReducedMotionSnapshot();
+          } else {
+            startLoop();
+          }
+        });
+      }
+
+      updateCanvasSize();
+      syncMeteorPool(true);
+      startLoop();
     });
-
-    resizeCanvas();
-    ensureRunning();
   }
 
   // ============================================================================
-  // 2. 📜 SCROLL REVEAL TEXT BİLEŞENİ (Tek birleşik .is-revealed sınıfı)
+  // 2) SCROLL REVEAL TEXT BİLEŞENİ (Tek Sınıf: .is-revealed)
   // ============================================================================
-  function initScrollReveal() {
+  function initScrollRevealText() {
     const scrollLines = Array.from(document.querySelectorAll('.scroll-reveal-line'));
-    if (scrollLines.length === 0) return;
+    if (!scrollLines.length) return;
+
+    function revealAllImmediately() {
+      scrollLines.forEach((line) => {
+        line.style.transitionDelay = '0ms';
+        line.classList.add('is-revealed');
+      });
+    }
 
     if (prefersReducedMotion()) {
-      scrollLines.forEach((line) => line.classList.add('is-revealed'));
+      revealAllImmediately();
       return;
     }
 
-    function updateRevealVisibility() {
-      const vh = global.innerHeight || document.documentElement.clientHeight || 800;
-      scrollLines.forEach((line, index) => {
+    function updateLineVisibility() {
+      const windowHeight = global.innerHeight || document.documentElement.clientHeight;
+      let revealIdx = 0;
+      scrollLines.forEach((line) => {
         const rect = line.getBoundingClientRect();
-        if (rect.top <= vh * 0.88 && rect.bottom >= 0) {
-          line.style.transitionDelay = `${index * 70}ms`;
-          line.classList.add('is-revealed');
-        } else if (rect.top > vh * 1.05) {
+        if (rect.top <= windowHeight * 0.88 && rect.bottom >= 0) {
+          if (!line.classList.contains('is-revealed')) {
+            line.style.transitionDelay = `${Math.min(revealIdx * 80, 240)}ms`;
+            line.classList.add('is-revealed');
+            revealIdx++;
+          }
+        } else if (rect.top > windowHeight * 1.05) {
           line.style.transitionDelay = '0ms';
           line.classList.remove('is-revealed');
         }
@@ -666,377 +753,491 @@
 
     if (typeof global.IntersectionObserver === 'function') {
       const io = new global.IntersectionObserver(
-        () => updateRevealVisibility(),
-        { threshold: [0, 0.15, 0.4, 0.85] }
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const idx = scrollLines.indexOf(entry.target);
+              entry.target.style.transitionDelay = `${Math.max(0, idx) * 75}ms`;
+              entry.target.classList.add('is-revealed');
+            }
+          });
+        },
+        { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
       );
       scrollLines.forEach((line) => io.observe(line));
     }
 
-    global.addEventListener('scroll', updateRevealVisibility, { passive: true });
-    global.addEventListener('resize', updateRevealVisibility, { passive: true });
-    updateRevealVisibility();
+    global.addEventListener('scroll', updateLineVisibility, { passive: true });
+    updateLineVisibility();
+
+    if (reducedMotionQuery && typeof reducedMotionQuery.addEventListener === 'function') {
+      reducedMotionQuery.addEventListener('change', () => {
+        if (prefersReducedMotion()) {
+          revealAllImmediately();
+        }
+      });
+    }
   }
 
   // ============================================================================
-  // 3. 🎯 DART RATING BİLEŞENİ (Slider + Nişangah Titremesi + Güç Çubuğu + Mor Tema)
+  // 3) DART RATING BİLEŞENİ (ARIA Slider, Titreme, Güç Çubuğu, Tek Dart)
   // ============================================================================
   function initDartRating() {
+    const widget = document.getElementById('dartRatingWidget');
     const dartWrapper = document.getElementById('dartboardWrapper');
     const reticle = document.getElementById('dartAimReticle');
+    const powerFill = document.getElementById('dartPowerFill');
+    const powerPercent = document.getElementById('dartPowerPercent');
     const scoreDisplay = document.getElementById('dartScoreDisplay');
     const feedbackDisplay = document.getElementById('dartFeedbackDisplay');
-    const ratingWordEl = document.getElementById('dartRatingWord');
     const starsContainer = document.getElementById('dartStarsContainer');
     const clearBtn = document.getElementById('btnClearDarts');
-    const powerFill = document.getElementById('dartPowerFill');
-    const powerValue = document.getElementById('dartPowerValue');
-    const dartCard = document.getElementById('dartRatingCard');
 
-    if (!dartWrapper || !reticle) return;
+    if (!widget || !dartWrapper || !reticle) return;
 
-    const i18nData = safeParseJson(
-      dartCard ? dartCard.getAttribute('data-dart-i18n') : '',
+    const cfg = Object.assign(
       {
-        unratedScore: '–',
-        unratedWord: 'Puan verilmedi',
-        initialFeedback: 'Hedef almak için tahtaya basılı tut ve bırak.',
-        words: {},
-        feedbacks: {},
-      }
+        autoplay: false,
+        minValue: 1,
+        maxValue: 10,
+        maxHoldSeconds: 1.4,
+        maxJitterPx: 14,
+      },
+      parseJsonAttr(widget, 'data-dart-config', {})
     );
 
-    const VIEWBOX_SIZE = 280;
+    const i18n = parseJsonAttr(widget, 'data-dart-i18n', {
+      notRated: 'Puan verilmedi',
+      dash: '–',
+      holdPrompt: 'Basılı tutup nişan al...',
+      words: {
+        1: 'Acemi',
+        2: 'Zayıf',
+        3: 'Gelişmeli',
+        4: 'Sıradan',
+        5: 'Orta',
+        6: 'İyi',
+        7: 'Başarılı',
+        8: 'Keskin',
+        9: 'Usta',
+        10: 'Efsanevi',
+      },
+    });
+
+    const SVG_SIZE = 280;
     const CENTER = 140;
     const BOARD_RADIUS = 130;
-    const RING_STEP = 13; // 10 halka * 13 = 130
 
-    let currentScore = null;
     let isAiming = false;
-    let activePointerId = null;
-    let pointerX = CENTER;
-    let pointerY = CENTER;
+    let isBoardVisible = false;
+    let currentScore = null; // Başlangıç: puan verilmedi
+    let baseAimX = CENTER;
+    let baseAimY = CENTER;
     let jitteredX = CENTER;
     let jitteredY = CENTER;
-    let holdStartMs = 0;
+    let aimStartTs = 0;
     let aimRafId = null;
+    let throwRafId = null;
+    let activePinEl = null;
 
-    function clientToSvgCoords(clientX, clientY) {
+    function getBoardMetrics() {
       const rect = dartWrapper.getBoundingClientRect();
-      const relX = ((clientX - rect.left) / Math.max(1, rect.width)) * VIEWBOX_SIZE;
-      const relY = ((clientY - rect.top) / Math.max(1, rect.height)) * VIEWBOX_SIZE;
-      return { x: relX, y: relY };
+      const width = rect.width || SVG_SIZE;
+      const height = rect.height || SVG_SIZE;
+      const scale = SVG_SIZE / width;
+      return { rect, width, height, scale };
     }
 
-    function clampToBoard(x, y) {
-      const dx = x - CENTER;
-      const dy = y - CENTER;
+    function clampToBoardCircle(px, py, sizePx) {
+      const cx = sizePx / 2;
+      const cy = sizePx / 2;
+      const maxR = (BOARD_RADIUS / SVG_SIZE) * sizePx - 2;
+      const dx = px - cx;
+      const dy = py - cy;
       const dist = Math.hypot(dx, dy);
-      if (dist <= BOARD_RADIUS - 1.5) return { x, y };
-      const scale = (BOARD_RADIUS - 1.5) / dist;
-      return { x: CENTER + dx * scale, y: CENTER + dy * scale };
+      if (dist <= maxR || dist === 0) {
+        return { x: px, y: py };
+      }
+      const ratio = maxR / dist;
+      return { x: cx + dx * ratio, y: cy + dy * ratio };
     }
 
-    function setPowerUI(pct) {
-      const rounded = Math.max(0, Math.min(100, Math.round(pct)));
-      if (powerFill) powerFill.style.width = `${rounded}%`;
-      if (powerValue) powerValue.textContent = `%${rounded}`;
+    function setPowerMeter(charge) {
+      const pct = Math.round(clamp(charge, 0, 1) * 100);
+      if (powerFill) powerFill.style.width = `${pct}%`;
+      if (powerPercent) powerPercent.textContent = `${pct}%`;
     }
 
-    function updateReticlePosition(x, y) {
-      reticle.style.left = `${(x / VIEWBOX_SIZE) * 100}%`;
-      reticle.style.top = `${(y / VIEWBOX_SIZE) * 100}%`;
+    function setScoreUI(score) {
+      currentScore = score;
+      const word = score !== null ? (i18n.words && i18n.words[String(score)]) || '' : '';
+
+      if (scoreDisplay) {
+        scoreDisplay.innerHTML = '';
+        const span = document.createElement('span');
+        span.className = 'dart-score-num';
+        span.textContent = score !== null ? String(score) : i18n.dash || '–';
+        scoreDisplay.appendChild(span);
+        scoreDisplay.appendChild(document.createTextNode(' / 10'));
+      }
+
+      if (starsContainer) {
+        const stars = starsContainer.querySelectorAll('.dart-star');
+        stars.forEach((star, idx) => {
+          if (score !== null && idx < score) {
+            star.classList.add('is-filled');
+          } else {
+            star.classList.remove('is-filled');
+          }
+        });
+      }
+
+      if (feedbackDisplay) {
+        feedbackDisplay.textContent = score !== null ? word : i18n.notRated || 'Puan verilmedi';
+      }
+
+      // Gerçek ARIA Slider özellikleri
+      if (score !== null) {
+        dartWrapper.setAttribute('aria-valuenow', String(score));
+        dartWrapper.setAttribute('aria-valuetext', `${score} / 10 — ${word}`);
+      } else {
+        dartWrapper.setAttribute('aria-valuenow', '0');
+        dartWrapper.setAttribute('aria-valuetext', i18n.notRated || 'Puan verilmedi');
+      }
     }
 
-    function aimTick(now) {
+    function removeExistingDart() {
+      if (throwRafId !== null) {
+        global.cancelAnimationFrame(throwRafId);
+        throwRafId = null;
+      }
+      dartWrapper.querySelectorAll('.dart-pin').forEach((el) => el.remove());
+      activePinEl = null;
+    }
+
+    function createDartPinSvg() {
+      return `
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" class="dart-pin-core" />
+          <path d="M12 9 L8 2 L12 5 L16 2 Z" class="dart-pin-fletch-1" />
+          <path d="M12 15 L8 22 L12 19 L16 22 Z" class="dart-pin-fletch-2" />
+          <path d="M9 12 L2 8 L5 12 L2 16 Z" class="dart-pin-fletch-3" />
+          <path d="M15 12 L22 8 L19 12 L22 16 Z" class="dart-pin-fletch-4" />
+        </svg>
+      `;
+    }
+
+    function spawnImpactRipple(x, y) {
+      if (prefersReducedMotion()) return;
+      const ripple = document.createElement('div');
+      ripple.className = 'dart-impact-ripple';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      dartWrapper.appendChild(ripple);
+      global.setTimeout(() => ripple.remove(), 600);
+    }
+
+    function placeDartAt(x, y, forcedScore = null) {
+      const { width, scale } = getBoardMetrics();
+      const clamped = clampToBoardCircle(x, y, width);
+      const landX = clamped.x;
+      const landY = clamped.y;
+
+      // Eski dartı çıkar: tahtada her zaman yalnızca TEK dart bulunur
+      removeExistingDart();
+
+      // Puanı SVG merkez uzaklığından hesapla (1..10)
+      let score = forcedScore;
+      if (score === null) {
+        const svgX = landX * scale;
+        const svgY = landY * scale;
+        const svgDist = Math.hypot(svgX - CENTER, svgY - CENTER);
+        score = clamp(11 - Math.ceil(Math.max(1, svgDist) / 13), cfg.minValue, cfg.maxValue);
+      }
+
+      const pin = document.createElement('div');
+      pin.className = 'dart-pin';
+      pin.style.left = `${landX}px`;
+      pin.style.top = `${landY}px`;
+      pin.innerHTML = createDartPinSvg();
+      dartWrapper.appendChild(pin);
+      activePinEl = pin;
+
+      if (prefersReducedMotion()) {
+        pin.style.transform = 'translate(-50%, -50%) scale(1)';
+        setScoreUI(score);
+        return;
+      }
+
+      // Küçük yaylanma fonksiyonu ile fırlatma & saplanma animasyonu
+      pin.classList.add('is-landing');
+      const scaleSpring = createSpring(2.05, { stiffness: 420, damping: 22, mass: 0.75 });
+      scaleSpring.target = 1;
+      const offsetXSpring = createSpring(16, { stiffness: 360, damping: 24, mass: 0.8 });
+      offsetXSpring.target = 0;
+      const offsetYSpring = createSpring(-22, { stiffness: 360, damping: 24, mass: 0.8 });
+      offsetYSpring.target = 0;
+
+      let prevTs = 0;
+      let rippleFired = false;
+
+      function animateThrow(ts) {
+        if (pin !== activePinEl) return;
+        if (!prevTs) prevTs = ts;
+        const dt = clamp((ts - prevTs) / 1000, 0.001, 0.032);
+        prevTs = ts;
+
+        const m1 = stepSpring(scaleSpring, dt);
+        const m2 = stepSpring(offsetXSpring, dt);
+        const m3 = stepSpring(offsetYSpring, dt);
+
+        if (!rippleFired && scaleSpring.value <= 1.12) {
+          rippleFired = true;
+          spawnImpactRipple(landX, landY);
+        }
+
+        pin.style.transform = `translate(calc(-50% + ${offsetXSpring.value.toFixed(2)}px), calc(-50% + ${offsetYSpring.value.toFixed(2)}px)) scale(${scaleSpring.value.toFixed(3)})`;
+
+        if (m1 || m2 || m3) {
+          throwRafId = global.requestAnimationFrame(animateThrow);
+        } else {
+          pin.classList.remove('is-landing');
+          pin.style.transform = 'translate(-50%, -50%) scale(1)';
+          throwRafId = null;
+        }
+      }
+
+      throwRafId = global.requestAnimationFrame(animateThrow);
+      setScoreUI(score);
+    }
+
+    function throwPerfectRing(targetRing) {
+      const score = clamp(targetRing, cfg.minValue, cfg.maxValue);
+      const { width } = getBoardMetrics();
+      const pxPerSvg = width / SVG_SIZE;
+      // Hedef halkanın orta yarıçapı (10 = 6.5 svg px, 1 = 123.5 svg px)
+      const ringCenterRadiusPx = (10.5 - score) * 13 * pxPerSvg;
+      const angle = score === 10 ? 0 : randBetween(0, Math.PI * 2);
+      const x = width / 2 + Math.cos(angle) * ringCenterRadiusPx;
+      const y = width / 2 + Math.sin(angle) * ringCenterRadiusPx;
+      placeDartAt(x, y, score);
+    }
+
+    function updateAimFrame(ts) {
       if (!isAiming) {
         aimRafId = null;
         return;
       }
 
-      const elapsedMs = Math.max(0, now - holdStartMs);
-      // Güç 1.35 saniyede %100'e ulaşır, ardından yüksek güçte nefes alır
-      const baseRamp = Math.min(1, elapsedMs / 1350);
-      const pulse = baseRamp >= 1 ? 0.92 + 0.08 * Math.sin((elapsedMs - 1350) / 180) : baseRamp;
-      const powerPct = Math.max(6, Math.round(pulse * 100));
-      setPowerUI(powerPct);
+      const holdSec = (ts - aimStartTs) / 1000;
+      const rawCharge = holdSec / (cfg.maxHoldSeconds || 1.4);
+      const charge = clamp(rawCharge, 0, 1);
 
-      if (prefersReducedMotion()) {
-        const clamped = clampToBoard(pointerX, pointerY);
-        jitteredX = clamped.x;
-        jitteredY = clamped.y;
-      } else {
-        // Basılı tuttukça nişangah titremesi (tremor) artar
-        const tremorRadius = 1.5 + Math.pow(baseRamp, 1.35) * 12;
-        const jx =
-          (Math.sin(now * 0.023) * 0.65 + Math.sin(now * 0.061) * 0.35) * tremorRadius;
-        const jy =
-          (Math.cos(now * 0.029) * 0.65 + Math.cos(now * 0.053) * 0.35) * tremorRadius;
-        const clamped = clampToBoard(pointerX + jx, pointerY + jy);
-        jitteredX = clamped.x;
-        jitteredY = clamped.y;
+      setPowerMeter(charge);
+
+      // Tuttukça nişangah daha çok titrer (reduced-motion'da titreme kapalı)
+      let jx = 0;
+      let jy = 0;
+      if (!prefersReducedMotion() && charge > 0.08) {
+        const amp = (cfg.maxJitterPx || 14) * Math.pow(charge, 1.35);
+        jx =
+          (Math.sin(holdSec * 29.3) * 0.55 + Math.cos(holdSec * 47.1) * 0.45) * amp;
+        jy =
+          (Math.cos(holdSec * 33.7) * 0.55 + Math.sin(holdSec * 53.9) * 0.45) * amp;
       }
 
-      updateReticlePosition(jitteredX, jitteredY);
-      aimRafId = global.requestAnimationFrame(aimTick);
-    }
-
-    function computeScoreFromCoords(x, y) {
-      const dx = x - CENTER;
-      const dy = y - CENTER;
-      const dist = Math.hypot(dx, dy);
-      if (dist <= RING_STEP) return 10;
-      const ringIdx = Math.ceil(dist / RING_STEP);
-      return Math.max(1, Math.min(10, 11 - ringIdx));
-    }
-
-    function renderSingleDartPin(svgX, svgY) {
-      // KURAL: Yeni atışta eski dart çıkarılır; tahtada her zaman en fazla TEK dart vardır
-      dartWrapper.querySelectorAll('.dart-pin').forEach((existing) => existing.remove());
-
-      const pin = document.createElement('div');
-      pin.className = prefersReducedMotion() ? 'dart-pin' : 'dart-pin is-sticking';
-      pin.style.left = `${(svgX / VIEWBOX_SIZE) * 100}%`;
-      pin.style.top = `${(svgY / VIEWBOX_SIZE) * 100}%`;
-      pin.innerHTML = `
-        <svg class="dart-pin-svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="3.2" fill="var(--dart-pin-core)" />
-          <path d="M12 9 L8 2 L12 5 L16 2 Z" fill="var(--dart-pin-wing-1)" />
-          <path d="M12 15 L8 22 L12 19 L16 22 Z" fill="var(--dart-pin-wing-2)" />
-          <path d="M9 12 L2 8 L5 12 L2 16 Z" fill="var(--dart-pin-wing-3)" />
-          <path d="M15 12 L22 8 L19 12 L22 16 Z" fill="var(--dart-pin-wing-4)" />
-        </svg>
-      `;
-      dartWrapper.appendChild(pin);
-    }
-
-    function updateScoreUI(score) {
-      currentScore = score;
-      const isRated = typeof score === 'number' && score >= 1 && score <= 10;
-
-      if (scoreDisplay) {
-        const displayNum = isRated ? String(score) : String(i18nData.unratedScore || '–');
-        scoreDisplay.innerHTML = `<span class="dart-score-value">${displayNum}</span> / 10`;
-      }
-
-      if (starsContainer) {
-        const stars = starsContainer.querySelectorAll('.dart-star');
-        if (stars.length === 10) {
-          stars.forEach((star, idx) => {
-            star.classList.toggle('is-filled', isRated && idx < score);
-          });
-        } else {
-          let html = '';
-          for (let i = 1; i <= 10; i++) {
-            html += `<span class="dart-star ${isRated && i <= score ? 'is-filled' : ''}" aria-hidden="true">★</span>`;
-          }
-          starsContainer.innerHTML = html;
-        }
-      }
-
-      const word = isRated
-        ? (i18nData.words && i18nData.words[String(score)]) || String(score)
-        : i18nData.unratedWord || 'Puan verilmedi';
-
-      if (ratingWordEl) {
-        ratingWordEl.textContent = word;
-        ratingWordEl.classList.toggle('is-rated', isRated);
-      }
-
-      if (feedbackDisplay) {
-        feedbackDisplay.textContent = isRated
-          ? (i18nData.feedbacks && i18nData.feedbacks[String(score)]) || ''
-          : i18nData.initialFeedback || '';
-      }
-
-      // Gerçek Slider ARIA Güncellemesi
-      if (isRated) {
-        dartWrapper.setAttribute('aria-valuenow', String(score));
-        dartWrapper.setAttribute('aria-valuetext', `${score} / 10 — ${word}`);
-      } else {
-        dartWrapper.removeAttribute('aria-valuenow');
-        dartWrapper.setAttribute('aria-valuetext', word);
-      }
-    }
-
-    function throwDartAtRing(ringNumber) {
-      const safeRing = Math.max(1, Math.min(10, Math.round(ringNumber)));
-      // Seçilen halkanın tam ortasına düşür
-      const targetRadius = safeRing === 10 ? 0 : (10 - safeRing + 0.5) * RING_STEP;
-      const randomAngle = prefersReducedMotion() ? -Math.PI / 4 : Math.random() * Math.PI * 2;
-      const x = CENTER + Math.cos(randomAngle) * targetRadius;
-      const y = CENTER + Math.sin(randomAngle) * targetRadius;
-
-      renderSingleDartPin(x, y);
-      updateScoreUI(safeRing);
-    }
-
-    function stopAiming(shouldThrow) {
-      if (!isAiming) return;
-      isAiming = false;
-      reticle.classList.remove('is-aiming');
-      if (aimRafId) {
-        global.cancelAnimationFrame(aimRafId);
-        aimRafId = null;
-      }
-
-      if (shouldThrow) {
-        const clamped = clampToBoard(jitteredX, jitteredY);
-        const landedScore = computeScoreFromCoords(clamped.x, clamped.y);
-        renderSingleDartPin(clamped.x, clamped.y);
-        updateScoreUI(landedScore);
-      }
-      setPowerUI(0);
-      activePointerId = null;
-    }
-
-    dartWrapper.addEventListener('pointerdown', (e) => {
-      if (e.button && e.button !== 0) return;
-      e.preventDefault();
-      dartWrapper.focus({ preventScroll: true });
-
-      const coords = clientToSvgCoords(e.clientX, e.clientY);
-      const clamped = clampToBoard(coords.x, coords.y);
-      pointerX = clamped.x;
-      pointerY = clamped.y;
+      const { width } = getBoardMetrics();
+      const clamped = clampToBoardCircle(baseAimX + jx, baseAimY + jy, width);
       jitteredX = clamped.x;
       jitteredY = clamped.y;
 
-      isAiming = true;
-      activePointerId = e.pointerId;
-      holdStartMs = performance.now();
-      reticle.classList.add('is-aiming');
-      updateReticlePosition(jitteredX, jitteredY);
+      reticle.style.left = `${jitteredX}px`;
+      reticle.style.top = `${jitteredY}px`;
 
-      if (dartWrapper.setPointerCapture && e.pointerId !== undefined) {
+      aimRafId = global.requestAnimationFrame(updateAimFrame);
+    }
+
+    function startAiming(clientX, clientY) {
+      const { rect, width } = getBoardMetrics();
+      const local = clampToBoardCircle(clientX - rect.left, clientY - rect.top, width);
+      baseAimX = local.x;
+      baseAimY = local.y;
+      jitteredX = local.x;
+      jitteredY = local.y;
+      isAiming = true;
+      aimStartTs = global.performance ? global.performance.now() : Date.now();
+
+      reticle.style.left = `${jitteredX}px`;
+      reticle.style.top = `${jitteredY}px`;
+      reticle.classList.add('is-aiming');
+      if (feedbackDisplay && currentScore === null) {
+        feedbackDisplay.textContent = i18n.holdPrompt || 'Basılı tutup nişan al...';
+      }
+
+      if (aimRafId !== null) global.cancelAnimationFrame(aimRafId);
+      aimRafId = global.requestAnimationFrame(updateAimFrame);
+    }
+
+    function finishAiming(throwDart) {
+      if (!isAiming) return;
+      isAiming = false;
+      if (aimRafId !== null) {
+        global.cancelAnimationFrame(aimRafId);
+        aimRafId = null;
+      }
+      reticle.classList.remove('is-aiming');
+
+      if (throwDart) {
+        placeDartAt(jitteredX, jitteredY, null);
+      } else {
+        setPowerMeter(0);
+      }
+      global.setTimeout(() => {
+        if (!isAiming) setPowerMeter(0);
+      }, 280);
+    }
+
+    // Pointer Olayları (Masaüstü Fare + Mobil Dokunmatik Birlikte)
+    dartWrapper.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault();
+      dartWrapper.focus({ preventScroll: true });
+      if (typeof dartWrapper.setPointerCapture === 'function') {
         try {
           dartWrapper.setPointerCapture(e.pointerId);
         } catch (_) {}
       }
-      aimTick(holdStartMs);
+      startAiming(e.clientX, e.clientY);
     });
 
-    global.addEventListener(
-      'pointermove',
-      (e) => {
-        if (!isAiming || (activePointerId !== null && e.pointerId !== activePointerId)) return;
-        const coords = clientToSvgCoords(e.clientX, e.clientY);
-        const clamped = clampToBoard(coords.x, coords.y);
-        pointerX = clamped.x;
-        pointerY = clamped.y;
-      },
-      { passive: true }
-    );
-
-    global.addEventListener('pointerup', (e) => {
-      if (!isAiming || (activePointerId !== null && e.pointerId !== activePointerId)) return;
-      stopAiming(true);
+    dartWrapper.addEventListener('pointermove', (e) => {
+      if (!isAiming) return;
+      const { rect, width } = getBoardMetrics();
+      const local = clampToBoardCircle(e.clientX - rect.left, e.clientY - rect.top, width);
+      baseAimX = local.x;
+      baseAimY = local.y;
     });
 
-    global.addEventListener('pointercancel', (e) => {
-      if (!isAiming || (activePointerId !== null && e.pointerId !== activePointerId)) return;
-      stopAiming(false);
-    });
+    dartWrapper.addEventListener('pointerup', () => finishAiming(true));
+    dartWrapper.addEventListener('pointercancel', () => finishAiming(false));
 
-    function isEditableElementFocused() {
-      const active = document.activeElement;
-      if (!active) return false;
-      if (active.isContentEditable) return true;
-      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+    // Viewport görünürlüğü izleme (kısayolları yalnızca görünür/odaktayken çalıştırmak için)
+    if (typeof global.IntersectionObserver === 'function') {
+      const io = new global.IntersectionObserver(
+        (entries) => {
+          isBoardVisible = Boolean(entries[0] && entries[0].isIntersecting);
+        },
+        { threshold: 0.25 }
+      );
+      io.observe(dartWrapper);
+    } else {
+      isBoardVisible = true;
     }
 
-    function isBoardVisible() {
-      if (!dartWrapper || dartWrapper.offsetParent === null) return false;
-      const rect = dartWrapper.getBoundingClientRect();
-      const vh = global.innerHeight || document.documentElement.clientHeight;
-      return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < vh;
-    }
-
-    // Klavye kısayolları:
-    // - Yazı alanı odaktayken ÇALIŞMAZ
-    // - Ok tuşları / Home / End sadece tahta odaktayken (role="slider") çalışır
-    // - 1–9 ve 0 tuşları sadece tahta odaktayken veya ekranda görünürdeyken çalışır
+    // Klavye Etkileşimi (1-9, 0 ve Slider Ok Tuşları)
     global.addEventListener('keydown', (e) => {
-      if (isEditableElementFocused() || e.ctrlKey || e.altKey || e.metaKey) return;
-
-      const isFocused = document.activeElement === dartWrapper;
-
-      if (isFocused) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-          e.preventDefault();
-          const nextVal = currentScore === null ? 1 : Math.min(10, currentScore + 1);
-          throwDartAtRing(nextVal);
-          return;
-        }
-        if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-          e.preventDefault();
-          const prevVal = currentScore === null ? 1 : Math.max(1, currentScore - 1);
-          throwDartAtRing(prevVal);
-          return;
-        }
-        if (e.key === 'Home') {
-          e.preventDefault();
-          throwDartAtRing(1);
-          return;
-        }
-        if (e.key === 'End') {
-          e.preventDefault();
-          throwDartAtRing(10);
-          return;
-        }
+      const active = document.activeElement;
+      if (
+        active &&
+        (['INPUT', 'TEXTAREA', 'SELECT', 'OPTION'].includes(active.tagName) ||
+          active.isContentEditable)
+      ) {
+        return;
       }
 
-      if (!isFocused && !isBoardVisible()) return;
+      const isFocused = active === dartWrapper;
+      if (!isFocused && !isBoardVisible) return;
 
+      // Sayısal kısayollar (1-9 -> halka 1-9, 0 -> Bullseye 10)
       if (e.key >= '1' && e.key <= '9') {
+        throwPerfectRing(parseInt(e.key, 10));
+        return;
+      }
+      if (e.key === '0') {
+        throwPerfectRing(10);
+        return;
+      }
+
+      // Gerçek Slider ok tuşları (tahta odaktayken çalışır)
+      if (!isFocused) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
         e.preventDefault();
-        throwDartAtRing(parseInt(e.key, 10));
-      } else if (e.key === '0') {
+        const next = currentScore === null ? 1 : clamp(currentScore + 1, 1, 10);
+        throwPerfectRing(next);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
         e.preventDefault();
-        throwDartAtRing(10);
+        const prev = currentScore === null ? 1 : clamp(currentScore - 1, 1, 10);
+        throwPerfectRing(prev);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        throwPerfectRing(1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        throwPerfectRing(10);
       }
     });
 
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        dartWrapper.querySelectorAll('.dart-pin').forEach((p) => p.remove());
-        setPowerUI(0);
-        updateScoreUI(null);
+        removeExistingDart();
+        setPowerMeter(0);
+        setScoreUI(null);
       });
     }
 
-    // Açılışta kesinlikle "Puan verilmedi" (– / 10, boş yıldızlar) durumu
-    updateScoreUI(null);
-    setPowerUI(0);
+    // Başlangıç: "Puan verilmedi", – / 10, boş yıldızlar, sıfır dart (autoplay = false)
+    setPowerMeter(0);
+    setScoreUI(null);
   }
 
   // ============================================================================
-  // 4. ⛵ FLOATING DOCK: SOL MENÜ YAYLI ANİMASYONLARI (#appSidebar)
+  // 4) FLOATING DOCK: SOL MENÜ ANİMASYONU (macOS Dock + Mobil Çekmece Yaylanma)
   // ============================================================================
-  function initFloatingDock() {
+  function initSidebarFloatingDock() {
     const appSidebar = document.getElementById('appSidebar');
-    const sidebarNav = appSidebar ? appSidebar.querySelector('.sidebar-nav') : null;
+    const sidebarNav = document.getElementById('sidebarNav');
+    const dockDot = document.getElementById('sidebarDockDot');
+    const dockTooltip = document.getElementById('sidebarDockTooltip');
+
     if (!appSidebar || !sidebarNav) return;
 
-    document.body.classList.add('dock-enhanced');
-
     const links = Array.from(sidebarNav.querySelectorAll('.sidebar-link'));
-    const menuItems = Array.from(sidebarNav.querySelectorAll('.sidebar-menu-item'));
-    const activeLink = sidebarNav.querySelector('.sidebar-link.active');
+    if (!links.length) return;
 
-    // Mobil çekmece sırayla yaylanma indeksi
-    menuItems.forEach((item, index) => {
-      item.style.setProperty('--dock-stagger-index', String(index));
-    });
+    const rawCfg = parseJsonAttr(appSidebar, 'data-dock-config', {});
+    const cfg = Object.assign(
+      {
+        distance: 112,
+        magnification: 1.45,
+        neighborShiftPx: 9,
+        expandedIconScale: 1.24,
+        expandedRowShiftPx: 6,
+        spring: { stiffness: 340, damping: 24, mass: 0.85 },
+        mobileStaggerMs: 42,
+      },
+      rawCfg
+    );
+    const springOpts = cfg.spring || { stiffness: 340, damping: 24, mass: 0.85 };
 
-    // Sağ tarafta kırpılmayan (unclipped) Floating Dock etiketi
-    const dockTooltip = document.createElement('div');
-    dockTooltip.id = 'sidebarDockTooltip';
-    dockTooltip.className = 'sidebar-dock-tooltip';
-    dockTooltip.setAttribute('role', 'tooltip');
-    dockTooltip.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(dockTooltip);
+    appSidebar.classList.add('dock-ready');
 
-    const dockDot = document.getElementById('sidebarDockDot');
+    const items = links.map((link) => ({
+      link,
+      icon: link.querySelector('.sidebar-link-icon'),
+      scale: createSpring(1, springOpts),
+      shiftY: createSpring(0, springOpts),
+      rowShiftX: createSpring(0, springOpts),
+      bounceY: createSpring(0, { stiffness: 420, damping: 18, mass: 0.75 }),
+      mobileX: createSpring(0, { stiffness: 300, damping: 24, mass: 0.9 }),
+      mobileOpacity: createSpring(1, { stiffness: 300, damping: 24, mass: 0.9 }),
+    }));
+
+    const dotYSpring = createSpring(0, { stiffness: 360, damping: 26, mass: 0.8 });
+    let pointerClientY = null;
+    let focusedItem = null;
+    let dockRafId = null;
+    let lastDockTs = 0;
+    let mobileSequenceTimers = [];
 
     function isCollapsedDesktop() {
       return (
@@ -1045,661 +1246,693 @@
       );
     }
 
-    function showTooltipFor(link) {
-      if (!link || !isCollapsedDesktop()) {
-        hideTooltip();
-        return;
+    function isExpandedDesktop() {
+      return (
+        global.innerWidth >= 1024 &&
+        document.documentElement.getAttribute('data-sidebar') !== 'collapsed'
+      );
+    }
+
+    function computeDotTargetY(linkEl) {
+      if (!linkEl || !dockDot) return null;
+      const navRect = sidebarNav.getBoundingClientRect();
+      const linkRect = linkEl.getBoundingClientRect();
+      if (!linkRect.height) return null;
+      const dotH = dockDot.offsetHeight || 18;
+      if (isCollapsedDesktop()) {
+        // Daraltılmış dock'ta nokta aktif ikonun altına konumlanır
+        return linkRect.bottom - navRect.top + sidebarNav.scrollTop - dotH - 2;
       }
-      const labelText = link.getAttribute('data-tooltip') || '';
-      if (!labelText) return;
-      const rect = link.getBoundingClientRect();
-      dockTooltip.textContent = labelText;
-      dockTooltip.style.left = `${Math.round(rect.right + 14)}px`;
-      dockTooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+      return linkRect.top - navRect.top + sidebarNav.scrollTop + (linkRect.height - dotH) / 2;
+    }
+
+    function showTooltipFor(item) {
+      if (!dockTooltip || !isCollapsedDesktop()) return;
+      const label = item.link.getAttribute('data-tooltip');
+      if (!label) return;
+      const sidebarRect = appSidebar.getBoundingClientRect();
+      const linkRect = item.link.getBoundingClientRect();
+      dockTooltip.textContent = label;
+      dockTooltip.style.left = `${Math.round(sidebarRect.right + 12)}px`;
+      dockTooltip.style.top = `${Math.round(linkRect.top + linkRect.height / 2)}px`;
       dockTooltip.classList.add('is-visible');
       dockTooltip.setAttribute('aria-hidden', 'false');
     }
 
     function hideTooltip() {
+      if (!dockTooltip) return;
       dockTooltip.classList.remove('is-visible');
       dockTooltip.setAttribute('aria-hidden', 'true');
     }
 
-    // Sayfa geçişlerinde aktif göstergenin ("running dot") yumuşakça yeni öğeye kayması ve ikon zıplaması
-    function syncActiveDot(animateFromPrevious) {
-      if (!dockDot || !activeLink) {
-        if (dockDot) dockDot.classList.remove('is-visible');
-        return;
-      }
-
-      const navRect = sidebarNav.getBoundingClientRect();
-      const linkRect = activeLink.getBoundingClientRect();
-      const targetY = isCollapsedDesktop()
-        ? Math.round(linkRect.bottom - navRect.top + sidebarNav.scrollTop - 6)
-        : Math.round(linkRect.top - navRect.top + sidebarNav.scrollTop + linkRect.height / 2 - 3);
-
-      let prevY = null;
-      let bouncedPath = null;
-      try {
-        const storedPrev = global.sessionStorage.getItem('piyade_dock_prev_y');
-        bouncedPath = global.sessionStorage.getItem('piyade_dock_bounced');
-        global.sessionStorage.removeItem('piyade_dock_prev_y');
-        global.sessionStorage.removeItem('piyade_dock_bounced');
-        if (storedPrev !== null) {
-          const parsed = parseFloat(storedPrev);
-          if (!Number.isNaN(parsed)) prevY = parsed;
-        }
-      } catch (_) {}
-
-      dockDot.classList.add('is-visible');
-
-      if (animateFromPrevious && prevY !== null && !prefersReducedMotion()) {
-        const dotSpring = createSpring({
-          stiffness: 340,
-          damping: 26,
-          mass: 0.9,
-          initialValue: prevY,
-        });
-        dotSpring.setTarget(targetY);
-
-        let lastT = performance.now();
-        function stepDot(now) {
-          const dt = Math.min(0.032, (now - lastT) / 1000);
-          lastT = now;
-          const y = dotSpring.step(dt);
-          dockDot.style.top = `${y.toFixed(2)}px`;
-          if (!dotSpring.isSettled()) {
-            global.requestAnimationFrame(stepDot);
-          }
-        }
-        dockDot.style.top = `${prevY}px`;
-        global.requestAnimationFrame(stepDot);
-      } else {
-        dockDot.style.top = `${targetY}px`;
-      }
-
-      if (bouncedPath && bouncedPath === global.location.pathname && !prefersReducedMotion()) {
-        activeLink.classList.remove('is-bouncing');
-        void activeLink.offsetWidth;
-        activeLink.classList.add('is-bouncing');
-      }
-    }
-
-    syncActiveDot(true);
-
-    // Her bağlantı için yay sürücüleri
-    const itemPhysics = links.map((link) => ({
-      link,
-      scaleSpring: createSpring({ stiffness: 360, damping: 24, mass: 0.78, initialValue: 1 }),
-      pushSpring: createSpring({ stiffness: 340, damping: 24, mass: 0.85, initialValue: 0 }),
-      gapSpring: createSpring({ stiffness: 340, damping: 24, mass: 0.85, initialValue: 0 }),
-      shiftSpring: createSpring({ stiffness: 360, damping: 25, mass: 0.8, initialValue: 0 }),
-    }));
-
-    let dockRafId = null;
-    let dockLastTime = 0;
-    let pointerInsideNav = false;
-    let pointerY = 0;
-    let focusedLink = null;
-    let lastInteractionTouch = isTouchDevice();
-
-    function applyDockTargets() {
+    function updateDockTargets() {
       const reduced = prefersReducedMotion();
-      const desktop = global.innerWidth >= 1024;
-      const collapsed = isCollapsedDesktop();
+      const fine = hasFinePointer();
 
-      if (reduced || !desktop || lastInteractionTouch) {
-        for (const p of itemPhysics) {
-          p.scaleSpring.setTarget(1);
-          p.pushSpring.setTarget(0);
-          p.gapSpring.setTarget(0);
-          p.shiftSpring.setTarget(0);
-        }
+      // Masaüstü olmayan veya hover desteklemeyen dokunmatik cihazlarda büyütme YOK
+      if (reduced || !fine || global.innerWidth < 1024) {
+        items.forEach((it) => {
+          it.scale.target = 1;
+          it.shiftY.target = 0;
+          it.rowShiftX.target = 0;
+        });
         return;
       }
 
-      // İmleç yaklaşınca mesafeye göre yaylanan değerler hesapla
-      const metrics = itemPhysics.map((p) => {
-        const rect = p.link.getBoundingClientRect();
-        return {
-          p,
-          centerY: rect.top + rect.height / 2,
-        };
-      });
+      let activeY = pointerClientY;
+      if (activeY === null && focusedItem) {
+        const rect = focusedItem.link.getBoundingClientRect();
+        activeY = rect.top + rect.height / 2;
+      }
 
-      const PROXIMITY_RADIUS = 132;
+      if (activeY === null) {
+        items.forEach((it) => {
+          it.scale.target = 1;
+          it.shiftY.target = 0;
+          it.rowShiftX.target = 0;
+        });
+        return;
+      }
 
-      for (const m of metrics) {
+      const collapsed = isCollapsedDesktop();
+      const radius = cfg.distance || 112;
+
+      items.forEach((it) => {
+        const rect = it.link.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const delta = centerY - activeY;
+        const absDist = Math.abs(delta);
+
         let influence = 0;
-        let signedDir = 0;
-
-        if (pointerInsideNav) {
-          const dy = m.centerY - pointerY;
-          const dist = Math.abs(dy);
-          if (dist < PROXIMITY_RADIUS) {
-            const c = Math.cos((dist / PROXIMITY_RADIUS) * (Math.PI / 2));
-            influence = c * c;
-            signedDir = dist < 4 ? 0 : Math.sign(dy);
-          }
-        } else if (focusedLink === m.p.link) {
-          influence = 0.88;
-          signedDir = 0;
+        if (absDist < radius) {
+          influence = Math.pow(0.5 * (1 + Math.cos((Math.PI * absDist) / radius)), 1.35);
         }
 
         if (collapsed) {
-          // Daraltılmış 72px menü: dikey macOS Dock (büyüme + komşuları yaylanarak itme)
-          m.p.scaleSpring.setTarget(1 + influence * 0.5);
-          m.p.gapSpring.setTarget(influence * 6);
-          m.p.pushSpring.setTarget(signedDir * (1 - influence) * (pointerInsideNav ? 5 : 0));
-          m.p.shiftSpring.setTarget(0);
-        } else {
-          // Açık 260px menü: yazılar okunur kalsın; sadece ikon büyüsün, satır hafif sağa kaysın
-          m.p.scaleSpring.setTarget(1 + influence * 0.28);
-          m.p.shiftSpring.setTarget(influence * 6.5);
-          m.p.gapSpring.setTarget(0);
-          m.p.pushSpring.setTarget(0);
+          it.scale.target = 1 + (cfg.magnification - 1) * influence;
+          // Yakındaki komşuları yukarı/aşağı yaylanarak iter
+          const pushFactor =
+            absDist > 4 && absDist < radius
+              ? (delta > 0 ? 1 : -1) * Math.sin((absDist / radius) * Math.PI)
+              : 0;
+          it.shiftY.target = pushFactor * (cfg.neighborShiftPx || 9);
+          it.rowShiftX.target = 0;
+        } else if (isExpandedDesktop()) {
+          // Açık menüde (260px): yazılar sabit/okunur; sadece ikon büyür, satır hafif sağa kayar
+          it.scale.target = 1 + (cfg.expandedIconScale - 1) * influence;
+          it.shiftY.target = 0;
+          it.rowShiftX.target = (cfg.expandedRowShiftPx || 6) * influence;
         }
+      });
+    }
+
+    function applyItemStyles(it) {
+      const finalX = it.rowShiftX.value + it.mobileX.value;
+      it.link.style.setProperty('--dock-row-shift-x', `${finalX.toFixed(2)}px`);
+      it.link.style.setProperty('--dock-shift-y', `${it.shiftY.value.toFixed(2)}px`);
+      it.link.style.setProperty('--dock-mobile-opacity', `${clamp(it.mobileOpacity.value, 0, 1).toFixed(3)}`);
+
+      if (it.icon) {
+        it.icon.style.setProperty('--dock-scale', `${it.scale.value.toFixed(3)}`);
+        it.icon.style.setProperty('--dock-bounce-y', `${it.bounceY.value.toFixed(2)}px`);
       }
     }
 
-    function stepDockAnimation(now) {
-      if (!dockLastTime) dockLastTime = now;
-      const dt = Math.min(0.032, (now - dockLastTime) / 1000);
-      dockLastTime = now;
+    function dockTick(ts) {
+      if (!lastDockTs) lastDockTs = ts;
+      const dt = clamp((ts - lastDockTs) / 1000, 0.001, 0.032);
+      lastDockTs = ts;
 
-      applyDockTargets();
+      let anyMoving = false;
 
-      let allSettled = true;
-      for (const p of itemPhysics) {
-        const scale = p.scaleSpring.step(dt);
-        const pushY = p.pushSpring.step(dt);
-        const gapY = p.gapSpring.step(dt);
-        const shiftX = p.shiftSpring.step(dt);
+      if (dockDot && dockDot.classList.contains('is-moving')) {
+        if (stepSpring(dotYSpring, dt)) anyMoving = true;
+        dockDot.style.setProperty('--dock-dot-y', `${dotYSpring.value.toFixed(2)}px`);
+      }
 
-        p.link.style.setProperty('--dock-scale', scale.toFixed(4));
-        p.link.style.setProperty('--dock-push-y', `${pushY.toFixed(2)}px`);
-        p.link.style.setProperty('--dock-neighbor-gap', `${gapY.toFixed(2)}px`);
-        p.link.style.setProperty('--dock-row-shift-x', `${shiftX.toFixed(2)}px`);
-
-        if (
-          !p.scaleSpring.isSettled() ||
-          !p.pushSpring.isSettled() ||
-          !p.gapSpring.isSettled() ||
-          !p.shiftSpring.isSettled()
-        ) {
-          allSettled = false;
+      for (const it of items) {
+        const s1 = stepSpring(it.scale, dt);
+        const s2 = stepSpring(it.shiftY, dt);
+        const s3 = stepSpring(it.rowShiftX, dt);
+        const s4 = stepSpring(it.bounceY, dt);
+        const s5 = stepSpring(it.mobileX, dt);
+        const s6 = stepSpring(it.mobileOpacity, dt);
+        applyItemStyles(it);
+        if (s1 || s2 || s3 || s4 || s5 || s6) {
+          anyMoving = true;
         }
       }
 
-      if (!allSettled || pointerInsideNav) {
-        dockRafId = global.requestAnimationFrame(stepDockAnimation);
+      if (anyMoving) {
+        dockRafId = global.requestAnimationFrame(dockTick);
       } else {
         dockRafId = null;
+        lastDockTs = 0;
       }
     }
 
-    function kickDockAnimation() {
-      if (!dockRafId) {
-        dockLastTime = 0;
-        dockRafId = global.requestAnimationFrame(stepDockAnimation);
+    function ensureDockRunning() {
+      if (dockRafId === null) {
+        lastDockTs = 0;
+        dockRafId = global.requestAnimationFrame(dockTick);
       }
     }
 
-    sidebarNav.addEventListener(
-      'pointermove',
-      (e) => {
-        if (e.pointerType === 'touch') {
-          lastInteractionTouch = true;
-          return;
+    // Aktif sayfa noktasını konumlandır (sayfalar arası kayma hissi)
+    const activeLink = sidebarNav.querySelector('.sidebar-link.active');
+    if (activeLink && dockDot) {
+      const targetY = computeDotTargetY(activeLink);
+      if (targetY !== null) {
+        let startY = targetY;
+        try {
+          const prevRaw = global.sessionStorage.getItem('piyade_dock_last_y');
+          if (prevRaw !== null && !prefersReducedMotion()) {
+            const parsedPrev = parseFloat(prevRaw);
+            if (Number.isFinite(parsedPrev)) startY = parsedPrev;
+          }
+          global.sessionStorage.setItem('piyade_dock_last_y', String(targetY));
+        } catch (_) {}
+
+        dotYSpring.value = prefersReducedMotion() ? targetY : startY;
+        dotYSpring.target = targetY;
+        dockDot.classList.add('is-moving');
+        dockDot.style.setProperty('--dock-dot-y', `${dotYSpring.value.toFixed(2)}px`);
+        if (Math.abs(dotYSpring.target - dotYSpring.value) > 0.5) {
+          ensureDockRunning();
         }
-        lastInteractionTouch = false;
-        pointerInsideNav = true;
-        pointerY = e.clientY;
-        kickDockAnimation();
-      },
-      { passive: true }
-    );
+      }
+    }
+
+    // Masaüstü fare hareketleri
+    sidebarNav.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || global.innerWidth < 1024) return;
+      pointerClientY = e.clientY;
+      updateDockTargets();
+      ensureDockRunning();
+    });
 
     sidebarNav.addEventListener('pointerleave', () => {
-      pointerInsideNav = false;
-      hideTooltip();
-      kickDockAnimation();
+      pointerClientY = null;
+      updateDockTargets();
+      ensureDockRunning();
+      if (!focusedItem) hideTooltip();
     });
 
-    links.forEach((link) => {
-      link.addEventListener('pointerenter', (e) => {
-        if (e.pointerType === 'touch' || prefersReducedMotion()) return;
-        showTooltipFor(link);
-      });
-
-      link.addEventListener('focusin', () => {
-        focusedLink = link;
-        if (!prefersReducedMotion()) {
-          showTooltipFor(link);
-          kickDockAnimation();
+    // Öğe olayları (Tooltip + Klavye Focus + Tıklamada Zıplama)
+    items.forEach((it) => {
+      it.link.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'mouse' && isCollapsedDesktop()) {
+          showTooltipFor(it);
         }
       });
 
-      link.addEventListener('focusout', () => {
-        if (focusedLink === link) focusedLink = null;
-        hideTooltip();
-        kickDockAnimation();
-      });
-
-      // Tıklamada ikon zıplaması + aktif nokta konumu kaydı
-      link.addEventListener('click', () => {
-        if (!prefersReducedMotion()) {
-          link.classList.remove('is-bouncing');
-          void link.offsetWidth;
-          link.classList.add('is-bouncing');
+      it.link.addEventListener('pointerleave', () => {
+        if (focusedItem !== it) {
+          hideTooltip();
         }
+      });
+
+      it.link.addEventListener('focusin', () => {
+        focusedItem = it;
+        updateDockTargets();
+        ensureDockRunning();
+        if (isCollapsedDesktop()) {
+          showTooltipFor(it);
+        }
+      });
+
+      it.link.addEventListener('focusout', () => {
+        if (focusedItem === it) focusedItem = null;
+        updateDockTargets();
+        ensureDockRunning();
         hideTooltip();
-        try {
-          if (dockDot) {
-            global.sessionStorage.setItem('piyade_dock_prev_y', dockDot.style.top || '0');
-          }
-          const href = link.getAttribute('href');
-          if (href) {
-            global.sessionStorage.setItem('piyade_dock_bounced', href);
-          }
-        } catch (_) {}
+      });
+
+      it.link.addEventListener('click', () => {
+        // Tıklamada zıplama (masaüstü ve dokunmatik) + çalışan nokta hedefi kaydet
+        if (!prefersReducedMotion() && it.icon) {
+          it.bounceY.velocity = -255;
+          it.icon.classList.add('is-bouncing');
+          global.setTimeout(() => {
+            if (it.icon) it.icon.classList.remove('is-bouncing');
+          }, 340);
+          ensureDockRunning();
+        }
+
+        const nextDotY = computeDotTargetY(it.link);
+        if (nextDotY !== null && dockDot) {
+          dotYSpring.target = nextDotY;
+          dockDot.classList.add('is-moving');
+          try {
+            global.sessionStorage.setItem('piyade_dock_last_y', String(nextDotY));
+          } catch (_) {}
+          ensureDockRunning();
+        }
       });
     });
 
-    const observer = new MutationObserver(() => {
-      hideTooltip();
-      setTimeout(() => syncActiveDot(false), 180);
-      kickDockAnimation();
+    // Mobil/Tablet Çekmece (<1024px) Açılınca Kademeli Yaylı Giriş
+    function clearMobileTimers() {
+      mobileSequenceTimers.forEach((t) => global.clearTimeout(t));
+      mobileSequenceTimers = [];
+    }
+
+    function runMobileStaggerEntrance() {
+      clearMobileTimers();
+      if (prefersReducedMotion() || global.innerWidth >= 1024) {
+        items.forEach((it) => {
+          it.mobileX.value = 0;
+          it.mobileX.target = 0;
+          it.mobileOpacity.value = 1;
+          it.mobileOpacity.target = 1;
+          applyItemStyles(it);
+        });
+        return;
+      }
+
+      items.forEach((it, idx) => {
+        it.link.classList.add('is-dock-entering');
+        it.mobileX.value = -24;
+        it.mobileX.target = -24;
+        it.mobileX.velocity = 0;
+        it.mobileOpacity.value = 0;
+        it.mobileOpacity.target = 0;
+        it.mobileOpacity.velocity = 0;
+        applyItemStyles(it);
+
+        const timer = global.setTimeout(() => {
+          it.mobileX.target = 0;
+          it.mobileOpacity.target = 1;
+          ensureDockRunning();
+        }, idx * (cfg.mobileStaggerMs || 42));
+        mobileSequenceTimers.push(timer);
+      });
+    }
+
+    // data-mobile-sidebar veya data-sidebar değişimlerini izle
+    const attrObserver = new global.MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.attributeName === 'data-mobile-sidebar') {
+          const mobileOpen = document.documentElement.getAttribute('data-mobile-sidebar') === 'open';
+          if (mobileOpen) {
+            runMobileStaggerEntrance();
+          } else {
+            clearMobileTimers();
+          }
+        }
+        if (m.attributeName === 'data-sidebar') {
+          hideTooltip();
+          updateDockTargets();
+          if (activeLink && dockDot) {
+            const newDotY = computeDotTargetY(activeLink);
+            if (newDotY !== null) {
+              dotYSpring.target = newDotY;
+            }
+          }
+          ensureDockRunning();
+        }
+      }
     });
-    observer.observe(document.documentElement, {
+
+    attrObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['data-sidebar', 'data-mobile-sidebar'],
+      attributeFilter: ['data-mobile-sidebar', 'data-sidebar'],
     });
-
-    global.addEventListener(
-      'resize',
-      () => {
-        hideTooltip();
-        syncActiveDot(false);
-      },
-      { passive: true }
-    );
   }
 
   // ============================================================================
-  // 5. 🪐 ORBITAL LOADER (UYARI VER KANIT DOSYASI YÜKLEME YÖNETİCİSİ)
+  // 5) ORBITAL LOADER: YALNIZCA KANIT DOSYASI YÜKLENİRKEN (admin-warn)
   // ============================================================================
-  function initOrbitalWarnUpload() {
-    const form = document.getElementById('warnForm');
-    const fileInput = document.getElementById('evidenceFile');
+  function initAdminWarnOrbitalLoader() {
+    const form = document.getElementById('adminWarnForm');
     const overlay = document.getElementById('orbitalLoaderOverlay');
-    if (!form || !fileInput || !overlay) return;
+    if (!form || !overlay) return;
 
-    const cometPath = overlay.querySelector('.orbital-loader-comet');
-    const progressCircle = overlay.querySelector('.orbital-loader-progress');
-    const percentEl = overlay.querySelector('.orbital-loader-percent');
-    const statusTextEl = overlay.querySelector('.orbital-loader-text');
-    const subtextEl = overlay.querySelector('.orbital-loader-subtext');
-    const closeBtn = overlay.querySelector('.orbital-loader-close-btn');
+    const fileInput = document.getElementById('evidenceFile');
+    const progressArc = document.getElementById('orbitalProgressArc');
+    const cometArc = document.getElementById('orbitalCometArc');
+    const cometHead = document.getElementById('orbitalCometHead');
+    const statusText = document.getElementById('orbitalStatusText');
+    const subText = document.getElementById('orbitalSubText');
+    const closeBtn = document.getElementById('orbitalCloseBtn');
+    const errorBanner = document.getElementById('adminWarnErrorBanner');
+    const errorBannerText = document.getElementById('adminWarnErrorText');
 
-    const CIRCUMFERENCE = 2 * Math.PI * 46; // r = 46 -> ~289.03
-    if (progressCircle) {
-      progressCircle.style.strokeDasharray = `${CIRCUMFERENCE} ${CIRCUMFERENCE}`;
-      progressCircle.style.strokeDashoffset = String(CIRCUMFERENCE);
-    }
+    const cfg = Object.assign(
+      {
+        enableSound: false,
+        requestTimeoutMs: 45000,
+        successRedirectDelayMs: 750,
+      },
+      parseJsonAttr(form, 'data-loader-config', {})
+    );
 
-    const i18n = safeParseJson(overlay.getAttribute('data-loader-i18n'), {
+    const i18n = parseJsonAttr(form, 'data-loader-i18n', {
       uploading: 'Kanıt yükleniyor…',
-      delivering: "Kanıt Discord'a iletiliyor…",
-      success: 'Uyarı ve kanıt başarıyla iletildi!',
-      errorTitle: 'Yükleme Başarısız',
-      timeout: 'İstek zaman aşımına uğradı. Lütfen tekrar deneyiniz.',
-      networkError: 'Ağ hatası oluştu. Sunucuya ulaşılamadı.',
+      forwarding: "Kanıt Discord'a iletiliyor…",
+      success: 'Kanıt ve uyarı başarıyla iletildi!',
+      errorTitle: 'Kanıt İletilemedi',
+      timeoutError: 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
+      networkError: 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
+      closeBtn: 'Kapat ve Düzenle',
     });
 
-    let cometRafId = null;
-    let cometPhase = 0;
-    let loaderActive = false;
-    let currentMode = 'idle'; // 'progress' | 'indeterminate' | 'success' | 'error'
-    let watchdogTimer = null;
+    const CIRCUMFERENCE = 2 * Math.PI * 52; // 326.7256
+    const CX = 70;
+    const CY = 70;
+    const RADIUS = 52;
 
-    function polarPoint(cx, cy, r, rad) {
-      return {
-        x: cx + Math.cos(rad) * r,
-        y: cy + Math.sin(rad) * r,
-      };
+    let cometPhase = 0;
+    let cometHeadDeg = 0;
+    let cometRafId = null;
+    let lastCometTs = 0;
+    let mode = 'idle'; // 'uploading' | 'forwarding' | 'success' | 'error' | 'idle'
+    let uploadPercent = 0;
+
+    function updateCometGeometry(headDeg, tailDeg) {
+      if (!cometArc || !cometHead) return;
+      const headRad = ((headDeg - 90) * Math.PI) / 180;
+      const tailRad = ((headDeg - tailDeg - 90) * Math.PI) / 180;
+
+      const hx = CX + RADIUS * Math.cos(headRad);
+      const hy = CY + RADIUS * Math.sin(headRad);
+      const tx = CX + RADIUS * Math.cos(tailRad);
+      const ty = CY + RADIUS * Math.sin(tailRad);
+      const largeArc = tailDeg > 180 ? 1 : 0;
+
+      cometArc.setAttribute(
+        'd',
+        `M ${tx.toFixed(2)} ${ty.toFixed(2)} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${hx.toFixed(2)} ${hy.toFixed(2)}`
+      );
+      cometHead.setAttribute('cx', hx.toFixed(2));
+      cometHead.setAttribute('cy', hy.toFixed(2));
     }
 
-    // Tek halka üzerinde hızlanıp yavaşlayan, kuyruğu dinamik uzayıp kısalan kuyruklu yıldız
-    function stepComet(now) {
-      if (!loaderActive || currentMode === 'success' || currentMode === 'error' || prefersReducedMotion()) {
+    function setDeterminateProgress(pct) {
+      uploadPercent = clamp(pct, 0, 100);
+      if (progressArc) {
+        const offset = CIRCUMFERENCE * (1 - uploadPercent / 100);
+        progressArc.style.strokeDashoffset = `${offset.toFixed(2)}`;
+      }
+      if (subText && mode === 'uploading') {
+        subText.textContent = `${Math.round(uploadPercent)}%`;
+      }
+    }
+
+    function cometTick(ts) {
+      if (mode !== 'uploading' && mode !== 'forwarding') {
         cometRafId = null;
         return;
       }
 
-      cometPhase = (now / 1000) * 1.45;
-      // Her turda hızlanıp yavaşlayan açı ve hızlı uzayıp kısalan kuyruk
-      const cycle = cometPhase * Math.PI * 2;
-      const headAngle = cycle + 0.48 * Math.sin(cycle);
-      const speedDerivative = 1 + 0.48 * Math.cos(cycle);
-      const tailRadians = Math.max(0.45, Math.min(2.1, 0.72 + 0.65 * speedDerivative));
-      const tailAngle = headAngle - tailRadians;
-
-      const startPt = polarPoint(60, 60, 46, tailAngle);
-      const endPt = polarPoint(60, 60, 46, headAngle);
-      const largeArc = tailRadians > Math.PI ? 1 : 0;
-
-      if (cometPath) {
-        cometPath.setAttribute(
-          'd',
-          `M ${startPt.x.toFixed(2)} ${startPt.y.toFixed(2)} A 46 46 0 ${largeArc} 1 ${endPt.x.toFixed(2)} ${endPt.y.toFixed(2)}`
-        );
+      if (prefersReducedMotion()) {
+        // Reduced-motion'da dönme ve uzayıp kısalma durur
+        updateCometGeometry(90, 45);
+        cometRafId = null;
+        return;
       }
 
-      cometRafId = global.requestAnimationFrame(stepComet);
+      if (!lastCometTs) lastCometTs = ts;
+      const dt = clamp((ts - lastCometTs) / 1000, 0.001, 0.04);
+      lastCometTs = ts;
+
+      cometPhase += dt * 3.4;
+
+      if (mode === 'forwarding') {
+        // İlerleme olmadan sonsuz dönme: her turda hızlanıp yavaşlar, kuyruk hızla uzayıp kısalır
+        const speedDegPerSec = 260 + 230 * Math.sin(cometPhase);
+        cometHeadDeg = (cometHeadDeg + speedDegPerSec * dt) % 360;
+        const tailDeg = 28 + 92 * Math.pow(0.5 + 0.5 * Math.sin(cometPhase - 0.55), 1.35);
+        updateCometGeometry(cometHeadDeg, tailDeg);
+      } else {
+        // Yükleme aşamasında ilerleme yayı kuyruklu yıldızın arkasında dolar
+        const progDeg = (uploadPercent / 100) * 360;
+        const whip = 0.5 + 0.5 * Math.sin(cometPhase * 1.4);
+        const tailDeg = Math.min(progDeg + 28, 34 + 62 * whip);
+        const headDeg = Math.max(progDeg, cometHeadDeg);
+        cometHeadDeg = (cometHeadDeg + (300 + 180 * whip) * dt) % 360;
+        updateCometGeometry(uploadPercent > 2 ? progDeg : headDeg, tailDeg);
+      }
+
+      cometRafId = global.requestAnimationFrame(cometTick);
     }
 
-    function setProgress(pct) {
-      currentMode = 'progress';
-      overlay.classList.remove('is-indeterminate', 'is-success', 'is-error');
-      const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-      if (progressCircle) {
-        const offset = CIRCUMFERENCE * (1 - clamped / 100);
-        progressCircle.style.strokeDashoffset = offset.toFixed(2);
-      }
-      if (percentEl) percentEl.textContent = `%${clamped}`;
-      if (statusTextEl) statusTextEl.textContent = i18n.uploading;
-      if (subtextEl) subtextEl.textContent = '';
-    }
-
-    function setIndeterminateDelivering() {
-      currentMode = 'indeterminate';
-      overlay.classList.add('is-indeterminate');
-      overlay.classList.remove('is-success', 'is-error');
-      if (progressCircle) {
-        progressCircle.style.strokeDashoffset = String(CIRCUMFERENCE);
-      }
-      if (statusTextEl) statusTextEl.textContent = i18n.delivering;
-      if (subtextEl) subtextEl.textContent = '';
-    }
-
-    function setSuccessState() {
-      currentMode = 'success';
-      overlay.classList.remove('is-indeterminate', 'is-error');
-      overlay.classList.add('is-success');
-      if (progressCircle) {
-        progressCircle.style.strokeDashoffset = '0';
-      }
-      if (statusTextEl) statusTextEl.textContent = i18n.success;
-      if (subtextEl) subtextEl.textContent = '';
-    }
-
-    function setErrorState(errorMsg) {
-      currentMode = 'error';
-      overlay.classList.remove('is-indeterminate', 'is-success');
-      overlay.classList.add('is-error');
-      if (progressCircle) {
-        progressCircle.style.strokeDashoffset = '0';
-      }
-      if (statusTextEl) statusTextEl.textContent = i18n.errorTitle;
-      if (subtextEl) subtextEl.textContent = errorMsg || i18n.networkError;
-      if (closeBtn) {
-        closeBtn.hidden = false;
-        closeBtn.focus();
-      }
-    }
-
-    function openLoader() {
-      loaderActive = true;
-      overlay.hidden = false;
-      overlay.setAttribute('aria-hidden', 'false');
-      if (closeBtn) closeBtn.hidden = true;
-      setProgress(0);
-      global.requestAnimationFrame(() => {
-        overlay.classList.add('is-open');
-      });
-      if (!prefersReducedMotion() && !cometRafId) {
-        cometRafId = global.requestAnimationFrame(stepComet);
-      }
-    }
-
-    function closeLoader() {
-      loaderActive = false;
-      clearTimeout(watchdogTimer);
-      if (cometRafId) {
+    function stopCometLoop() {
+      if (cometRafId !== null) {
         global.cancelAnimationFrame(cometRafId);
         cometRafId = null;
       }
-      overlay.classList.remove('is-open', 'is-success', 'is-error', 'is-indeterminate');
-      overlay.setAttribute('aria-hidden', 'true');
-      setTimeout(() => {
-        if (!loaderActive) overlay.hidden = true;
-      }, 220);
+      lastCometTs = 0;
     }
 
-    function unlockForm(newIdempotencyKey) {
+    function openOverlayUploading() {
+      mode = 'uploading';
+      overlay.classList.remove('is-success', 'is-error', 'is-indeterminate');
+      overlay.hidden = false;
+      if (closeBtn) closeBtn.hidden = true;
+      if (statusText) statusText.textContent = i18n.uploading || 'Kanıt yükleniyor…';
+      setDeterminateProgress(0);
+      cometPhase = 0;
+      cometHeadDeg = 0;
+
+      // Tarayıcı görünüm geçişi için frame sonrası is-open
+      global.requestAnimationFrame(() => {
+        overlay.classList.add('is-open');
+      });
+
+      if (!prefersReducedMotion()) {
+        lastCometTs = 0;
+        cometRafId = global.requestAnimationFrame(cometTick);
+      } else {
+        updateCometGeometry(90, 45);
+      }
+    }
+
+    function switchToForwarding() {
+      mode = 'forwarding';
+      setDeterminateProgress(100);
+      overlay.classList.add('is-indeterminate');
+      if (statusText) statusText.textContent = i18n.forwarding || "Kanıt Discord'a iletiliyor…";
+      if (subText) subText.textContent = '';
+    }
+
+    function switchToSuccess() {
+      mode = 'success';
+      stopCometLoop();
+      overlay.classList.remove('is-indeterminate', 'is-error');
+      overlay.classList.add('is-success');
+      if (statusText) statusText.textContent = i18n.success || 'Kanıt ve uyarı başarıyla iletildi!';
+      if (subText) subText.textContent = '100%';
+    }
+
+    function closeOverlay() {
+      mode = 'idle';
+      stopCometLoop();
+      overlay.classList.remove('is-open', 'is-success', 'is-error', 'is-indeterminate');
+      overlay.hidden = true;
+    }
+
+    async function refreshIdempotencyKeyIfNeeded(providedKey) {
+      let nextKey = providedKey;
+      if (!nextKey) {
+        try {
+          const resp = await fetch('/yonetim/api/idempotency-key', {
+            headers: { Accept: 'application/json' },
+          });
+          if (resp.ok) {
+            const payload = await resp.json();
+            nextKey = payload && payload.idempotencyKey;
+          }
+        } catch (_) {}
+      }
+
+      if (nextKey) {
+        const keyInput = form.querySelector('input[name="_idempotencyKey"]');
+        if (keyInput) keyInput.value = nextKey;
+        try {
+          const url = new URL(form.action, global.location.origin);
+          url.searchParams.set('_idempotencyKey', nextKey);
+          form.action = `${url.pathname}${url.search}`;
+        } catch (_) {}
+      }
+    }
+
+    function unlockForm() {
       form.dataset.submitted = 'false';
       const submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.style.opacity = '';
-        submitBtn.style.cursor = '';
-        const originalText = submitBtn.getAttribute('data-original-text');
-        if (originalText) {
-          const spanEl = submitBtn.querySelector('span');
-          if (spanEl) spanEl.textContent = originalText;
-          else submitBtn.textContent = originalText;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        if (submitBtn.dataset.originalHtml) {
+          submitBtn.innerHTML = submitBtn.dataset.originalHtml;
         }
-      }
-
-      if (newIdempotencyKey) {
-        applyIdempotencyKey(newIdempotencyKey);
-      } else {
-        // Sunucudan yeni tek kullanımlık idempotency anahtarı istemeyi dene
-        fetch('/yonetim/api/idempotency-key', {
-          headers: { Accept: 'application/json' },
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data && data.idempotencyKey) {
-              applyIdempotencyKey(data.idempotencyKey);
-            }
-          })
-          .catch(() => {});
       }
     }
 
-    function applyIdempotencyKey(key) {
-      const hiddenKeyInput = form.querySelector('input[name="_idempotencyKey"]');
-      if (hiddenKeyInput) hiddenKeyInput.value = key;
-      try {
-        const urlObj = new URL(form.action, global.location.origin);
-        urlObj.searchParams.set('_idempotencyKey', key);
-        form.action = `${urlObj.pathname}${urlObj.search}`;
-      } catch (_) {}
-    }
+    function switchToError(errMsg, maybeFreshKey) {
+      mode = 'error';
+      stopCometLoop();
+      overlay.classList.remove('is-indeterminate', 'is-success');
+      overlay.classList.add('is-error');
+      if (statusText) statusText.textContent = i18n.errorTitle || 'Kanıt İletilemedi';
+      if (subText) subText.textContent = errMsg;
+      if (closeBtn) {
+        closeBtn.hidden = false;
+        global.setTimeout(() => closeBtn.focus(), 60);
+      }
 
-    function showInlineErrorAlert(msg) {
-      let alertBox = document.getElementById('warnAjaxErrorAlert');
-      if (!alertBox) {
-        alertBox = document.createElement('div');
-        alertBox.id = 'warnAjaxErrorAlert';
-        alertBox.className = 'alert alert-danger';
-        alertBox.setAttribute('role', 'alert');
-        const cardContainer = form.parentElement;
-        const outerContainer =
-          cardContainer && cardContainer.parentElement ? cardContainer.parentElement : null;
-        if (outerContainer) {
-          outerContainer.insertBefore(alertBox, cardContainer);
-        } else if (cardContainer) {
-          cardContainer.insertBefore(alertBox, form);
-        }
+      if (errorBanner && errorBannerText) {
+        errorBannerText.textContent = errMsg;
+        errorBanner.hidden = false;
       }
-      alertBox.innerHTML = '';
-      const iconSpan = document.createElement('span');
-      iconSpan.textContent = '🛑';
-      const msgDiv = document.createElement('div');
-      msgDiv.textContent = msg;
-      alertBox.appendChild(iconSpan);
-      alertBox.appendChild(msgDiv);
-      if (typeof alertBox.scrollIntoView === 'function') {
-        alertBox.scrollIntoView({
-          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-          block: 'center',
-        });
-      }
+
+      unlockForm();
+      refreshIdempotencyKeyIfNeeded(maybeFreshKey);
     }
 
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
-        closeLoader();
+        if (mode === 'error') {
+          closeOverlay();
+        }
       });
     }
 
-    // Orijinal buton metnini sakla (hata durumunda geri dönülebilsin)
-    const submitBtnInit = form.querySelector('button[type="submit"]');
-    if (submitBtnInit) {
-      submitBtnInit.setAttribute('data-original-text', submitBtnInit.textContent.trim());
-    }
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay && mode === 'error') {
+        closeOverlay();
+      }
+    });
 
-    // Capture fazında yakalayarak yalnızca kanıt dosyası seçilmişse Orbital Loader + XHR akışını başlat
-    form.addEventListener(
-      'submit',
-      (e) => {
-        const hasFile = Boolean(fileInput.files && fileInput.files.length > 0);
-        if (!hasFile) {
-          // Kanıt dosyası yoksa mevcut standart form gönderimi çalışır, loader ÇIKMAZ
+    global.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && mode === 'error') {
+        closeOverlay();
+      }
+    });
+
+    // app.js ile koordine işaretleme: Dosya seçiliyse XHR + Orbital Loader devralır
+    global.NexusOrbitalUploadReady = true;
+
+    form.addEventListener('submit', (e) => {
+      const hasFile = Boolean(fileInput && fileInput.files && fileInput.files.length > 0);
+      if (!hasFile) {
+        // Dosya yoksa loader çıkmaz; app.js / normal form gönderimi devam eder
+        return;
+      }
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      if (form.dataset.submitted === 'true') {
+        return;
+      }
+
+      const confirmMsg = form.getAttribute('data-confirm');
+      if (confirmMsg && !global.confirm(confirmMsg)) {
+        return;
+      }
+
+      // Mevcut buton kilitleme mantığı
+      form.dataset.submitted = 'true';
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        if (!submitBtn.dataset.originalHtml) {
+          submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+        }
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.65';
+        submitBtn.style.cursor = 'not-allowed';
+        const submittingText = submitBtn.getAttribute('data-submitting-text');
+        if (submittingText) submitBtn.textContent = submittingText;
+      }
+
+      if (errorBanner) errorBanner.hidden = true;
+
+      // Ses KESİNLİKLE kapalıdır (enableSound: false)
+      openOverlayUploading();
+
+      const formData = new FormData(form);
+      const csrfInput = form.querySelector('input[name="_csrf"]');
+      const csrfVal = csrfInput ? csrfInput.value : '';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action, true);
+      xhr.timeout = cfg.requestTimeoutMs || 45000;
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.setRequestHeader('Accept', 'application/json');
+      if (csrfVal) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfVal);
+      }
+
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable && ev.total > 0) {
+          const pct = (ev.loaded / ev.total) * 100;
+          setDeterminateProgress(pct);
+        }
+      };
+
+      xhr.upload.onload = () => {
+        // Dosya %100 sunucuya çıktıktan sonra Bot / Discord iletimi boyunca sonsuz döner
+        switchToForwarding();
+      };
+
+      xhr.onload = () => {
+        let data = null;
+        try {
+          data = JSON.parse(xhr.responseText || '{}');
+        } catch (_) {
+          data = null;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+          switchToSuccess();
+          const waitMs = prefersReducedMotion() ? 220 : cfg.successRedirectDelayMs || 750;
+          global.setTimeout(() => {
+            global.location.assign(data.redirectUrl || '/yonetim/uyari');
+          }, waitMs);
           return;
         }
 
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        const msg =
+          (data && data.error) ||
+          (xhr.status === 413 ? i18n.fileTooLarge : null) ||
+          i18n.networkError ||
+          'İşlem sırasında bir hata oluştu.';
+        switchToError(msg, data && data.nextIdempotencyKey);
+      };
 
-        if (form.dataset.submitted === 'true') {
-          return;
-        }
+      xhr.ontimeout = () => {
+        switchToError(
+          i18n.timeoutError || 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
+          null
+        );
+      };
 
-        const confirmMsg = form.getAttribute('data-confirm');
-        if (confirmMsg && !global.confirm(confirmMsg)) {
-          return;
-        }
+      xhr.onerror = () => {
+        switchToError(
+          i18n.networkError || 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
+          null
+        );
+      };
 
-        form.dataset.submitted = 'true';
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.style.opacity = '0.65';
-          submitBtn.style.cursor = 'not-allowed';
-          const submittingText = submitBtn.getAttribute('data-submitting-text');
-          if (submittingText) submitBtn.textContent = submittingText;
-        }
+      xhr.onabort = () => {
+        switchToError(
+          i18n.networkError || 'Yükleme iptal edildi. Lütfen tekrar deneyin.',
+          null
+        );
+      };
 
-        const oldAlert = document.getElementById('warnAjaxErrorAlert');
-        if (oldAlert) oldAlert.remove();
-
-        const formData = new FormData(form);
-        const csrfTokenInput = form.querySelector('input[name="_csrf"]');
-        const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
-        const idemInput = form.querySelector('input[name="_idempotencyKey"]');
-        const idemKey = idemInput ? idemInput.value : '';
-
-        openLoader();
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', form.getAttribute('action') || '/yonetim/uyari', true);
-        xhr.timeout = 25000;
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        if (csrfToken) {
-          xhr.setRequestHeader('x-csrf-token', csrfToken);
-        }
-        if (idemKey) {
-          xhr.setRequestHeader('x-idempotency-key', idemKey);
-        }
-
-        let settled = false;
-        watchdogTimer = global.setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          try {
-            xhr.abort();
-          } catch (_) {}
-          setErrorState(i18n.timeout);
-          unlockForm(null);
-        }, 28000);
-
-        xhr.upload.addEventListener('progress', (ev) => {
-          if (!ev.lengthComputable || settled) return;
-          const pct = Math.min(99, Math.round((ev.loaded / Math.max(1, ev.total)) * 100));
-          setProgress(pct);
-        });
-
-        xhr.upload.addEventListener('load', () => {
-          if (settled) return;
-          // Yükleme %100 oldu -> Bot API / Discord'a iletilirken sonsuz dönen aşamaya geç
-          setIndeterminateDelivering();
-        });
-
-        xhr.addEventListener('load', () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(watchdogTimer);
-
-          const parsed = safeParseJson(xhr.responseText, null);
-
-          if (xhr.status >= 200 && xhr.status < 300 && parsed && parsed.success) {
-            setSuccessState();
-            const delayMs = prefersReducedMotion() ? 250 : 780;
-            global.setTimeout(() => {
-              // PRG yönlendirmesi: sayfa yenilense bile form tekrar gönderilmez
-              global.location.replace(parsed.redirectUrl || '/yonetim/uyari');
-            }, delayMs);
-            return;
-          }
-
-          const errMessage =
-            (parsed && parsed.error) ||
-            `${i18n.errorTitle} (HTTP ${xhr.status || 500})`;
-          const freshKey = parsed && parsed.newIdempotencyKey ? parsed.newIdempotencyKey : null;
-          setErrorState(errMessage);
-          const sessionInvalid =
-            xhr.status === 401 ||
-            (parsed && (parsed.code === 'SESSION_EXPIRED' || parsed.code === 'PERMISSION_REVOKED' || parsed.code === 'NOT_IN_GUILD'));
-          if (!sessionInvalid) {
-            unlockForm(freshKey);
-          }
-          showInlineErrorAlert(errMessage);
-        });
-
-        xhr.addEventListener('error', () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(watchdogTimer);
-          setErrorState(i18n.networkError);
-          unlockForm(null);
-          showInlineErrorAlert(i18n.networkError);
-        });
-
-        xhr.addEventListener('timeout', () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(watchdogTimer);
-          setErrorState(i18n.timeout);
-          unlockForm(null);
-          showInlineErrorAlert(i18n.timeout);
-        });
-
-        xhr.send(formData);
-      },
-      true
-    );
+      xhr.send(formData);
+    });
   }
 
+  // Tüm bileşenleri DOM hazır olduğunda başlat
   document.addEventListener('DOMContentLoaded', () => {
-    initAllMeteors();
-    initScrollReveal();
+    initMeteors();
+    initScrollRevealText();
     initDartRating();
-    initFloatingDock();
-    initOrbitalWarnUpload();
+    initSidebarFloatingDock();
+    initAdminWarnOrbitalLoader();
   });
 })(window);

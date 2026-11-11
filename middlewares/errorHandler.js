@@ -86,20 +86,19 @@ function globalErrorHandler(err, req, res, next) {
 
   const wantsJson = Boolean(
     req &&
-      (req.xhr ||
-        req.headers['x-requested-with'] === 'XMLHttpRequest' ||
-        (req.headers.accept && req.headers.accept.includes('application/json')))
+    (req.xhr ||
+      (typeof req.get === 'function' && req.get('X-Requested-With') === 'XMLHttpRequest') ||
+      (req.headers && req.headers.accept && req.headers.accept.includes('application/json')))
   );
 
-  // Bot API'ye ulaşılamıyorsa 500 yerine özel "bot-offline" sayfasını göster (XHR'de JSON dön)
+  // Bot API'ye ulaşılamıyorsa 500 yerine özel "bot-offline" sayfasını veya JSON yanıtı göster
   if ((err instanceof BotApiError && err.isOffline) || (err && err.isOffline)) {
     if (wantsJson) {
       return res.status(503).json({
-        success: false,
+        ok: false,
+        isOffline: true,
         errorCode,
-        error: req.t
-          ? req.t('errors.botOfflineTitle')
-          : 'Bot API servisine şu anda ulaşılamıyor.',
+        error: req && typeof req.t === 'function' ? req.t('errors.botOfflineTitle') : safeMessage,
       });
     }
     return res.status(503).render('errors/bot-offline', {
@@ -110,24 +109,24 @@ function globalErrorHandler(err, req, res, next) {
     });
   }
 
-  const publicErrMessage = appConfig.IS_PROD
-    ? req.t
-      ? req.t('errors.500DefaultMsg')
-      : 'İşleminiz sırasında beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
-    : safeMessage;
-
   if (wantsJson) {
     return res.status(statusCode).json({
-      success: false,
+      ok: false,
       errorCode,
-      error: publicErrMessage,
+      error: appConfig.IS_PROD && statusCode >= 500
+        ? (req && typeof req.t === 'function' ? req.t('errors.500DefaultMsg') : 'Sunucu hatası oluştu.')
+        : safeMessage,
     });
   }
 
   return res.status(statusCode).render('errors/500', {
     title: req.t ? req.t('errors.500Title') : 'Sunucu Hatası — Piyade Team | TSB',
     errorCode,
-    message: publicErrMessage,
+    message: appConfig.IS_PROD
+      ? req.t
+        ? req.t('errors.500DefaultMsg')
+        : 'İşleminiz sırasında beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+      : safeMessage,
     stack: appConfig.IS_PROD ? null : safeStack,
   });
 }

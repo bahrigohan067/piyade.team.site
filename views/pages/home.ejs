@@ -224,21 +224,17 @@
 </section>
 
 <!-- ==============================================================================
- * 4. METEORS COMPONENT (DİLEK GÖKYÜZÜ)
+ * 4. METEORS COMPONENT (DİLEK GÖKYÜZÜ — TEK CANVAS KATMANI)
  * ============================================================================== -->
 <section style="margin-bottom: 4rem;">
   <div
     class="meteors-container"
     id="meteorsContainer"
-    data-meteors-config="<%= JSON.stringify(typeof meteorsConfig !== 'undefined' ? meteorsConfig : {}) %>"
+    data-meteors-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.meteors) : '{}' %>"
   >
     <div class="meteors-overlay">
-      <h2 class="meteors-title">
-        <%= t('home.meteorsTitle') %>
-      </h2>
-      <p class="meteors-subtitle">
-        <%= t('home.meteorsSubtitle') %>
-      </p>
+      <h2 class="meteors-title"><%= t('home.meteorsTitle') %></h2>
+      <p class="meteors-subtitle"><%= t('home.meteorsSubtitle') %></p>
     </div>
   </div>
 </section>

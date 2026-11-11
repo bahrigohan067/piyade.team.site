@@ -124,33 +124,13 @@ function requireManagement(req, res, next) {
   return next();
 }
 
-function wantsJsonResponse(req) {
-  return Boolean(
-    req &&
-      (req.xhr ||
-        req.headers['x-requested-with'] === 'XMLHttpRequest' ||
-        (req.headers.accept && req.headers.accept.includes('application/json')))
-  );
-}
-
 /**
  * Madde 5: Yönetim POST işlemlerinde (uyarı ver, kanıt yükle) rolü Bot API'den TAZE doğrular (önbellek kullanmaz).
  * Kullanıcı Discord sunucusundan çıktıysa veya yönetim yetkisi alındıysa oturumu derhal sonlandırır.
  */
 async function requireFreshManagement(req, res, next) {
   markNoIndex(req, res);
-  const jsonMode = wantsJsonResponse(req);
-
   if (!req.session || !req.session.user || !req.session.user.id) {
-    if (jsonMode) {
-      return res.status(401).json({
-        success: false,
-        code: 'SESSION_EXPIRED',
-        error: req.t
-          ? req.t('errors.sessionExpiredJson')
-          : 'Oturumunuz sona ermiş. Lütfen yeniden giriş yapınız.',
-      });
-    }
     req.session.returnTo = req.originalUrl;
     return res.redirect('/auth/discord');
   }
@@ -170,18 +150,24 @@ async function requireFreshManagement(req, res, next) {
     req.session.user.rolesSyncedAt = Date.now();
 
     if (!isManagement(roles, level)) {
-      // Kullanıcının yönetim yetkisi alınmış -> Oturumu sonlandır!
       const revokedMsg = req.t
         ? req.t('errors.sessionRevokedNoPermission')
         : 'Yönetim yetkiniz kaldırıldığı için bu işlemi gerçekleştiremezsiniz. Oturumunuz sonlandırıldı.';
+      const wantsJson = Boolean(
+        req.xhr ||
+        req.get('X-Requested-With') === 'XMLHttpRequest' ||
+        (req.headers.accept && req.headers.accept.includes('application/json'))
+      );
+
+      // Kullanıcının yönetim yetkisi alınmış -> Oturumu sonlandır!
       return req.session.destroy(() => {
         res.clearCookie('piyade.sid');
         res.locals.currentUser = null;
-        if (jsonMode) {
+        if (wantsJson) {
           return res.status(403).json({
-            success: false,
-            code: 'PERMISSION_REVOKED',
+            ok: false,
             error: revokedMsg,
+            sessionRevoked: true,
           });
         }
         return res.status(403).render('errors/403', {
@@ -195,23 +181,29 @@ async function requireFreshManagement(req, res, next) {
     return next();
   } catch (err) {
     if (err.statusCode === 404) {
-      // Kullanıcı sunucudan çıkmış -> Oturumu sonlandır!
-      const notInGuildMsg = req.t
+      const leftMsg = req.t
         ? req.t('errors.sessionRevokedNotInGuild')
         : 'Discord sunucusundan ayrıldığınız için oturumunuz güvenlik amacıyla sonlandırıldı.';
+      const wantsJson = Boolean(
+        req.xhr ||
+        req.get('X-Requested-With') === 'XMLHttpRequest' ||
+        (req.headers.accept && req.headers.accept.includes('application/json'))
+      );
+
+      // Kullanıcı sunucudan çıkmış -> Oturumu sonlandır!
       return req.session.destroy(() => {
         res.clearCookie('piyade.sid');
         res.locals.currentUser = null;
-        if (jsonMode) {
+        if (wantsJson) {
           return res.status(403).json({
-            success: false,
-            code: 'NOT_IN_GUILD',
-            error: notInGuildMsg,
+            ok: false,
+            error: leftMsg,
+            sessionRevoked: true,
           });
         }
         return res.status(403).render('errors/403', {
           title: req.t ? req.t('errors.403Title') : 'Oturum Sonlandırıldı',
-          message: notInGuildMsg,
+          message: leftMsg,
         });
       });
     }

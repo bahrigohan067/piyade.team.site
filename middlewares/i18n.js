@@ -1,6 +1,6 @@
 const appConfig = require('../config/app.config');
 const siteConfig = require('../config/site.config');
-const { METEORS_CONFIG } = require('../config/meteors.config');
+const nexusConfig = require('../config/nexus.config');
 const trLocale = require('../locales/tr.json');
 const enLocale = require('../locales/en.json');
 
@@ -154,7 +154,7 @@ function i18nMiddleware(req, res, next) {
 
   res.locals.lang = activeLang;
   res.locals.siteConfig = siteConfig;
-  res.locals.meteorsConfig = METEORS_CONFIG;
+  res.locals.nexusConfig = nexusConfig;
   req.t = (key, fallback) => translate(activeLang, key, fallback);
   res.locals.t = req.t;
 

@@ -65,26 +65,46 @@
     </div>
   <% } %>
 
-  <!-- Hiyerarşi veya Kural Hata Bildirimi -->
+  <!-- Hiyerarşi veya Kural Hata Bildirimi (Sunucu + XHR istemci hataları) -->
   <% if (typeof error !== 'undefined' && error) { %>
-    <div class="alert alert-danger" style="margin-bottom: 2rem;">
+    <div class="alert alert-danger" id="adminWarnErrorBanner" style="margin-bottom: 2rem;">
       <span style="font-size: 1.5rem;">🛑</span>
       <div>
         <strong><%= t('adminWarn.blockedTitle') %></strong>
-        <p style="margin: 4px 0 0;"><%= error %></p>
+        <p style="margin: 4px 0 0;" id="adminWarnErrorText"><%= error %></p>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="alert alert-danger" id="adminWarnErrorBanner" style="margin-bottom: 2rem;" hidden>
+      <span style="font-size: 1.5rem;">🛑</span>
+      <div>
+        <strong><%= t('adminWarn.blockedTitle') %></strong>
+        <p style="margin: 4px 0 0;" id="adminWarnErrorText"></p>
       </div>
     </div>
   <% } %>
 
-  <!-- Uyarı Verme Formu (Madde 6: Tekil Idempotency Anahtarı & Buton Kilitleme) -->
+  <!-- Uyarı Verme Formu (Madde 6: Tekil Idempotency Anahtarı & Buton Kilitleme + Kanıt Dosyasında Orbital Loader) -->
   <div class="glass-card">
     <form
-      id="warnForm"
+      id="adminWarnForm"
       action="/yonetim/uyari?_csrf=<%= encodeURIComponent(csrfToken) %>&_idempotencyKey=<%= encodeURIComponent(typeof idempotencyKey !== 'undefined' ? idempotencyKey : '') %>"
       method="POST"
       enctype="multipart/form-data"
       data-prevent-double-submit="true"
+      data-orbital-loader="true"
       data-confirm="<%= t('adminWarn.confirmWarn') %>"
+      data-loader-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.orbitalLoader) : '{}' %>"
+      data-loader-i18n="<%= JSON.stringify({
+        uploading: t('adminWarn.loaderUploading'),
+        forwarding: t('adminWarn.loaderForwarding'),
+        success: t('adminWarn.loaderSuccess'),
+        errorTitle: t('adminWarn.loaderErrorTitle'),
+        timeoutError: t('adminWarn.loaderTimeoutErr'),
+        networkError: t('adminWarn.loaderNetworkErr'),
+        fileTooLarge: t('errors.fileTooLarge'),
+        closeBtn: t('adminWarn.loaderCloseBtn')
+      }) %>"
     >
       <!-- CSRF Güvenlik Anahtarı -->
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -220,49 +240,33 @@
 </div>
 
 <!-- ==============================================================================
- * ORBITAL LOADER OVERLAY (Yalnızca Kanıt Dosyası Seçiliyse Gösterilir)
+ * ORBITAL LOADER TAM EKRAN KATMANI (Yalnızca Kanıt Dosyası Yüklenirken Açılır)
  * ============================================================================== -->
-<%
-  const loaderI18nPayload = {
-    uploading: t('adminWarn.loaderUploading'),
-    delivering: t('adminWarn.loaderDelivering'),
-    success: t('adminWarn.loaderSuccess'),
-    errorTitle: t('adminWarn.loaderErrorTitle'),
-    timeout: t('adminWarn.loaderTimeout'),
-    networkError: t('adminWarn.loaderNetworkError'),
-  };
-%>
 <div
   id="orbitalLoaderOverlay"
-  class="orbital-loader-overlay"
+  class="orbital-overlay"
   role="status"
   aria-live="polite"
-  aria-hidden="true"
-  data-loader-i18n="<%= JSON.stringify(loaderI18nPayload) %>"
+  aria-modal="true"
   hidden
 >
-  <div class="orbital-loader-card">
-    <div class="orbital-loader-ring-wrap">
-      <svg class="orbital-loader-svg" viewBox="0 0 120 120" aria-hidden="true">
-        <circle class="orbital-loader-burst" cx="60" cy="60" r="46" />
-        <circle class="orbital-loader-track" cx="60" cy="60" r="46" />
-        <circle class="orbital-loader-progress" cx="60" cy="60" r="46" />
-        <path class="orbital-loader-comet" d="M 60 14 A 46 46 0 0 1 106 60" />
-        <path class="orbital-loader-check" d="M 40 62 L 54 76 L 82 46" />
-        <g class="orbital-loader-error-x">
-          <line x1="44" y1="44" x2="76" y2="76" />
-          <line x1="76" y1="44" x2="44" y2="76" />
-        </g>
+  <div class="orbital-dialog">
+    <div class="orbital-stage">
+      <svg class="orbital-svg" viewBox="0 0 140 140" width="128" height="128" aria-hidden="true">
+        <circle class="orbital-track" cx="70" cy="70" r="52" />
+        <circle class="orbital-burst-ring" cx="70" cy="70" r="52" />
+        <circle class="orbital-progress-arc" id="orbitalProgressArc" cx="70" cy="70" r="52" />
+        <path class="orbital-comet-arc" id="orbitalCometArc" d="" />
+        <circle class="orbital-comet-head" id="orbitalCometHead" cx="70" cy="18" r="4.5" />
+        <path class="orbital-check-path" d="M46 72 L62 88 L95 54" />
+        <path class="orbital-cross-path" d="M50 50 L90 90 M90 50 L50 90" />
       </svg>
-      <div class="orbital-loader-center">
-        <span class="orbital-loader-percent">%0</span>
-      </div>
     </div>
 
-    <p class="orbital-loader-text"><%= t('adminWarn.loaderUploading') %></p>
-    <p class="orbital-loader-subtext"></p>
+    <div class="orbital-status-text" id="orbitalStatusText"><%= t('adminWarn.loaderUploading') %></div>
+    <div class="orbital-sub-text" id="orbitalSubText">0%</div>
 
-    <button type="button" class="btn btn-secondary btn-sm orbital-loader-close-btn" hidden>
+    <button type="button" class="btn btn-secondary btn-sm orbital-close-btn" id="orbitalCloseBtn" hidden>
       <span><%= t('adminWarn.loaderCloseBtn') %></span>
     </button>
   </div>

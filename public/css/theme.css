@@ -107,73 +107,7 @@
   --gradient-btn-primary: linear-gradient(135deg, #2563eb, #4f46e5, #7c3aed);
   --gradient-btn-danger: linear-gradient(135deg, #ef4444, #dc2626);
   --gradient-btn-success: linear-gradient(135deg, #10b981, #059669);
-  --gradient-meteors-bg: radial-gradient(120% 90% at 50% 0%, #1d1138 0%, #090714 58%, #04040a 100%);
-
-  /* ============================================================================
-   * 5B. NEXUS UI BİLEŞEN RENK DEĞİŞKENLERİ (Mor / Aero Violet Teması)
-   * ============================================================================ */
-  /* Meteors Canvas */
-  --meteors-color: #e9d5ff;
-  --meteors-tail-color: rgba(168, 85, 247, 0.72);
-  --meteors-spark-color: #e879f9;
-  --meteors-star-color: #f3e8ff;
-  --meteors-border-color: rgba(168, 85, 247, 0.30);
-  --meteors-title-glow: 0 0 36px rgba(168, 85, 247, 0.85);
-  --meteors-subtitle-color: rgba(233, 213, 255, 0.78);
-
-  /* Dart Rating (Mor Hedef Tahtası & İğne) */
-  --dart-accent-text: #c084fc;
-  --dart-tip-text: #d8b4fe;
-  --dart-score-highlight: #a855f7;
-  --dart-board-outer-bg: #08070f;
-  --dart-board-border: rgba(168, 85, 247, 0.48);
-  --dart-board-inner-bg: #100c1f;
-  --dart-board-inner-border: rgba(216, 180, 254, 0.16);
-  --dart-ring-odd: rgba(68, 38, 128, 0.76);
-  --dart-ring-even: rgba(24, 15, 52, 0.90);
-  --dart-ring-odd-hi: rgba(109, 40, 217, 0.84);
-  --dart-ring-even-hi: rgba(46, 20, 96, 0.92);
-  --dart-ring-stroke: rgba(192, 132, 252, 0.28);
-  --dart-ring-inner-stroke: rgba(233, 213, 255, 0.48);
-  --dart-bullseye-start: #d946ef;
-  --dart-bullseye-end: #7e22ce;
-  --dart-bullseye-stroke: #faf5ff;
-  --dart-reticle-color: #e9d5ff;
-  --dart-reticle-glow: 0 0 14px rgba(168, 85, 247, 0.9);
-  --dart-pin-core: #ffffff;
-  --dart-pin-wing-1: #a855f7;
-  --dart-pin-wing-2: #d946ef;
-  --dart-pin-wing-3: #c084fc;
-  --dart-pin-wing-4: #7c3aed;
-  --dart-pin-shadow: rgba(0, 0, 0, 0.8);
-  --dart-star-idle: rgba(255, 255, 255, 0.2);
-  --dart-star-active: #c084fc;
-  --dart-star-glow: 0 0 10px rgba(168, 85, 247, 0.85);
-  --dart-power-track: rgba(255, 255, 255, 0.08);
-  --dart-power-border: rgba(192, 132, 252, 0.22);
-  --dart-power-fill: linear-gradient(90deg, #7c3aed, #a855f7, #e879f9);
-  --dart-word-bg: rgba(139, 92, 246, 0.16);
-  --dart-word-border: rgba(192, 132, 252, 0.36);
-
-  /* Floating Dock Sol Menü */
-  --dock-active-dot: #c084fc;
-  --dock-active-dot-glow: 0 0 10px rgba(192, 132, 252, 0.92);
-  --dock-tooltip-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
-
-  /* Orbital Loader (Kanıt Yükleme Katmanı) */
-  --loader-backdrop-bg: rgba(5, 6, 12, 0.82);
-  --loader-card-bg: rgba(14, 13, 28, 0.95);
-  --loader-card-border: rgba(168, 85, 247, 0.36);
-  --loader-ring-track: rgba(192, 132, 252, 0.16);
-  --loader-comet-color: #c084fc;
-  --loader-comet-head: #faf5ff;
-  --loader-comet-glow: drop-shadow(0 0 10px rgba(168, 85, 247, 0.9));
-  --loader-progress-color: #a855f7;
-  --loader-success-color: #10b981;
-  --loader-success-glow: drop-shadow(0 0 14px rgba(16, 185, 129, 0.78));
-  --loader-error-color: #ef4444;
-  --loader-error-glow: drop-shadow(0 0 14px rgba(239, 68, 68, 0.78));
-  --loader-burst-color: rgba(16, 185, 129, 0.45);
+  --gradient-meteors-bg: radial-gradient(120% 90% at 50% 0%, rgba(88, 28, 135, 0.42) 0%, #0a0814 55%, #04040a 100%);
 
   /* ============================================================================
    * 6. BİLDİRİM VE DURUM RENKLERİ (Emerald, Amber, Rose)
@@ -243,4 +177,67 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --transition-fast: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-normal: 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ============================================================================
+   * 11. NEXUS UI BİLEŞEN RENKLERİ (Mor / Obsidian Tema Değişkenleri)
+   * ============================================================================ */
+  /* Meteors (Canvas Meteor Yağmuru) */
+  --meteor-color: #c084fc;
+  --meteor-core-color: #ffffff;
+  --meteor-spark-color: #d946ef;
+  --meteor-glow-color: rgba(168, 85, 247, 0.72);
+  --meteor-star-color: rgba(233, 213, 255, 0.75);
+  --meteor-subtitle-color: rgba(233, 213, 255, 0.78);
+  --meteor-title-glow: 0 0 35px rgba(168, 85, 247, 0.78);
+
+  /* Dart Rating (Mor Nişan Tahtası & Puanlama) */
+  --dart-accent: #a855f7;
+  --dart-accent-soft: #c084fc;
+  --dart-accent-text: #d8b4fe;
+  --dart-board-outer-bg: #080710;
+  --dart-board-outer-stroke: rgba(168, 85, 247, 0.45);
+  --dart-board-bezel-bg: #0e0b1a;
+  --dart-board-bezel-stroke: rgba(255, 255, 255, 0.1);
+  --dart-ring-odd: rgba(59, 28, 102, 0.58);
+  --dart-ring-even: rgba(20, 12, 38, 0.85);
+  --dart-ring-stroke: rgba(192, 132, 252, 0.25);
+  --dart-ring-inner-odd: rgba(107, 33, 168, 0.72);
+  --dart-ring-inner-even: rgba(34, 16, 66, 0.92);
+  --dart-ring-inner-stroke: rgba(216, 180, 254, 0.45);
+  --dart-bullseye-start: #d946ef;
+  --dart-bullseye-end: #7e22ce;
+  --dart-bullseye-stroke: #faf5ff;
+  --dart-reticle-color: #d8b4fe;
+  --dart-reticle-fill: rgba(168, 85, 247, 0.14);
+  --dart-reticle-glow: 0 0 12px rgba(168, 85, 247, 0.85);
+  --dart-pin-core: #ffffff;
+  --dart-pin-fletch-1: #8b5cf6;
+  --dart-pin-fletch-2: #d946ef;
+  --dart-pin-fletch-3: #c084fc;
+  --dart-pin-fletch-4: #6366f1;
+  --dart-pin-shadow: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+  --dart-star-active: #c084fc;
+  --dart-star-active-glow: 0 0 10px rgba(168, 85, 247, 0.8);
+  --dart-star-empty: rgba(255, 255, 255, 0.18);
+  --dart-power-track: rgba(168, 85, 247, 0.14);
+  --dart-power-fill: linear-gradient(90deg, #8b5cf6 0%, #c084fc 55%, #e879f9 100%);
+
+  /* Floating Dock (Sol Menü) */
+  --dock-dot-color: #c084fc;
+  --dock-dot-glow: 0 0 10px rgba(168, 85, 247, 0.85);
+  --dock-icon-hover-bg: rgba(168, 85, 247, 0.16);
+
+  /* Orbital Loader (Kanıt Yükleme Katmanı) */
+  --orbital-backdrop: rgba(4, 5, 10, 0.82);
+  --orbital-card-bg: rgba(12, 11, 22, 0.94);
+  --orbital-card-border: rgba(168, 85, 247, 0.35);
+  --orbital-track-color: rgba(168, 85, 247, 0.18);
+  --orbital-comet-color: #a855f7;
+  --orbital-comet-tail: #c084fc;
+  --orbital-comet-head: #f5d0fe;
+  --orbital-comet-glow: drop-shadow(0 0 8px rgba(168, 85, 247, 0.78));
+  --orbital-success-color: #10b981;
+  --orbital-success-glow: drop-shadow(0 0 12px rgba(16, 185, 129, 0.7));
+  --orbital-error-color: #ef4444;
+  --orbital-error-glow: drop-shadow(0 0 12px rgba(239, 68, 68, 0.7));
 }

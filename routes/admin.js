@@ -109,37 +109,24 @@ router.get('/api/search', async (req, res) => {
   }
 });
 
-function wantsJsonResponse(req) {
-  return Boolean(
-    req &&
-      (req.xhr ||
-        req.headers['x-requested-with'] === 'XMLHttpRequest' ||
-        (req.headers.accept && req.headers.accept.includes('application/json')))
-  );
-}
-
 /**
  * GET /yonetim/api/idempotency-key
- * XHR hata kurtarma sonrası formun tekrar kullanılabilmesi için tek kullanımlık yeni anahtar üretir.
+ * Başarısız XHR/kanıt yüklemeleri sonrası formun yeniden kullanılabilmesi için taze tek kullanımlık anahtar üretir.
  */
 router.get('/api/idempotency-key', (req, res) => {
   return res.json({
+    ok: true,
     idempotencyKey: generateIdempotencyKey(req),
   });
 });
 
 /**
  * GET /yonetim/uyari
- * Uyarı Verme Formu (Post-Redirect-Get flash sonucunu gösterir ve yenilemede form tekrarını önler).
+ * Uyarı Verme Formu ve PRG (Post-Redirect-Get) Sonuç Kartı Ekranı.
  */
 router.get('/uyari', async (req, res) => {
   const preselectedId = String(req.query.targetUserId || '').trim();
   let preselectedMember = null;
-
-  const flashResult = req.session && req.session.warnFlashResult ? req.session.warnFlashResult : null;
-  if (req.session && req.session.warnFlashResult) {
-    delete req.session.warnFlashResult;
-  }
 
   if (preselectedId && /^\d{1,21}$/.test(preselectedId)) {
     try {
@@ -149,6 +136,12 @@ router.get('/uyari', async (req, res) => {
     } catch (_) {
       preselectedMember = null;
     }
+  }
+
+  // Başarılı POST sonrası tek seferlik sonuç kartını oku ve temizle (F5 yenilemede tekrar gönderimi önler)
+  const flashResult = (req.session && req.session.warnFlashResult) || null;
+  if (req.session && req.session.warnFlashResult) {
+    delete req.session.warnFlashResult;
   }
 
   return res.render('pages/admin-warn', {
@@ -255,16 +248,19 @@ router.post(
     const { targetUserId, type, ruleCode, reason, evidenceUrlInput } = req.body;
     const cleanTargetId = String(targetUserId || '').trim();
     const localizedRules = getLocalizedRules(req.lang || 'tr');
-
-    const jsonMode = wantsJsonResponse(req);
+    const isAjax = Boolean(
+      req.xhr ||
+      req.get('X-Requested-With') === 'XMLHttpRequest' ||
+      (req.headers.accept && req.headers.accept.includes('application/json'))
+    );
 
     const renderWarnFormError = (status, errorMessage) => {
       const nextKey = generateIdempotencyKey(req);
-      if (jsonMode) {
+      if (isAjax) {
         return res.status(status).json({
-          success: false,
+          ok: false,
           error: errorMessage,
-          newIdempotencyKey: nextKey,
+          nextIdempotencyKey: nextKey,
         });
       }
       return res.status(status).render('pages/admin-warn', {
@@ -365,29 +361,21 @@ router.post(
         }
       }
 
-      const resultPayload = {
+      req.session.warnFlashResult = {
         ...warnResult,
         targetUserId: cleanTargetId,
         evidenceUrl: finalEvidenceUrl,
       };
 
-      // PRG (Post-Redirect-Get): Sonucu oturuma kaydet, böylece sayfa yenilenince form asla tekrar gönderilmez
-      if (req.session) {
-        req.session.warnFlashResult = resultPayload;
-        await new Promise((resolve) => {
-          req.session.save(() => resolve());
-        });
-      }
-
-      if (jsonMode) {
-        return res.status(200).json({
-          success: true,
-          redirectUrl: '/yonetim/uyari',
-          result: resultPayload,
-        });
-      }
-
-      return res.redirect('/yonetim/uyari');
+      return req.session.save(() => {
+        if (isAjax) {
+          return res.json({
+            ok: true,
+            redirectUrl: '/yonetim/uyari',
+          });
+        }
+        return res.redirect('/yonetim/uyari');
+      });
     } catch (err) {
       if (err && err.isOffline) {
         return next(err);

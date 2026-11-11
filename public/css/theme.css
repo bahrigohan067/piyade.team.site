@@ -107,7 +107,73 @@
   --gradient-btn-primary: linear-gradient(135deg, #2563eb, #4f46e5, #7c3aed);
   --gradient-btn-danger: linear-gradient(135deg, #ef4444, #dc2626);
   --gradient-btn-success: linear-gradient(135deg, #10b981, #059669);
-  --gradient-meteors-bg: radial-gradient(120% 90% at 50% 0%, #111a33 0%, #070a14 55%, #030408 100%);
+  --gradient-meteors-bg: radial-gradient(120% 90% at 50% 0%, #1d1138 0%, #090714 58%, #04040a 100%);
+
+  /* ============================================================================
+   * 5B. NEXUS UI BİLEŞEN RENK DEĞİŞKENLERİ (Mor / Aero Violet Teması)
+   * ============================================================================ */
+  /* Meteors Canvas */
+  --meteors-color: #e9d5ff;
+  --meteors-tail-color: rgba(168, 85, 247, 0.72);
+  --meteors-spark-color: #e879f9;
+  --meteors-star-color: #f3e8ff;
+  --meteors-border-color: rgba(168, 85, 247, 0.30);
+  --meteors-title-glow: 0 0 36px rgba(168, 85, 247, 0.85);
+  --meteors-subtitle-color: rgba(233, 213, 255, 0.78);
+
+  /* Dart Rating (Mor Hedef Tahtası & İğne) */
+  --dart-accent-text: #c084fc;
+  --dart-tip-text: #d8b4fe;
+  --dart-score-highlight: #a855f7;
+  --dart-board-outer-bg: #08070f;
+  --dart-board-border: rgba(168, 85, 247, 0.48);
+  --dart-board-inner-bg: #100c1f;
+  --dart-board-inner-border: rgba(216, 180, 254, 0.16);
+  --dart-ring-odd: rgba(68, 38, 128, 0.76);
+  --dart-ring-even: rgba(24, 15, 52, 0.90);
+  --dart-ring-odd-hi: rgba(109, 40, 217, 0.84);
+  --dart-ring-even-hi: rgba(46, 20, 96, 0.92);
+  --dart-ring-stroke: rgba(192, 132, 252, 0.28);
+  --dart-ring-inner-stroke: rgba(233, 213, 255, 0.48);
+  --dart-bullseye-start: #d946ef;
+  --dart-bullseye-end: #7e22ce;
+  --dart-bullseye-stroke: #faf5ff;
+  --dart-reticle-color: #e9d5ff;
+  --dart-reticle-glow: 0 0 14px rgba(168, 85, 247, 0.9);
+  --dart-pin-core: #ffffff;
+  --dart-pin-wing-1: #a855f7;
+  --dart-pin-wing-2: #d946ef;
+  --dart-pin-wing-3: #c084fc;
+  --dart-pin-wing-4: #7c3aed;
+  --dart-pin-shadow: rgba(0, 0, 0, 0.8);
+  --dart-star-idle: rgba(255, 255, 255, 0.2);
+  --dart-star-active: #c084fc;
+  --dart-star-glow: 0 0 10px rgba(168, 85, 247, 0.85);
+  --dart-power-track: rgba(255, 255, 255, 0.08);
+  --dart-power-border: rgba(192, 132, 252, 0.22);
+  --dart-power-fill: linear-gradient(90deg, #7c3aed, #a855f7, #e879f9);
+  --dart-word-bg: rgba(139, 92, 246, 0.16);
+  --dart-word-border: rgba(192, 132, 252, 0.36);
+
+  /* Floating Dock Sol Menü */
+  --dock-active-dot: #c084fc;
+  --dock-active-dot-glow: 0 0 10px rgba(192, 132, 252, 0.92);
+  --dock-tooltip-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+
+  /* Orbital Loader (Kanıt Yükleme Katmanı) */
+  --loader-backdrop-bg: rgba(5, 6, 12, 0.82);
+  --loader-card-bg: rgba(14, 13, 28, 0.95);
+  --loader-card-border: rgba(168, 85, 247, 0.36);
+  --loader-ring-track: rgba(192, 132, 252, 0.16);
+  --loader-comet-color: #c084fc;
+  --loader-comet-head: #faf5ff;
+  --loader-comet-glow: drop-shadow(0 0 10px rgba(168, 85, 247, 0.9));
+  --loader-progress-color: #a855f7;
+  --loader-success-color: #10b981;
+  --loader-success-glow: drop-shadow(0 0 14px rgba(16, 185, 129, 0.78));
+  --loader-error-color: #ef4444;
+  --loader-error-glow: drop-shadow(0 0 14px rgba(239, 68, 68, 0.78));
+  --loader-burst-color: rgba(16, 185, 129, 0.45);
 
   /* ============================================================================
    * 6. BİLDİRİM VE DURUM RENKLERİ (Emerald, Amber, Rose)

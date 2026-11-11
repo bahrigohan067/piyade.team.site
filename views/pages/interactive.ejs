@@ -1,115 +1,168 @@
 <%- include('../layouts/header') %>
 
-<div style="text-align: center; margin-bottom: 3rem; padding-top: 1rem;">
-  <span class="badge badge-primary" style="margin-bottom: 0.75rem;"><%= t('interactive.badgeTop') %></span>
-  <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">
+<%
+  const dartI18nPayload = {
+    unratedScore: t('interactive.dartUnratedScore'),
+    unratedWord: t('interactive.dartUnratedWord'),
+    initialFeedback: t('interactive.dartInitialFeedback'),
+    words: {
+      1: t('interactive.dartWords.1'),
+      2: t('interactive.dartWords.2'),
+      3: t('interactive.dartWords.3'),
+      4: t('interactive.dartWords.4'),
+      5: t('interactive.dartWords.5'),
+      6: t('interactive.dartWords.6'),
+      7: t('interactive.dartWords.7'),
+      8: t('interactive.dartWords.8'),
+      9: t('interactive.dartWords.9'),
+      10: t('interactive.dartWords.10'),
+    },
+    feedbacks: {
+      1: t('interactive.dartFeedbacks.1'),
+      2: t('interactive.dartFeedbacks.2'),
+      3: t('interactive.dartFeedbacks.3'),
+      4: t('interactive.dartFeedbacks.4'),
+      5: t('interactive.dartFeedbacks.5'),
+      6: t('interactive.dartFeedbacks.6'),
+      7: t('interactive.dartFeedbacks.7'),
+      8: t('interactive.dartFeedbacks.8'),
+      9: t('interactive.dartFeedbacks.9'),
+      10: t('interactive.dartFeedbacks.10'),
+    },
+  };
+%>
+
+<div class="interactive-hero-header">
+  <span class="badge badge-purple" style="margin-bottom: 0.75rem;"><%= t('interactive.badgeTop') %></span>
+  <h1 class="interactive-hero-title">
     <%= t('interactive.headingPart1') %> <span class="gradient-text"><%= t('interactive.headingPart2') %></span>
   </h1>
-  <p style="color: var(--text-secondary); max-width: 650px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">
+  <p class="interactive-hero-desc">
     <%= t('interactive.subheading') %>
   </p>
 </div>
 
 <!-- ==============================================================================
- * BÖLÜM 1: DART RATING (NEXUS UI DART-RATING)
+ * BÖLÜM 1: DART RATING (NEXUS UI DART-RATING — MOR TEMA & ERİŞİLEBİLİR SLIDER)
  * ============================================================================== -->
-<section style="margin-bottom: 5rem;">
-  <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1.85rem; color: #ffffff;"><%= t('interactive.dartTitle') %></h2>
-    <p style="color: var(--text-secondary); font-size: 0.95rem;">
+<section class="dart-section">
+  <div class="dart-header">
+    <h2 class="dart-title"><%= t('interactive.dartTitle') %></h2>
+    <p class="dart-subtitle">
       <%= t('interactive.dartDesc') %> <br />
-      <span style="color: #60a5fa;"><%= t('interactive.dartTipLabel') %></span> <%= t('interactive.dartTipText') %>
+      <span class="dart-tip-label"><%= t('interactive.dartTipLabel') %></span> <%= t('interactive.dartTipText') %>
     </p>
   </div>
 
-  <div class="glass-card" style="max-width: 460px; margin: 0 auto; text-align: center; padding: 2rem;">
-    <!-- Skor ve Yıldızlar -->
-    <div style="margin-bottom: 1rem;">
-      <div id="dartScoreDisplay" style="font-size: 1.5rem; font-weight: 800; color: #ffffff; font-family: var(--font-mono);">
-        <span style="color: #60a5fa; font-size: 2.25rem;">10</span> / 10
+  <div
+    class="glass-card dart-card"
+    id="dartRatingCard"
+    data-dart-i18n="<%= JSON.stringify(dartI18nPayload) %>"
+  >
+    <!-- İnteraktif Dart Hedef Tahtası (Gerçek ARIA Slider) -->
+    <div
+      class="dartboard-wrapper"
+      id="dartboardWrapper"
+      role="slider"
+      tabindex="0"
+      aria-label="<%= t('interactive.dartAriaLabel') %>"
+      aria-valuemin="1"
+      aria-valuemax="10"
+      aria-valuetext="<%= t('interactive.dartUnratedWord') %>"
+    >
+      <svg class="dartboard-svg" viewBox="0 0 280 280" aria-hidden="true">
+        <defs>
+          <radialGradient id="bullseyeGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="var(--dart-bullseye-start)" />
+            <stop offset="100%" stop-color="var(--dart-bullseye-end)" />
+          </radialGradient>
+        </defs>
+
+        <!-- Dış Mor Çerçeve -->
+        <circle class="dart-ring-outer" cx="140" cy="140" r="135" />
+        <circle class="dart-ring-inner-bg" cx="140" cy="140" r="131" />
+
+        <!-- 10 Eşit Aralıklı Mor Halka (13px adım = 130..13) -->
+        <circle class="dart-ring-odd" cx="140" cy="140" r="130" />
+        <circle class="dart-ring-even" cx="140" cy="140" r="117" />
+        <circle class="dart-ring-odd" cx="140" cy="140" r="104" />
+        <circle class="dart-ring-even" cx="140" cy="140" r="91" />
+        <circle class="dart-ring-odd" cx="140" cy="140" r="78" />
+        <circle class="dart-ring-even" cx="140" cy="140" r="65" />
+        <circle class="dart-ring-odd-hi" cx="140" cy="140" r="52" />
+        <circle class="dart-ring-even-hi" cx="140" cy="140" r="39" />
+        <circle class="dart-ring-odd-hi" cx="140" cy="140" r="26" />
+
+        <!-- Bullseye (10 Puan) -->
+        <circle class="dart-ring-bullseye" cx="140" cy="140" r="13" fill="url(#bullseyeGrad)" />
+      </svg>
+
+      <!-- Titreyen Hedef Nişangahı (Reticle) -->
+      <div id="dartAimReticle" class="dartboard-aim-reticle" aria-hidden="true"></div>
+    </div>
+
+    <!-- Basılı Tuttukça Dolan Güç Çubuğu -->
+    <div class="dart-power-section">
+      <div class="dart-power-header">
+        <span><%= t('interactive.dartPowerLabel') %></span>
+        <span id="dartPowerValue" class="dart-power-value">%0</span>
       </div>
-      <div id="dartStarsContainer" style="display: flex; justify-content: center; gap: 4px; margin: 6px 0;">
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
-        <span style="font-size: 1.15rem; color: #fbbf24; text-shadow: 0 0 8px #f59e0b;">★</span>
+      <div class="dart-power-track" aria-hidden="true">
+        <div id="dartPowerFill" class="dart-power-fill"></div>
       </div>
-      <div id="dartFeedbackDisplay" style="font-size: 0.9rem; font-weight: 600; color: #60a5fa;">
+    </div>
+
+    <!-- Tahtanın Altında Puan, Yıldızlar ve Tek Kelime Derece -->
+    <div class="dart-readout">
+      <div id="dartScoreDisplay" class="dart-score-display">
+        <span class="dart-score-value"><%= t('interactive.dartUnratedScore') %></span> / 10
+      </div>
+
+      <div id="dartStarsContainer" class="dart-stars-container" aria-hidden="true">
+        <% for (let s = 1; s <= 10; s++) { %>
+          <span class="dart-star">★</span>
+        <% } %>
+      </div>
+
+      <div id="dartRatingWord" class="dart-rating-word">
+        <%= t('interactive.dartUnratedWord') %>
+      </div>
+
+      <div id="dartFeedbackDisplay" class="dart-feedback-display">
         <%= t('interactive.dartInitialFeedback') %>
       </div>
     </div>
 
-    <!-- İnteraktif Dart Tahtası -->
-    <div class="dartboard-wrapper" id="dartboardWrapper" style="position: relative; width: 280px; height: 280px; margin: 0 auto; cursor: crosshair;">
-      <svg class="dartboard-svg" viewBox="0 0 280 280" style="width: 100%; height: 100%;">
-        <!-- Dış Metalik Çember -->
-        <circle cx="140" cy="140" r="135" fill="#08090d" stroke="rgba(59, 130, 246, 0.4)" stroke-width="4" />
-        <circle cx="140" cy="140" r="130" fill="#0d0f17" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2" />
-        
-        <!-- Halka 1 (1 Puan) -->
-        <circle cx="140" cy="140" r="126" fill="rgba(30, 40, 70, 0.7)" stroke="rgba(96, 165, 250, 0.2)" stroke-width="1.5" />
-        <!-- Halka 2 (2 Puan) -->
-        <circle cx="140" cy="140" r="113" fill="rgba(15, 20, 45, 0.8)" stroke="rgba(96, 165, 250, 0.2)" stroke-width="1.5" />
-        <!-- Halka 3 (3 Puan) -->
-        <circle cx="140" cy="140" r="100" fill="rgba(40, 50, 95, 0.75)" stroke="rgba(96, 165, 250, 0.25)" stroke-width="1.5" />
-        <!-- Halka 4 (4 Puan) -->
-        <circle cx="140" cy="140" r="87" fill="rgba(20, 25, 55, 0.85)" stroke="rgba(96, 165, 250, 0.25)" stroke-width="1.5" />
-        <!-- Halka 5 (5 Puan) -->
-        <circle cx="140" cy="140" r="74" fill="rgba(50, 65, 125, 0.8)" stroke="rgba(96, 165, 250, 0.3)" stroke-width="1.5" />
-        <!-- Halka 6 (6 Puan) -->
-        <circle cx="140" cy="140" r="61" fill="rgba(25, 35, 75, 0.9)" stroke="rgba(96, 165, 250, 0.3)" stroke-width="1.5" />
-        <!-- Halka 7 (7 Puan) -->
-        <circle cx="140" cy="140" r="48" fill="rgba(70, 85, 160, 0.85)" stroke="rgba(147, 197, 253, 0.4)" stroke-width="2" />
-        <!-- Halka 8 (8 Puan) -->
-        <circle cx="140" cy="140" r="35" fill="rgba(30, 45, 95, 0.95)" stroke="rgba(147, 197, 253, 0.5)" stroke-width="2" />
-        <!-- Halka 9 (9 Puan) -->
-        <circle cx="140" cy="140" r="23" fill="rgba(90, 110, 220, 0.9)" stroke="rgba(255, 255, 255, 0.6)" stroke-width="2" />
-        
-        <!-- Bullseye (10 Puan) -->
-        <circle cx="140" cy="140" r="11" fill="url(#bullseyeGrad)" stroke="#fff" stroke-width="2" />
-
-        <defs>
-          <radialGradient id="bullseyeGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ef4444" />
-            <stop offset="100%" stop-color="#b91c1c" />
-          </radialGradient>
-        </defs>
-      </svg>
-
-      <!-- Hedefleme Göstergesi (Reticle) -->
-      <div id="dartAimReticle" class="dartboard-aim-reticle" style="display: none; position: absolute; width: 28px; height: 28px; border: 2px dashed #60a5fa; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);"></div>
+    <!-- Sıfırlama Butonu -->
+    <div class="dart-actions">
+      <button type="button" id="btnClearDarts" class="btn btn-secondary btn-sm dart-reset-btn">
+        <span><%= t('interactive.btnClearBoard') %></span>
+      </button>
     </div>
-
-    <!-- Temizleme Butonu -->
-    <button id="btnClearDarts" class="btn btn-secondary btn-sm" style="margin-top: 1rem;">
-      <span><%= t('interactive.btnClearBoard') %></span>
-    </button>
   </div>
 </section>
 
 <!-- ==============================================================================
- * BÖLÜM 2: METEORS (NEXUS UI METEORS - YILDIZ VE METEOR YAĞMURU)
+ * BÖLÜM 2: METEORS (NEXUS UI METEORS — TEK CANVAS KATMANLI GÖKYÜZÜ)
  * ============================================================================== -->
 <section style="margin-bottom: 5rem;">
-  <div style="text-align: center; margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1.85rem; color: #ffffff;"><%= t('interactive.meteorsSectionTitle') %></h2>
-    <p style="color: var(--text-secondary); font-size: 0.95rem;">
+  <div class="meteors-section-header">
+    <h2 class="meteors-section-title"><%= t('interactive.meteorsSectionTitle') %></h2>
+    <p class="meteors-section-desc">
       <%= t('interactive.meteorsSectionDesc') %>
     </p>
   </div>
 
-  <div class="meteors-container" id="meteorsContainer">
-    <div style="pointer-events: none; text-align: center; z-index: 10;">
-      <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 35px rgba(96, 165, 250, 0.9);">
+  <div
+    class="meteors-container"
+    id="meteorsContainer"
+    data-meteors-config="<%= JSON.stringify(typeof meteorsConfig !== 'undefined' ? meteorsConfig : {}) %>"
+  >
+    <div class="meteors-overlay">
+      <h2 class="meteors-title">
         <%= t('home.meteorsTitle') %>
       </h2>
-      <p style="margin-top: 0.75rem; font-size: 0.95rem; color: rgba(255, 255, 255, 0.75);">
+      <p class="meteors-subtitle">
         <%= t('home.meteorsSubtitle') %>
       </p>
     </div>
@@ -120,15 +173,15 @@
  * BÖLÜM 3: SCROLL REVEAL TEXT (AŞAĞI KAYDIRINCA AÇILAN METİN)
  * ============================================================================== -->
 <section class="scroll-reveal-section">
-  <div style="margin-bottom: 1.5rem;">
-    <span class="badge badge-primary"><%= t('interactive.manifestoBadge') %></span>
+  <div class="manifesto-badge-wrap">
+    <span class="badge badge-purple"><%= t('interactive.manifestoBadge') %></span>
   </div>
 
   <div class="scroll-reveal-line"><%= t('home.manifestoLine1') %></div>
   <div class="scroll-reveal-line"><%= t('home.manifestoLine2') %></div>
-  <div class="scroll-reveal-line gradient-text text-glow-blue"><%= t('home.manifestoLine3') %></div>
+  <div class="scroll-reveal-line gradient-text text-glow-purple"><%= t('home.manifestoLine3') %></div>
 
-  <div style="margin-top: 3rem; color: var(--text-muted); font-size: 0.9rem;">
+  <div class="manifesto-hint">
     <%= t('interactive.manifestoHint') %>
   </div>
 </section>

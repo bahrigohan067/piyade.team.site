@@ -79,6 +79,7 @@
   <!-- Uyarı Verme Formu (Madde 6: Tekil Idempotency Anahtarı & Buton Kilitleme) -->
   <div class="glass-card">
     <form
+      id="warnForm"
       action="/yonetim/uyari?_csrf=<%= encodeURIComponent(csrfToken) %>&_idempotencyKey=<%= encodeURIComponent(typeof idempotencyKey !== 'undefined' ? idempotencyKey : '') %>"
       method="POST"
       enctype="multipart/form-data"
@@ -215,6 +216,55 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ==============================================================================
+ * ORBITAL LOADER OVERLAY (Yalnızca Kanıt Dosyası Seçiliyse Gösterilir)
+ * ============================================================================== -->
+<%
+  const loaderI18nPayload = {
+    uploading: t('adminWarn.loaderUploading'),
+    delivering: t('adminWarn.loaderDelivering'),
+    success: t('adminWarn.loaderSuccess'),
+    errorTitle: t('adminWarn.loaderErrorTitle'),
+    timeout: t('adminWarn.loaderTimeout'),
+    networkError: t('adminWarn.loaderNetworkError'),
+  };
+%>
+<div
+  id="orbitalLoaderOverlay"
+  class="orbital-loader-overlay"
+  role="status"
+  aria-live="polite"
+  aria-hidden="true"
+  data-loader-i18n="<%= JSON.stringify(loaderI18nPayload) %>"
+  hidden
+>
+  <div class="orbital-loader-card">
+    <div class="orbital-loader-ring-wrap">
+      <svg class="orbital-loader-svg" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="orbital-loader-burst" cx="60" cy="60" r="46" />
+        <circle class="orbital-loader-track" cx="60" cy="60" r="46" />
+        <circle class="orbital-loader-progress" cx="60" cy="60" r="46" />
+        <path class="orbital-loader-comet" d="M 60 14 A 46 46 0 0 1 106 60" />
+        <path class="orbital-loader-check" d="M 40 62 L 54 76 L 82 46" />
+        <g class="orbital-loader-error-x">
+          <line x1="44" y1="44" x2="76" y2="76" />
+          <line x1="76" y1="44" x2="44" y2="76" />
+        </g>
+      </svg>
+      <div class="orbital-loader-center">
+        <span class="orbital-loader-percent">%0</span>
+      </div>
+    </div>
+
+    <p class="orbital-loader-text"><%= t('adminWarn.loaderUploading') %></p>
+    <p class="orbital-loader-subtext"></p>
+
+    <button type="button" class="btn btn-secondary btn-sm orbital-loader-close-btn" hidden>
+      <span><%= t('adminWarn.loaderCloseBtn') %></span>
+    </button>
   </div>
 </div>
 

@@ -216,23 +216,27 @@
  * ============================================================================== -->
 <section class="scroll-reveal-section" style="padding: 4rem 1rem 5rem;">
   <div style="margin-bottom: 1.5rem;">
-    <span class="badge badge-primary"><%= t('home.manifestoBadge') %></span>
+    <span class="badge badge-purple"><%= t('home.manifestoBadge') %></span>
   </div>
   <div class="scroll-reveal-line"><%= t('home.manifestoLine1') %></div>
   <div class="scroll-reveal-line"><%= t('home.manifestoLine2') %></div>
-  <div class="scroll-reveal-line gradient-text text-glow-blue"><%= t('home.manifestoLine3') %></div>
+  <div class="scroll-reveal-line gradient-text text-glow-purple"><%= t('home.manifestoLine3') %></div>
 </section>
 
 <!-- ==============================================================================
  * 4. METEORS COMPONENT (DİLEK GÖKYÜZÜ)
  * ============================================================================== -->
 <section style="margin-bottom: 4rem;">
-  <div class="meteors-container" id="meteorsContainer">
-    <div style="pointer-events: none; text-align: center; z-index: 10;">
-      <h2 style="font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; letter-spacing: -0.045em; color: #fff; text-shadow: 0 0 35px rgba(96, 165, 250, 0.9);">
+  <div
+    class="meteors-container"
+    id="meteorsContainer"
+    data-meteors-config="<%= JSON.stringify(typeof meteorsConfig !== 'undefined' ? meteorsConfig : {}) %>"
+  >
+    <div class="meteors-overlay">
+      <h2 class="meteors-title">
         <%= t('home.meteorsTitle') %>
       </h2>
-      <p style="margin-top: 0.75rem; font-size: 0.95rem; color: rgba(255, 255, 255, 0.75);">
+      <p class="meteors-subtitle">
         <%= t('home.meteorsSubtitle') %>
       </p>
     </div>

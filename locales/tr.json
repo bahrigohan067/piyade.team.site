@@ -3,6 +3,13 @@
     "defaultTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Klanı",
     "brandSubtitle": "Roblox Topluluk & Savaş Portalı"
   },
+  "brand": {
+    "name": "Piyade Clan | TSB",
+    "shortName": "Piyade",
+    "heroLogoAlt": "Piyade Clan | TSB logosu",
+    "iconAlt": "Piyade Clan | TSB simgesi",
+    "footerLogoAlt": "Piyade Clan | TSB logosu"
+  },
   "nav": {
     "home": "Anasayfa",
     "rules": "Genel Kurallar",

@@ -246,6 +246,12 @@ textarea:focus-visible,
     gap: 0.5rem;
   }
 
+  html[data-sidebar="collapsed"] body.has-sidebar .brand-logo-frame {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+
   html[data-sidebar="collapsed"] body.has-sidebar .sidebar-meta-bar {
     justify-content: center;
     padding: 0.45rem;
@@ -2559,6 +2565,20 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   .warriors-card {
     transition: none !important;
   }
+
+  .hero-logo-enter,
+  .hero-logo-float,
+  .hero-logo-glow,
+  .hero-logo-img {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .hero-logo-glow {
+    opacity: 0.7 !important;
+  }
 }
 
 /* ==========================================
@@ -3161,4 +3181,217 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .footer-content { flex-direction: column; align-items: flex-start; }
   .btn, .btn-sm, .btn-lg { min-height: 44px; }
+}
+
+/* ==========================================
+ * MARKA LOGOSU: HERO, MENÜ, FOOTER VE HATA FİLİGRANI
+ * ========================================== */
+.brand-logo-frame {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--brand-icon-border);
+  box-shadow: var(--brand-icon-glow);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-card-solid);
+  transition: transform 0.25s ease, width var(--transition-normal), height var(--transition-normal);
+}
+
+.brand-logo-frame--mobile {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.brand:hover .brand-logo-frame,
+.sidebar-brand:hover .brand-logo-frame {
+  transform: scale(1.04);
+}
+
+.brand:focus-visible,
+.sidebar-brand:focus-visible {
+  border-radius: 12px;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.footer-brand-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Anasayfa Hero 2 Sütun ve Büyük Logo */
+.hero-section {
+  padding: 3rem 0 2.5rem;
+  position: relative;
+}
+
+.hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(260px, auto);
+  align-items: center;
+  gap: 2.5rem;
+  margin-bottom: 3.25rem;
+}
+
+.hero-copy-col {
+  text-align: left;
+  min-width: 0;
+}
+
+.hero-pill-wrap {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1.35rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.hero-logo-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-logo-stage {
+  position: relative;
+  width: min(520px, 82vw);
+  max-width: 560px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  pointer-events: auto;
+}
+
+.hero-logo-glow {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  background: var(--hero-logo-glow-gradient);
+  pointer-events: none;
+  opacity: 0.55;
+  animation: heroLogoGlowPulse 5s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.hero-logo-enter {
+  width: 100%;
+  opacity: 0;
+  transform: scale(0.96);
+  animation: heroLogoEnter 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.hero-logo-float {
+  width: 100%;
+  animation: heroLogoFloat 6s ease-in-out 600ms infinite;
+  will-change: transform;
+}
+
+.hero-logo-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  transition: transform 280ms ease;
+  will-change: transform;
+}
+
+.hero-logo-stage:hover .hero-logo-img {
+  transform: scale(1.02);
+}
+
+@keyframes heroLogoEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes heroLogoFloat {
+  0%, 100% {
+    transform: translate3d(0, 0px, 0);
+  }
+  25% {
+    transform: translate3d(0, -8px, 0);
+  }
+  75% {
+    transform: translate3d(0, 8px, 0);
+  }
+}
+
+@keyframes heroLogoGlowPulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (max-width: 959px) {
+  .hero-section {
+    padding: 2rem 0 2.25rem;
+  }
+  .hero-split {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+  .hero-logo-col {
+    order: -1;
+  }
+  .hero-copy-col {
+    text-align: center;
+  }
+  .hero-pill-wrap,
+  .hero-actions {
+    justify-content: center;
+  }
+}
+
+/* Hata Sayfaları Dekoratif Logo Filigranı */
+.error-card-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.error-bg-watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, 78%);
+  height: auto;
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.error-card-body {
+  position: relative;
+  z-index: 1;
 }

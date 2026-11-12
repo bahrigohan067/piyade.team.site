@@ -79,7 +79,8 @@ function createServerApp() {
         if (
           reqUrl.includes('?v=') ||
           normalizedFile.includes('/public/vendor/') ||
-          normalizedFile.includes('/public/images/')
+          normalizedFile.includes('/public/images/') ||
+          normalizedFile.includes('/public/img/brand/')
         ) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         } else {

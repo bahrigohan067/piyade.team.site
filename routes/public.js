@@ -1,6 +1,8 @@
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 const siteConfig = require('../config/site.config');
+const brandConfig = require('../config/brand.config');
 const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
 const warriorsStore = require('../services/warriorsStore');
@@ -9,6 +11,17 @@ const { requireLogin } = require('../middlewares/auth');
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
 const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
+
+/**
+ * GET /favicon.ico
+ * Tarayıcıların otomatik istediği kök favicon isteğini doğrudan 200 OK ile sunar.
+ */
+router.get('/favicon.ico', (req, res) => {
+  const icoPath = path.join(__dirname, '..', 'public', brandConfig.PATHS.faviconIco.replace(/^\/+/, ''));
+  res.setHeader('Content-Type', 'image/x-icon');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  return res.sendFile(icoPath);
+});
 
 /**
  * GET /robots.txt

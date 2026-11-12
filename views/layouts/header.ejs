@@ -20,13 +20,35 @@
     ogType: 'website',
     ogLocale: activeLang === 'en' ? 'en_US' : 'tr_TR',
     ogLocaleAlternate: activeLang === 'en' ? 'tr_TR' : 'en_US',
-    ogImageUrl: 'http://localhost:3001/images/og-cover.png',
-    logoUrl: 'http://localhost:3001/images/logo.png',
+    ogImageUrl: 'http://localhost:3001/img/brand/og-image.jpg?v=1',
+    logoUrl: 'http://localhost:3001/img/brand/icon-512.png?v=1',
     noindex: true,
     isPublic: false,
     googleSiteVerification: '',
     sameAs: [],
   };
+  const fallbackBrandCfg = {
+    VERSION: 1,
+    THEME_COLOR: '#07080c',
+    ASSETS: {
+      logo256: '/img/brand/logo-256.webp?v=1',
+      logo512: '/img/brand/logo-512.webp?v=1',
+      logo768: '/img/brand/logo-768.webp?v=1',
+      logo1024: '/img/brand/logo-1024.webp?v=1',
+      icon192: '/img/brand/icon-192.png?v=1',
+      icon512: '/img/brand/icon-512.png?v=1',
+      appleTouchIcon: '/img/brand/apple-touch-icon.png?v=1',
+      faviconIco: '/img/brand/favicon.ico?v=1',
+      favicon16: '/img/brand/favicon-16.png?v=1',
+      favicon32: '/img/brand/favicon-32.png?v=1',
+      favicon48: '/img/brand/favicon-48.png?v=1',
+      ogImage: '/img/brand/og-image.jpg?v=1',
+      manifest: '/site.webmanifest?v=1',
+    },
+  };
+  const activeBrandCfg = (typeof brandConfig !== 'undefined' && brandConfig) ? brandConfig : fallbackBrandCfg;
+  const brandAssets = activeBrandCfg.ASSETS || fallbackBrandCfg.ASSETS;
+  const brandDisplayName = (typeof t === 'function' && t('brand.name') !== 'brand.name') ? t('brand.name') : pageSeo.brandName;
   const effectiveTitle = (!pageSeo.noindex && pageSeo.title) ? pageSeo.title : (typeof title !== 'undefined' && title ? title : pageSeo.title);
 %>
 <html lang="<%= pageSeo.htmlLang %>" data-sidebar="open">
@@ -96,6 +118,12 @@
           "alternateName": "<%= pageSeo.alternateName %>",
           "url": "<%= pageSeo.baseUrl %>",
           "inLanguage": ["tr", "en"],
+          "logo": {
+            "@type": "ImageObject",
+            "url": "<%= pageSeo.logoUrl %>",
+            "width": 512,
+            "height": 512
+          },
           "publisher": {
             "@id": "<%= pageSeo.baseUrl %>/#organization"
           }
@@ -117,9 +145,14 @@
     })();
   </script>
 
-  <!-- Favicon & Fonts -->
-  <link rel="icon" type="image/png" href="/images/logo.png?v=<%= pageSeo.assetVersion %>">
-  <link rel="apple-touch-icon" href="/images/logo.png?v=<%= pageSeo.assetVersion %>">
+  <!-- Favicon, Apple Touch Icon, Web Manifest & Fonts -->
+  <link rel="icon" href="<%= brandAssets.faviconIco %>" sizes="48x48">
+  <link rel="icon" type="image/png" href="<%= brandAssets.favicon48 %>" sizes="48x48">
+  <link rel="icon" type="image/png" href="<%= brandAssets.favicon32 %>" sizes="32x32">
+  <link rel="icon" type="image/png" href="<%= brandAssets.favicon16 %>" sizes="16x16">
+  <link rel="apple-touch-icon" sizes="180x180" href="<%= brandAssets.appleTouchIcon %>">
+  <link rel="manifest" href="<%= brandAssets.manifest %>">
+  <meta name="theme-color" content="<%= activeBrandCfg.THEME_COLOR %>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -170,10 +203,10 @@
       </button>
 
       <a href="/" class="brand brand-compact">
-        <div class="brand-icon brand-icon-sm">
-          <div class="brand-icon-inner">⚔️</div>
-        </div>
-        <span class="brand-title-text"><%= pageSeo.brandName %></span>
+        <span class="brand-logo-frame brand-logo-frame--mobile">
+          <img src="<%= brandAssets.icon192 %>" alt="" width="32" height="32" loading="lazy" decoding="async" class="brand-logo-img" />
+        </span>
+        <span class="brand-title-text"><%= brandDisplayName %></span>
       </a>
 
       <div class="mobile-topbar-actions">
@@ -196,12 +229,12 @@
       <!-- Üst Başlık ve Aç/Kapa Butonu -->
       <div class="sidebar-header">
         <a href="/" class="sidebar-brand">
-          <div class="brand-icon">
-            <div class="brand-icon-inner">⚔️</div>
-          </div>
+          <span class="brand-logo-frame">
+            <img src="<%= brandAssets.icon192 %>" alt="<%= t('brand.iconAlt') %>" width="40" height="40" loading="lazy" decoding="async" class="brand-logo-img" />
+          </span>
           <div class="sidebar-brand-copy">
             <div class="sidebar-brand-row">
-              <span class="sidebar-brand-title"><%= pageSeo.brandName %></span>
+              <span class="sidebar-brand-title"><%= brandDisplayName %></span>
             </div>
             <div class="sidebar-brand-sub"><%= t('meta.brandSubtitle') %></div>
           </div>
@@ -390,12 +423,12 @@
       <div class="container navbar">
         <!-- Logo ve Klan İsmi -->
         <a href="/" class="brand">
-          <div class="brand-icon">
-            <div class="brand-icon-inner">⚔️</div>
-          </div>
+          <span class="brand-logo-frame">
+            <img src="<%= brandAssets.icon192 %>" alt="<%= t('brand.iconAlt') %>" width="40" height="40" loading="lazy" decoding="async" class="brand-logo-img" />
+          </span>
           <div>
             <div class="brand-header-row">
-              <span class="brand-title-text"><%= pageSeo.brandName %></span>
+              <span class="brand-title-text"><%= brandDisplayName %></span>
             </div>
             <div class="brand-subtitle-text"><%= t('meta.brandSubtitle') %></div>
           </div>

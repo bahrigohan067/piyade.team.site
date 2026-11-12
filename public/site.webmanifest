@@ -1,0 +1,19 @@
+{
+  "name": "Piyade Clan | TSB",
+  "short_name": "Piyade",
+  "icons": [
+    {
+      "src": "/img/brand/icon-192.png?v=1",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/brand/icon-512.png?v=1",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#07080c",
+  "background_color": "#07080c",
+  "display": "browser"
+}

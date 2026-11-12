@@ -1,0 +1,15 @@
+<%
+  const wmSrc = (typeof brandConfig !== 'undefined' && brandConfig && brandConfig.ASSETS && brandConfig.ASSETS.logo512)
+    ? brandConfig.ASSETS.logo512
+    : '/img/brand/logo-512.webp?v=1';
+%>
+<img
+  src="<%= wmSrc %>"
+  alt=""
+  aria-hidden="true"
+  width="512"
+  height="512"
+  loading="lazy"
+  decoding="async"
+  class="error-bg-watermark"
+/>

@@ -279,4 +279,14 @@
   --warrior-dirty-border: rgba(245, 158, 11, 0.55);
   --warrior-custom-badge-bg: rgba(139, 92, 246, 0.18);
   --warrior-row-hover: rgba(255, 255, 255, 0.025);
+
+  /* Marka Logosu (Hero Parıltısı & Menü İkon Çerçevesi) */
+  --hero-logo-glow-gradient: radial-gradient(
+    circle at 50% 50%,
+    rgba(168, 85, 247, 0.42) 0%,
+    rgba(139, 92, 246, 0.18) 44%,
+    rgba(139, 92, 246, 0) 72%
+  );
+  --brand-icon-border: rgba(168, 85, 247, 0.34);
+  --brand-icon-glow: 0 0 14px rgba(139, 92, 246, 0.28);
 }

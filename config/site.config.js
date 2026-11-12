@@ -1,4 +1,5 @@
 const appConfig = require('./app.config');
+const brandConfig = require('./brand.config');
 
 /**
  * Piyade Clan | TSB — Merkezi Marka, SEO ve Yapılandırılmış Veri (JSON-LD) Konfigürasyonu.
@@ -178,8 +179,8 @@ function buildPageSeo(req, overrides = {}) {
     ogType: 'website',
     ogLocale: lang === 'en' ? 'en_US' : 'tr_TR',
     ogLocaleAlternate: lang === 'en' ? 'tr_TR' : 'en_US',
-    ogImageUrl: `${baseUrl}/images/og-cover.png`,
-    logoUrl: `${baseUrl}/images/logo.png`,
+    ogImageUrl: `${baseUrl}${brandConfig.ASSETS.ogImage}`,
+    logoUrl: `${baseUrl}${brandConfig.ASSETS.icon512}`,
     noindex,
     isPublic: isPublic && !noindex,
     googleSiteVerification: getGoogleSiteVerification(),

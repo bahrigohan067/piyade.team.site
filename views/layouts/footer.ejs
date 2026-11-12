@@ -2,7 +2,12 @@
     </main><!-- /.main-content -->
 
     <%
-      const footerBrand = (typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade Clan | TSB';
+      const footerBrand = (typeof t === 'function' && t('brand.name') !== 'brand.name')
+        ? t('brand.name')
+        : ((typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade Clan | TSB');
+      const footerLogoSrc = (typeof brandConfig !== 'undefined' && brandConfig && brandConfig.ASSETS && brandConfig.ASSETS.logo256)
+        ? brandConfig.ASSETS.logo256
+        : '/img/brand/logo-256.webp?v=1';
       const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '1.4.0';
       const discordUrl = (typeof seo !== 'undefined' && Array.isArray(seo.sameAs) && seo.sameAs.length > 0) ? seo.sameAs[0] : '';
       const showFeedbackPill = Boolean(
@@ -20,7 +25,16 @@
       <div class="container footer-content">
         <div>
           <div class="footer-brand-row">
-            <strong class="footer-brand-title">⚔️ <%= footerBrand %></strong>
+            <img
+              src="<%= footerLogoSrc %>"
+              alt="<%= t('brand.footerLogoAlt') %>"
+              width="56"
+              height="56"
+              loading="lazy"
+              decoding="async"
+              class="footer-brand-logo"
+            />
+            <strong class="footer-brand-title"><%= footerBrand %></strong>
           </div>
           <p class="footer-desc">
             <%= t('footer.description') %>

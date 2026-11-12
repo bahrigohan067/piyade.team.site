@@ -3,6 +3,13 @@
     "defaultTitle": "Piyade Clan | TSB – Roblox The Strongest Battlegrounds Clan",
     "brandSubtitle": "Roblox Community & Battle Portal"
   },
+  "brand": {
+    "name": "Piyade Clan | TSB",
+    "shortName": "Piyade",
+    "heroLogoAlt": "Piyade Clan | TSB logo",
+    "iconAlt": "Piyade Clan | TSB icon",
+    "footerLogoAlt": "Piyade Clan | TSB logo"
+  },
   "nav": {
     "home": "Home",
     "rules": "Rules",

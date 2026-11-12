@@ -23,60 +23,79 @@
     const n = Number(val);
     return Number.isFinite(n) ? n.toLocaleString(numberLocale) : '0';
   };
+  const count = warriorsList.length || 6;
   const firstWarrior = warriorsList.length > 0 ? warriorsList[0] : null;
+  const stepDegStr = `${(360 / count).toFixed(4)}deg`;
   const carouselI18n = {
     lang: (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr',
     numberLocale,
-    cardSelectLabel: t('warriors.cardSelectLabel'),
     dotSelectLabel: t('warriors.dotSelectLabel'),
     activeAnnouncement: t('warriors.activeAnnouncement'),
   };
 %>
 
 <% if (warriorsList.length > 0) { %>
-<section id="savascilar" class="warriors-section" aria-labelledby="warriorsSectionHeading">
-  <div class="warriors-header">
-    <h2 id="warriorsSectionHeading" class="warriors-title"><%= t('warriors.sectionTitle') %></h2>
-    <p class="warriors-subtitle">
+<section
+  id="savascilar"
+  class="zirve"
+  aria-labelledby="warriorsSectionHeading"
+  style="--item-w: <%= wConfig.itemWidth || 180 %>px; --item-h: <%= wConfig.itemHeight || 236 %>px; --gap: 28px; --step: <%= stepDegStr %>;"
+>
+  <header class="zirve-head">
+    <div class="zirve-kicker">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+        <path d="M2 18h20v2H2v-2zm1-2 2-9 5 4 2-6 2 6 5-4 2 9H3z"/>
+      </svg>
+      <span><%= t('warriors.kicker') %></span>
+    </div>
+    <h2 id="warriorsSectionHeading" class="zirve-title"><%= t('warriors.sectionTitle') %></h2>
+    <p class="zirve-subtitle">
       <%= t('warriors.sectionSubtitle').replace('{count}', String(warriorsList.length)) %>
     </p>
     <% if (wConfig.showOrderNote !== false) { %>
-      <p class="warriors-order-note"><%= t('warriors.orderNote') %></p>
+      <p class="zirve-note"><%= t('warriors.orderNote') %></p>
     <% } %>
-  </div>
+  </header>
 
   <div
     id="warriorsCarouselRoot"
-    class="warriors-carousel-root"
-    role="region"
-    aria-roledescription="carousel"
-    aria-label="<%= t('warriors.carouselAriaLabel') %>"
+    class="zirve-carousel"
     data-carousel-config="<%= JSON.stringify(wConfig) %>"
     data-carousel-i18n="<%= JSON.stringify(carouselI18n) %>"
   >
-    <div id="warriorsViewport" class="warriors-viewport" tabindex="0">
-      <div id="warriorsTrack" class="warriors-track">
+    <div
+      id="warriorsViewport"
+      class="zirve-stage"
+      tabindex="0"
+      role="group"
+      aria-roledescription="carousel"
+      aria-label="<%= t('warriors.carouselAriaLabel') %>"
+    >
+      <div id="warriorsTrack" class="zirve-ring">
         <% warriorsList.forEach(function (warrior, idx) {
           const killsFormatted = formatKills(warrior.kills);
-          const cardAriaLabel = `#${idx + 1} ${warrior.robloxUsername}, ${killsFormatted} ${t('warriors.killUnit')} — ${t('warriors.cardSelectLabel')}`;
+          const cardAria = t('warriors.cardAriaFormat')
+            .replace('{index}', String(idx + 1))
+            .replace('{count}', String(count))
+            .replace('{username}', warrior.robloxUsername)
+            .replace('{kills}', killsFormatted);
         %>
-          <button
-            type="button"
-            class="warriors-card <%= idx === 0 ? 'is-front' : '' %>"
+          <article
+            class="zirve-card <%= idx === 0 ? 'is-front' : '' %>"
+            style="--i:<%= idx %>"
             role="group"
-            aria-roledescription="slide"
-            aria-label="<%= cardAriaLabel %>"
-            aria-current="<%= idx === 0 ? 'true' : 'false' %>"
+            aria-label="<%= cardAria %>"
+            tabindex="-1"
             data-warrior-index="<%= idx %>"
             data-rank="<%= idx + 1 %>"
             data-username="<%= warrior.robloxUsername %>"
             data-kills="<%= warrior.kills %>"
             data-profile-url="<%= warrior.robloxProfileUrl || '' %>"
           >
-            <span class="warriors-rank-badge">
+            <span class="zirve-badge">
               <% if (idx === 0) { %>
-                <span class="warriors-rank-crown" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+                <span class="zirve-badge-crown" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
                     <path d="M2 18h20v2H2v-2zm1-2 2-9 5 4 2-6 2 6 5-4 2 9H3z"/>
                   </svg>
                 </span>
@@ -84,15 +103,16 @@
               <span>#<%= idx + 1 %></span>
             </span>
 
-            <div class="warriors-avatar-frame">
+            <div class="zirve-photo <%= warrior.avatarUrl ? 'is-loading' : '' %>">
               <% if (warrior.avatarUrl) { %>
                 <img
                   src="<%= warrior.avatarUrl %>"
                   alt="<%= warrior.robloxUsername %>"
-                  class="warriors-avatar-img"
+                  draggable="false"
+                  class="zirve-avatar"
                   width="148"
                   height="148"
-                  loading="lazy"
+                  <% if (idx > 0) { %>loading="lazy"<% } %>
                   decoding="async"
                 />
                 <span class="warriors-silhouette" aria-hidden="true" hidden>
@@ -111,29 +131,26 @@
               <% } %>
             </div>
 
-            <div class="warriors-card-meta">
-              <span class="warriors-card-name"><%= warrior.robloxUsername %></span>
-              <span class="warriors-card-kills"><%= killsFormatted %> <%= t('warriors.killUnit') %></span>
+            <div class="zirve-meta">
+              <strong class="zirve-name"><%= warrior.robloxUsername %></strong>
+              <span class="zirve-kills"><%= killsFormatted %> <%= t('warriors.killUnit') %></span>
             </div>
-          </button>
+
+            <span class="zirve-dim" aria-hidden="true"></span>
+          </article>
         <% }); %>
       </div>
     </div>
 
-    <div class="warriors-active-panel">
-      <div class="warriors-active-identity">
-        <span id="warriorsActiveRank" class="warriors-active-rank">#1</span>
-        <strong id="warriorsActiveUsername" class="warriors-active-username"><%= firstWarrior ? firstWarrior.robloxUsername : '' %></strong>
+    <div id="warriorsCaption" class="zirve-caption" aria-live="polite">
+      <strong id="warriorsActiveUsername" class="zirve-caption-name"><%= firstWarrior ? firstWarrior.robloxUsername : '' %></strong>
+      <div class="zirve-caption-kills">
+        <span id="warriorsActiveKills" class="zirve-caption-kills-num"><%= firstWarrior ? formatKills(firstWarrior.kills) : '0' %></span>
+        <span class="zirve-caption-kills-unit"><%= t('warriors.killUnit') %></span>
       </div>
-
-      <div class="warriors-active-kills-row">
-        <span id="warriorsActiveKills" class="warriors-active-kills-num"><%= firstWarrior ? formatKills(firstWarrior.kills) : '0' %></span>
-        <span class="warriors-active-kills-label"><%= t('warriors.killUnit') %></span>
-      </div>
-
       <a
         id="warriorsProfileLink"
-        class="warriors-profile-link"
+        class="zirve-profile-btn"
         href="<%= (firstWarrior && firstWarrior.robloxProfileUrl) ? firstWarrior.robloxProfileUrl : '#' %>"
         target="_blank"
         rel="noopener noreferrer"
@@ -142,22 +159,21 @@
         <span><%= t('warriors.robloxProfileBtn') %></span>
         <span aria-hidden="true">↗</span>
       </a>
-
-      <div id="warriorsDotsContainer" class="warriors-dots" role="tablist" aria-label="<%= t('warriors.carouselAriaLabel') %>">
-        <% warriorsList.forEach(function (warrior, idx) { %>
-          <button
-            type="button"
-            class="warriors-dot-btn <%= idx === 0 ? 'is-active' : '' %>"
-            data-dot-index="<%= idx %>"
-            aria-label="<%= `#${idx + 1} ${t('warriors.dotSelectLabel')}: ${warrior.robloxUsername}` %>"
-            aria-pressed="<%= idx === 0 ? 'true' : 'false' %>"
-          ></button>
-        <% }); %>
-      </div>
-
-      <p class="warriors-hint"><%= t('warriors.interactionHint') %></p>
-      <div id="warriorsLiveRegion" class="sr-only" aria-live="polite"></div>
     </div>
+
+    <div id="warriorsDotsContainer" class="zirve-dots" role="tablist" aria-label="<%= t('warriors.carouselAriaLabel') %>">
+      <% warriorsList.forEach(function (warrior, idx) { %>
+        <button
+          type="button"
+          class="zirve-dot <%= idx === 0 ? 'is-active' : '' %>"
+          data-dot-index="<%= idx %>"
+          aria-label="<%= `${idx + 1}. ${t('warriors.dotSelectLabel')}: ${warrior.robloxUsername}` %>"
+          <% if (idx === 0) { %>aria-current="true"<% } %>
+        ></button>
+      <% }); %>
+    </div>
+
+    <p class="zirve-hint"><%= t('warriors.interactionHint') %></p>
   </div>
 </section>
 <% } %>

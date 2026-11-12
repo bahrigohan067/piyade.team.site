@@ -455,7 +455,7 @@
     "errGeneric": "Could not send feedback, please try again."
   },
   "warriors": {
-    "sectionTitle": "Top Warriors",
+    "kicker": "Clan",
     "sectionTitle": "Top Warriors",
     "sectionSubtitle": "The {count} strongest fighters of Piyade Clan | TSB",
     "orderNote": "Ranking is curated by leadership and is not sorted by kill count.",
@@ -464,7 +464,8 @@
     "interactionHint": "Drag, scroll, or use arrow keys.",
     "carouselAriaLabel": "Top Warriors card carousel",
     "cardSelectLabel": "focus warrior card",
-    "dotSelectLabel": "warrior at rank",
+    "cardAriaFormat": "{index} / {count}: {username}, {kills} kills",
+    "dotSelectLabel": "warrior",
     "activeAnnouncement": "Rank {rank}: {username}, {kills} kills",
     "adminPageTitle": "Top Warriors Management — Developer Panel | Piyade Clan | TSB",
     "adminBadge": "Developer Only",

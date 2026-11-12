@@ -289,4 +289,45 @@
   );
   --brand-icon-border: rgba(168, 85, 247, 0.34);
   --brand-icon-glow: 0 0 14px rgba(139, 92, 246, 0.28);
+
+  /* Zirve 3D Card Carousel (Koyu Mor Cam Yüzey & Parıltılar) */
+  --zirve-kicker-bg: rgba(139, 92, 246, 0.14);
+  --zirve-kicker-border: rgba(168, 85, 247, 0.34);
+  --zirve-kicker-text: #d8b4fe;
+  --zirve-card-bg: linear-gradient(
+    155deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(19, 15, 34, 0.94) 45%,
+    rgba(10, 9, 19, 0.98) 100%
+  );
+  --zirve-card-border: rgba(168, 85, 247, 0.35);
+  --zirve-card-inner-shine: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --zirve-card-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+  --zirve-front-border: #c084fc;
+  --zirve-front-glow: 0 0 44px -8px rgba(168, 85, 247, 0.72);
+  --zirve-badge-bg: rgba(139, 92, 246, 0.24);
+  --zirve-badge-border: rgba(192, 132, 252, 0.4);
+  --zirve-badge-text: #e9d5ff;
+  --zirve-badge-front-bg: rgba(168, 85, 247, 0.42);
+  --zirve-badge-front-border: rgba(233, 213, 255, 0.7);
+  --zirve-badge-front-text: #faf5ff;
+  --zirve-photo-radial: radial-gradient(
+    circle at 50% 52%,
+    rgba(168, 85, 247, 0.28) 0%,
+    rgba(139, 92, 246, 0.06) 54%,
+    transparent 74%
+  );
+  --zirve-photo-drop: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.65));
+  --zirve-shimmer: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.05) 25%,
+    rgba(192, 132, 252, 0.18) 50%,
+    rgba(139, 92, 246, 0.05) 75%
+  );
+  --zirve-dim-bg: #07080c;
+  --zirve-profile-bg: rgba(139, 92, 246, 0.14);
+  --zirve-profile-border: rgba(168, 85, 247, 0.45);
+  --zirve-profile-text: #d8b4fe;
+  --zirve-profile-hover-bg: rgba(168, 85, 247, 0.26);
+  --zirve-profile-hover-glow: 0 0 22px rgba(168, 85, 247, 0.42);
 }

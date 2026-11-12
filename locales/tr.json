@@ -455,6 +455,7 @@
     "errGeneric": "Gönderilemedi, lütfen tekrar dene."
   },
   "warriors": {
+    "kicker": "Klan",
     "sectionTitle": "Klanın Zirvesi",
     "sectionSubtitle": "Piyade Clan | TSB'nin en güçlü {count} savaşçısı",
     "orderNote": "Sıralama yönetimin seçimidir, kill sayısına göre değildir.",
@@ -463,7 +464,8 @@
     "interactionHint": "Sürükle, kaydır veya ok tuşlarını kullan.",
     "carouselAriaLabel": "Klanın Zirvesi savaşçı kartları",
     "cardSelectLabel": "kartını öne getir",
-    "dotSelectLabel": "sıradaki savaşçı",
+    "cardAriaFormat": "{index} / {count}: {username}, {kills} kill",
+    "dotSelectLabel": "savaşçı",
     "activeAnnouncement": "{rank}. sıradaki {username}, {kills} kill",
     "adminPageTitle": "Savaşçılar Yönetimi — Developer Paneli | Piyade Clan | TSB",
     "adminBadge": "Developer Özel",

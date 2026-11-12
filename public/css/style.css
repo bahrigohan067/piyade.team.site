@@ -2562,8 +2562,12 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
     animation: none !important;
   }
 
-  .warriors-card {
-    transition: none !important;
+  .zirve-card,
+  .zirve-caption,
+  .zirve-dot,
+  .zirve-photo.is-loading::before {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
   }
 
   .hero-logo-enter,
@@ -2584,174 +2588,242 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 /* ==========================================
  * KLANIN ZİRVESİ — NEXUS UI 3D CARD CAROUSEL
  * ========================================== */
-.warriors-section {
+.zirve {
+  --item-w: 180px;
+  --item-h: 236px;
+  --gap: 28px;
+  --step: 60deg;
+  --r: 180px;
   position: relative;
   margin-bottom: 4.5rem;
   padding: 2.5rem 1.25rem;
   border-radius: var(--radius-lg);
   background: var(--warrior-stage-ambient);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow-x: clip;
+  text-align: center;
 }
 
-.warriors-header {
+.zirve-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   max-width: 680px;
   margin: 0 auto 2rem;
+  gap: 0.45rem;
 }
 
-.warriors-title {
+.zirve-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--zirve-kicker-bg);
+  border: 1px solid var(--zirve-kicker-border);
+  color: var(--zirve-kicker-text);
+}
+
+.zirve-title {
   font-size: clamp(1.7rem, 3.2vw, 2.35rem);
   font-weight: 800;
   color: var(--text-primary);
-  margin: 0.6rem 0 0.45rem;
+  margin: 0.2rem 0 0;
   letter-spacing: -0.02em;
 }
 
-.warriors-subtitle {
+.zirve-subtitle {
   color: var(--text-secondary);
   font-size: 1rem;
   margin: 0;
 }
 
-.warriors-order-note {
-  margin-top: 0.45rem;
+.zirve-note {
+  margin: 0.1rem 0 0;
   font-size: 0.85rem;
   color: var(--text-muted);
 }
 
-.warriors-carousel-root {
-  --warrior-item-w: 180px;
-  --warrior-item-h: 236px;
-  --carousel-perspective: 1100px;
+.zirve-carousel {
   position: relative;
   width: 100%;
-  outline: none;
-}
-
-.warriors-viewport {
-  position: relative;
-  width: 100%;
-}
-
-/* JS devre dışıysa (SSR Fallback): Temiz responsive kart ızgarası */
-.warriors-track {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1.15rem;
-  align-items: stretch;
-  justify-items: center;
-}
-
-/* JS aktifken 3D silindir sahnesi */
-.warriors-carousel-root.is-3d-ready .warriors-viewport {
-  height: calc(var(--warrior-item-h) + 64px);
-  perspective: var(--carousel-perspective);
-  perspective-origin: 50% 48%;
-  overflow: hidden;
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  cursor: grab;
-  border-radius: var(--radius-md);
-}
-
-.warriors-carousel-root.is-3d-ready .warriors-viewport.is-dragging {
-  cursor: grabbing;
-}
-
-.warriors-carousel-root.is-3d-ready .warriors-track {
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-}
-
-.warriors-card {
-  width: var(--warrior-item-w);
-  height: var(--warrior-item-h);
-  padding: 0.75rem 0.75rem 0.7rem;
-  border-radius: 18px;
-  background: var(--warrior-card-bg);
-  border: 1px solid var(--warrior-card-border);
-  box-shadow: var(--warrior-card-shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  position: relative;
-  overflow: hidden;
-  appearance: none;
-  -webkit-appearance: none;
-  text-align: center;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.warriors-carousel-root.is-3d-ready .warriors-card {
+.zirve-stage {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.zirve-stage:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 4px;
+  box-shadow: var(--focus-ring-shadow);
+  border-radius: var(--radius-md);
+}
+
+/* JS yokken (.is-enhanced olmadan): temiz responsive kart ızgarası */
+.zirve-ring {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  position: static;
+  width: 100%;
+  height: auto;
+  justify-items: center;
+}
+
+.zirve:not(.is-enhanced) .zirve-dots,
+.zirve:not(.is-enhanced) .zirve-hint {
+  display: none;
+}
+
+/* JS aktifken (.is-enhanced): gerçek 3D silindir sahnesi (stage üzerinde overflow yok) */
+.zirve.is-enhanced .zirve-stage {
+  height: calc(var(--item-h) + 72px);
+  perspective: 1100px;
+  perspective-origin: 50% 45%;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.zirve.is-enhanced .zirve-stage.is-dragging {
+  cursor: grabbing;
+}
+
+.zirve.is-enhanced .zirve-ring {
+  display: block;
   position: absolute;
   left: 50%;
   top: 50%;
-  margin-left: calc(var(--warrior-item-w) / -2);
-  margin-top: calc(var(--warrior-item-h) / -2);
-  transform-origin: center center;
-  will-change: transform, opacity;
+  width: var(--item-w);
+  height: var(--item-h);
+  margin: calc(var(--item-h) / -2) 0 0 calc(var(--item-w) / -2);
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
-.warriors-card.is-front {
-  border-color: var(--warrior-card-active-border);
-  box-shadow: var(--warrior-card-active-glow);
+.zirve-card {
+  position: relative;
+  width: 100%;
+  max-width: 210px;
+  aspect-ratio: 180 / 236;
+  border-radius: 20px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 10px;
+  background: var(--zirve-card-bg);
+  border: 1px solid var(--zirve-card-border);
+  box-shadow: var(--zirve-card-inner-shine), var(--zirve-card-shadow);
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
-.warriors-rank-badge {
+.zirve.is-enhanced .zirve-card {
+  position: absolute;
+  inset: 0;
+  max-width: none;
+  aspect-ratio: auto;
+  transform: rotateY(calc(var(--i) * var(--step))) translateZ(var(--r));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.zirve-card.is-front {
+  border-color: var(--zirve-front-border);
+  box-shadow: var(--zirve-card-inner-shine), var(--zirve-front-glow), var(--zirve-card-shadow);
+}
+
+.zirve-badge {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 2;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  background: var(--warrior-rank-bg);
-  border: 1px solid var(--warrior-rank-border);
-  color: var(--warrior-rank-text);
+  background: var(--zirve-badge-bg);
+  border: 1px solid var(--zirve-badge-border);
+  color: var(--zirve-badge-text);
+  pointer-events: none;
 }
 
-.warriors-rank-crown {
-  color: var(--warrior-rank-crown);
+.zirve-card[data-rank="1"] .zirve-badge {
+  background: var(--zirve-badge-front-bg);
+  border-color: var(--zirve-badge-front-border);
+  color: var(--zirve-badge-front-text);
+}
+
+.zirve-badge-crown {
   display: inline-flex;
   align-items: center;
+  color: currentColor;
 }
 
-.warriors-avatar-frame {
-  width: 100%;
-  flex: 1 1 auto;
+.zirve-photo {
+  grid-row: 2;
+  position: relative;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  background: var(--warrior-avatar-well);
-  padding: 0.35rem;
-  margin-bottom: 0.55rem;
+  border-radius: 14px;
+  background: var(--zirve-photo-radial);
   overflow: hidden;
+  padding: 18px 6px 4px;
 }
 
-.warriors-avatar-img {
-  width: 100%;
-  height: 100%;
-  max-width: 148px;
-  max-height: 148px;
+.zirve-photo.is-loading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--zirve-shimmer);
+  background-size: 200% 100%;
+  animation: zirveShimmer 1.3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes zirveShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.zirve-avatar {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   display: block;
+  filter: var(--zirve-photo-drop);
   pointer-events: none;
   user-select: none;
+  -webkit-user-select: none;
+}
+
+.zirve-avatar[hidden],
+.warriors-silhouette[hidden] {
+  display: none;
 }
 
 .warriors-silhouette {
@@ -2766,16 +2838,19 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   justify-content: center;
 }
 
-.warriors-card-meta {
-  width: 100%;
-  flex: 0 0 auto;
+.zirve-meta {
+  grid-row: 3;
+  min-width: 0;
+  padding-top: 6px;
+  text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 2px;
 }
 
-.warriors-card-name {
-  font-size: 0.88rem;
+.zirve-name {
+  display: block;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
@@ -2783,132 +2858,149 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   text-overflow: ellipsis;
 }
 
-.warriors-card-kills {
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
+.zirve-kills {
+  display: block;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }
 
-/* Carousel Altındaki Aktif Kart Özeti + Roblox Profili + Noktalar */
-.warriors-active-panel {
-  margin-top: 1.5rem;
+.zirve-dim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--zirve-dim-bg);
+  opacity: var(--dim, 0);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Ön Kart Alt Özeti (Caption), Noktalar ve İpucu */
+.zirve-caption {
+  margin-top: 1.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.65rem;
+  gap: 0.45rem;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
-.warriors-carousel-root:not(.is-3d-ready) .warriors-dots,
-.warriors-carousel-root:not(.is-3d-ready) .warriors-hint {
-  display: none;
+.zirve-caption.is-updating {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
-.warriors-active-identity {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.6rem 0.9rem;
-}
-
-.warriors-active-rank {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 800;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: var(--warrior-rank-bg);
-  border: 1px solid var(--warrior-rank-border);
-  color: var(--warrior-rank-text);
-}
-
-.warriors-active-username {
-  font-size: 1.35rem;
-  font-weight: 800;
+.zirve-caption-name {
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
-.warriors-active-kills-row {
+.zirve-caption-kills {
   display: inline-flex;
   align-items: baseline;
+  justify-content: center;
   gap: 0.45rem;
 }
 
-.warriors-active-kills-num {
-  font-family: var(--font-mono);
-  font-size: 1.45rem;
+.zirve-caption-kills-num {
+  font-size: 28px;
   font-weight: 800;
-  color: var(--color-accent-light);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  line-height: 1.15;
 }
 
-.warriors-active-kills-label {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.zirve-caption-kills-unit {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
 }
 
-.warriors-profile-link {
+.zirve-profile-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.42rem 0.9rem;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  padding: 0.42rem 0.95rem;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
-  color: var(--text-primary);
-  background: var(--warrior-custom-badge-bg);
-  border: 1px solid var(--warrior-card-border);
+  color: var(--zirve-profile-text);
+  background: var(--zirve-profile-bg);
+  border: 1px solid var(--zirve-profile-border);
   text-decoration: none;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.warriors-profile-link:hover {
-  border-color: var(--warrior-card-active-border);
-  background: var(--dock-icon-hover-bg);
+.zirve-profile-btn:hover {
+  color: var(--text-primary);
+  background: var(--zirve-profile-hover-bg);
+  border-color: var(--zirve-front-border);
+  box-shadow: var(--zirve-profile-hover-glow);
   transform: translateY(-1px);
 }
 
-.warriors-profile-link[hidden] {
+.zirve-profile-btn[hidden] {
   display: none;
 }
 
-.warriors-dots {
+.zirve-dots {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  margin-top: 0.35rem;
+  gap: 8px;
+  margin-top: 1.15rem;
 }
 
-.warriors-dot-btn {
-  width: 10px;
-  height: 10px;
+.zirve-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
   padding: 0;
   border: 0;
   border-radius: 999px;
   background: var(--warrior-dot-bg);
   cursor: pointer;
-  transition: width 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+  transition: width 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
 }
 
-.warriors-dot-btn:hover {
+.zirve-dot::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.zirve-dot:hover {
   background: var(--warrior-dot-hover);
 }
 
-.warriors-dot-btn.is-active {
-  width: 26px;
+.zirve-dot.is-active {
+  width: 24px;
   background: var(--warrior-dot-active);
   box-shadow: var(--warrior-dot-active-glow);
 }
 
-.warriors-hint {
-  font-size: 0.82rem;
+.zirve-hint {
+  margin: 0.75rem 0 0;
+  font-size: 13px;
   color: var(--text-muted);
-  margin: 0.15rem 0 0;
+  text-align: center;
 }
 
 .sr-only {
@@ -3136,12 +3228,11 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 }
 
 @media (max-width: 639px) {
-  .warriors-carousel-root {
-    --warrior-item-w: 148px;
-    --warrior-item-h: 196px;
-  }
-  .warriors-section {
-    padding: 1.85rem 0.85rem;
+  .zirve {
+    --item-w: 148px;
+    --item-h: 196px;
+    --gap: 24px;
+    padding: 1.85rem 0.75rem;
   }
   .warriors-admin-row {
     grid-template-columns: 1fr;
@@ -3181,6 +3272,55 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .footer-content { flex-direction: column; align-items: flex-start; }
   .btn, .btn-sm, .btn-lg { min-height: 44px; }
+}
+
+@media (max-width: 520px) {
+  .navbar {
+    gap: 0.4rem;
+  }
+  .site-header .brand {
+    gap: 0.45rem;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .site-header .brand > div {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .site-header .brand-header-row {
+    min-width: 0;
+  }
+  .site-header .brand-logo-frame {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .site-header .brand-title-text {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .site-header .brand-subtitle-text {
+    display: none;
+  }
+  .site-header .nav-actions {
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+  .site-header .lang-switch-link {
+    padding: 3px 7px;
+    font-size: 0.72rem;
+  }
+  .site-header .btn-discord {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.76rem;
+  }
+  .mobile-menu-btn {
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0.35rem 0.55rem;
+  }
 }
 
 /* ==========================================
@@ -3236,6 +3376,7 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 .hero-section {
   padding: 3rem 0 2.5rem;
   position: relative;
+  overflow-x: clip;
 }
 
 .hero-split {

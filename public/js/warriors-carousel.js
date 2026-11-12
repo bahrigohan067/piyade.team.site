@@ -1,15 +1,18 @@
 /**
  * ==============================================================================
- * ⚔️ KLANIN ZİRVESİ — NEXUS UI 3D CARD CAROUSEL (VANİLLA JS + NEXUSSPRING)
+ * ⚔️ KLANIN ZİRVESİ — NEXUS UI 3D CARD CAROUSEL (VANİLLA JS + TEK RAF MOTORU)
  * ==============================================================================
- * - Progressive enhancement: JS yoksa SSR grid görünür; JS yüklenince 3D silindir sahnesi açılır.
- * - Fizik: NexusSpring tabanlı geri dönüş yaylanması, sürükle-bırak fırlatma ataleti,
- *   hıza bağlı radyal dışa açılma (flare) ve en yakın karta pürüzsüz oturma.
- * - Etkileşim: Fare/dokunmatik sürükleme, tekerlek, ok tuşları (Left/Right/Home/End),
- *   alt noktalar ve yan kartlara tıklama.
- * - Ses: Ortak NexusSound üzerinden kullanıcı etkileşiminde (hover'da değil) 5000 Hz highpass tick.
- * - Erişilebilirlik & Performans: prefers-reduced-motion anında geçiş, Viewport dışı RAF durdurma,
- *   touch-action: pan-y ile mobilde akıcı dikey sayfa kaydırma, XSS-güvenli textContent.
+ * - Progressive enhancement: JS yoksa CSS Grid görünür; JS yüklenince section'a .is-enhanced eklenir.
+ * - Gerçek CSS 3D Silindir: stage üzerinde perspective(1100px), ring üzerinde preserve-3d
+ *   ve `translateZ(-r) rotateY(rot)`, her kart `rotateY(i * step) translateZ(r)` + backface-visibility: hidden.
+ * - Fizik & Savrulma:
+ *   * baseR = (W/2 + gap/2) / tan(PI / N)
+ *   * Bırakınca atalet: vel *= exp(-dt * 3.0), eşik/yay hedefi = round((rot + vel * 0.35) / step) * step
+ *   * Yay ivmesi: 170 * (hedef - rot) - 23 * vel (dt <= 1/30 sn), sonunda rot kesin step katı.
+ *   * Hızlı dönünce savrulma: swing -> |vel| / 600 (6/sn açılır, 2.5/sn toplanır), r = baseR * (1 + 0.45 * swing)
+ * - Etkileşim: yatay sürükleme/fırlatma, yalnızca yatay baskın veya Shift+tekerlek (120ms snap),
+ *   klavye okları (ArrowLeft/Right/Home/End), alt noktalar, karta tıklama, 450ms kill sayaç geçişi.
+ * - Ses: Yalnızca kullanıcı etkileşimi sonrası ön kart değiştiğinde 5000 Hz highpass tick (NexusSound).
  * ==============================================================================
  */
 (function (global) {
@@ -46,15 +49,16 @@
     return a;
   }
 
-  function initWarriorsCarousel() {
+  function initZirveCarousel() {
+    const section = document.getElementById('savascilar');
     const root = document.getElementById('warriorsCarouselRoot');
-    const viewport = document.getElementById('warriorsViewport');
-    const track = document.getElementById('warriorsTrack');
-    if (!root || !viewport || !track) return;
+    const stage = document.getElementById('warriorsViewport');
+    const ring = document.getElementById('warriorsTrack');
+    if (!section || !root || !stage || !ring) return;
 
-    const cards = Array.from(track.querySelectorAll('.warriors-card'));
-    const count = cards.length;
-    if (count === 0) return;
+    const cards = Array.from(ring.querySelectorAll('.zirve-card'));
+    const N = cards.length;
+    if (N === 0) return;
 
     const cfg = Object.assign(
       {
@@ -63,6 +67,8 @@
         mobileBreakpoint: 640,
         mobileItemWidth: 148,
         mobileItemHeight: 196,
+        gap: 28,
+        mobileGap: 24,
         perspective: 1100,
         radius: null,
         autoRotate: false,
@@ -71,154 +77,170 @@
         direction: 'cw',
         autoplay: false,
         enableSound: true,
+        countUp: true,
       },
       parseJsonAttr(root, 'data-carousel-config', {})
     );
 
     const i18n = parseJsonAttr(root, 'data-carousel-i18n', {
       numberLocale: 'tr-TR',
-      activeAnnouncement: '{rank}. sıradaki {username}, {kills} kill',
     });
 
-    const activeRankEl = document.getElementById('warriorsActiveRank');
+    const captionEl = document.getElementById('warriorsCaption');
     const activeUsernameEl = document.getElementById('warriorsActiveUsername');
     const activeKillsEl = document.getElementById('warriorsActiveKills');
     const profileLinkEl = document.getElementById('warriorsProfileLink');
-    const liveRegionEl = document.getElementById('warriorsLiveRegion');
-    const dotBtns = Array.from(document.querySelectorAll('#warriorsDotsContainer .warriors-dot-btn'));
-
-    // Kırık/yüklenemeyen görseller için CSP güvenli (inline onerror olmadan) siluet yedeği
-    cards.forEach((card) => {
-      const img = card.querySelector('.warriors-avatar-img');
-      const fallbackEl = card.querySelector('.warriors-silhouette');
-      if (img && fallbackEl) {
-        img.addEventListener('error', () => {
-          img.hidden = true;
-          fallbackEl.hidden = false;
-        });
-      }
-    });
-
-    const SpringApi = global.NexusSpring || {
-      create(val, opts = {}) {
-        return {
-          value: val,
-          target: val,
-          velocity: 0,
-          stiffness: opts.stiffness || 280,
-          damping: opts.damping || 26,
-          mass: opts.mass || 0.9,
-        };
-      },
-      step(s, dt) {
-        const d = s.value - s.target;
-        const f = -s.stiffness * d - s.damping * s.velocity;
-        s.velocity += (f / (s.mass || 1)) * dt;
-        s.value += s.velocity * dt;
-        const done = Math.abs(s.velocity) < 0.002 && Math.abs(s.target - s.value) < 0.002;
-        if (done) {
-          s.value = s.target;
-          s.velocity = 0;
-        }
-        return !done;
-      },
-    };
+    const dotBtns = Array.from(document.querySelectorAll('#warriorsDotsContainer .zirve-dot'));
 
     const soundClient =
       global.NexusSound && typeof global.NexusSound.createClient === 'function'
         ? global.NexusSound.createClient({ soundEnabled: cfg.enableSound !== false })
         : { markUserGesture() {}, playTick() {} };
 
-    const dirSign = cfg.direction === 'ccw' ? -1 : 1;
-    const stepDeg = 360 / count;
+    // Shimmer iskeletini kaldır & yüklenemezse yer tutucu siluet göster (CSP-uyumlu JS dinleyici)
+    cards.forEach((card) => {
+      const photoBox = card.querySelector('.zirve-photo');
+      const img = card.querySelector('.zirve-avatar');
+      const silhouette = card.querySelector('.warriors-silhouette');
+      if (!img) return;
 
-    // Kenar kenara hesaplanan silindir yarıçapı (üst üste binmeyi önler)
-    let currentItemWidth = cfg.itemWidth;
-    let currentItemHeight = cfg.itemHeight;
-    let baseRadius = 260;
+      const finishLoaded = () => {
+        if (photoBox) photoBox.classList.remove('is-loading');
+      };
+      const showFallback = () => {
+        if (photoBox) photoBox.classList.remove('is-loading');
+        img.hidden = true;
+        if (silhouette) silhouette.hidden = false;
+      };
+
+      if (img.complete) {
+        if (img.naturalWidth > 0) finishLoaded();
+        else showFallback();
+      } else {
+        img.addEventListener('load', finishLoaded, { once: true });
+        img.addEventListener('error', showFallback, { once: true });
+      }
+    });
+
+    const step = 360 / N;
+    const dirSign = cfg.direction === 'ccw' ? -1 : 1;
+
+    let itemWidth = cfg.itemWidth || 180;
+    let itemHeight = cfg.itemHeight || 236;
+    let gap = cfg.gap || 28;
+    let baseR = 180;
 
     function recomputeGeometry() {
       const vw = global.innerWidth || document.documentElement.clientWidth || 1024;
-      const isMobile = vw < (cfg.mobileBreakpoint || 640);
-      currentItemWidth = isMobile ? cfg.mobileItemWidth || 148 : cfg.itemWidth || 180;
-      currentItemHeight = isMobile ? cfg.mobileItemHeight || 196 : cfg.itemHeight || 236;
-
-      root.style.setProperty('--warrior-item-w', `${currentItemWidth}px`);
-      root.style.setProperty('--warrior-item-h', `${currentItemHeight}px`);
-      root.style.setProperty('--carousel-perspective', `${cfg.perspective || 1100}px`);
+      const isMobile = vw <= (cfg.mobileBreakpoint || 640);
+      itemWidth = isMobile ? cfg.mobileItemWidth || 148 : cfg.itemWidth || 180;
+      itemHeight = isMobile ? cfg.mobileItemHeight || 196 : cfg.itemHeight || 236;
+      gap = isMobile ? cfg.mobileGap || 24 : cfg.gap || 28;
 
       if (Number.isFinite(cfg.radius) && cfg.radius > 0) {
-        baseRadius = cfg.radius;
+        baseR = cfg.radius;
+      } else if (N > 2) {
+        baseR = (itemWidth / 2 + gap / 2) / Math.tan(Math.PI / N);
       } else {
-        const minEdgeToEdge =
-          count > 2 ? currentItemWidth / (2 * Math.tan(Math.PI / count)) : currentItemWidth * 0.95;
-        baseRadius = Math.round(minEdgeToEdge + (isMobile ? 22 : 34));
+        baseR = itemWidth * 0.9;
       }
+
+      section.style.setProperty('--item-w', `${itemWidth}px`);
+      section.style.setProperty('--item-h', `${itemHeight}px`);
+      section.style.setProperty('--gap', `${gap}px`);
+      section.style.setProperty('--step', `${step}deg`);
+      section.style.setProperty('--r', `${(baseR * (1 + 0.45 * swing)).toFixed(2)}px`);
     }
 
-    recomputeGeometry();
-    root.classList.add('is-3d-ready');
-
-    // Durum & fizik değişkenleri (0° = ilk kart #1 önde!)
-    let rotationDeg = 0;
-    let angularVelocity = 0; // deg/s (flick inertia)
-    let mode = 'idle'; // 'idle' | 'drag' | 'coast' | 'snap'
+    // Fizik durumu: rot=0 -> #1 kart tam karşıda ortada
+    let rot = 0;
+    let vel = 0;
+    let swing = 0;
+    let snapTarget = 0;
+    let phase = 'idle'; // 'idle' | 'drag' | 'coast' | 'spring'
     let activeIndex = 0;
-    let lastInteractionTickIndex = 0;
+    let lastSoundIndex = 0;
+    let displayedKillsValue = Number(cards[0].getAttribute('data-kills') || 0);
+    let countUpAnimStart = 0;
+    let countUpFrom = displayedKillsValue;
+    let countUpTo = displayedKillsValue;
+    let countUpActive = false;
+
     let isInViewport = true;
     let isHovered = false;
     let rafId = null;
     let lastTs = 0;
+    let wheelTimer = null;
     let autoplayTimer = null;
+    let captionFadeRaf = null;
+    let interactionActive = false;
 
-    const snapSpring = SpringApi.create(0, { stiffness: 250, damping: 24, mass: 0.9 });
-    const radiusSpring = SpringApi.create(0, { stiffness: 210, damping: 18, mass: 0.85 });
+    recomputeGeometry();
+    section.classList.add('is-enhanced');
 
-    function formatKills(raw) {
-      const n = Number(raw);
-      return Number.isFinite(n) ? n.toLocaleString(i18n.numberLocale || 'tr-TR') : '0';
+    function formatKills(n) {
+      const clean = Number.isFinite(Number(n)) ? Math.round(Number(n)) : 0;
+      return clean.toLocaleString(i18n.numberLocale || 'tr-TR');
     }
 
-    function computeNearestIndexFromRotation(rotDeg) {
+    function computeIndexFromRot(angleDeg) {
+      return ((Math.round(-angleDeg / step) % N) + N) % N;
+    }
+
+    function applyVisualTransforms() {
+      const currentR = baseR * (1 + 0.45 * swing);
+      section.style.setProperty('--r', `${currentR.toFixed(2)}px`);
+      ring.style.transform = `translateZ(${-currentR.toFixed(2)}px) rotateY(${rot.toFixed(3)}deg)`;
+
       let bestIdx = 0;
-      let bestAbsAngle = Infinity;
-      for (let i = 0; i < count; i++) {
-        const cardLocalDeg = i * stepDeg * dirSign;
-        const absRel = Math.abs(normalizeSignedAngle(cardLocalDeg + rotDeg));
-        if (absRel < bestAbsAngle) {
-          bestAbsAngle = absRel;
+      let bestFacing = -Infinity;
+
+      for (let i = 0; i < N; i++) {
+        const effectiveDeg = normalizeSignedAngle(i * step + rot);
+        const facing = Math.cos((effectiveDeg * Math.PI) / 180);
+        const dim = 0.65 * (1 - Math.max(0, facing));
+        cards[i].style.setProperty('--dim', dim.toFixed(3));
+        if (facing > bestFacing) {
+          bestFacing = facing;
           bestIdx = i;
         }
       }
+
+      cards.forEach((c, idx) => {
+        c.classList.toggle('is-front', idx === bestIdx);
+      });
+
       return bestIdx;
     }
 
-    function updateActiveUi(index, userTriggered) {
-      activeIndex = ((index % count) + count) % count;
-      const card = cards[activeIndex];
+    function triggerCaptionSwap(newIdx, userTriggered) {
+      const card = cards[newIdx];
       if (!card) return;
 
-      const rank = card.getAttribute('data-rank') || String(activeIndex + 1);
       const username = card.getAttribute('data-username') || '';
-      const kills = card.getAttribute('data-kills') || '0';
-      const formattedKills = formatKills(kills);
+      const targetKills = Number(card.getAttribute('data-kills') || 0);
       const profileUrl = card.getAttribute('data-profile-url') || '';
 
-      cards.forEach((c, idx) => {
-        const isFront = idx === activeIndex;
-        c.classList.toggle('is-front', isFront);
-        c.setAttribute('aria-current', isFront ? 'true' : 'false');
-      });
-
       dotBtns.forEach((btn, idx) => {
-        const isCur = idx === activeIndex;
-        btn.classList.toggle('is-active', isCur);
-        btn.setAttribute('aria-pressed', isCur ? 'true' : 'false');
+        const isCurrent = idx === newIdx;
+        btn.classList.toggle('is-active', isCurrent);
+        if (isCurrent) btn.setAttribute('aria-current', 'true');
+        else btn.removeAttribute('aria-current');
       });
 
-      if (activeRankEl) activeRankEl.textContent = `#${rank}`;
-      if (activeUsernameEl) activeUsernameEl.textContent = username;
-      if (activeKillsEl) activeKillsEl.textContent = formattedKills;
+      if (captionEl && !prefersReducedMotion()) {
+        if (captionFadeRaf) global.cancelAnimationFrame(captionFadeRaf);
+        captionEl.classList.add('is-updating');
+        captionFadeRaf = global.requestAnimationFrame(() => {
+          if (activeUsernameEl) activeUsernameEl.textContent = username;
+          captionFadeRaf = global.requestAnimationFrame(() => {
+            captionEl.classList.remove('is-updating');
+            captionFadeRaf = null;
+          });
+        });
+      } else if (activeUsernameEl) {
+        activeUsernameEl.textContent = username;
+      }
 
       if (profileLinkEl) {
         if (profileUrl && profileUrl.startsWith('https://www.roblox.com/users/')) {
@@ -230,147 +252,162 @@
         }
       }
 
-      if (userTriggered && activeIndex !== lastInteractionTickIndex) {
-        lastInteractionTickIndex = activeIndex;
+      if (cfg.countUp !== false && !prefersReducedMotion() && isInViewport) {
+        countUpFrom = displayedKillsValue;
+        countUpTo = targetKills;
+        countUpAnimStart = performance.now();
+        countUpActive = true;
+        ensureLoopRunning();
+      } else {
+        countUpActive = false;
+        displayedKillsValue = targetKills;
+        if (activeKillsEl) activeKillsEl.textContent = formatKills(targetKills);
+      }
+
+      if (userTriggered && newIdx !== lastSoundIndex) {
+        lastSoundIndex = newIdx;
         soundClient.playTick();
+      }
 
-        if (liveRegionEl) {
-          const tpl = i18n.activeAnnouncement || '{rank}. sıradaki {username}, {kills} kill';
-          liveRegionEl.textContent = tpl
-            .replace('{rank}', String(rank))
-            .replace('{username}', username)
-            .replace('{kills}', formattedKills);
+      if (typeof cfg.onChange === 'function') {
+        try {
+          cfg.onChange(newIdx);
+        } catch (_) {}
+      }
+    }
+
+    function stepCountUp(nowMs) {
+      if (!countUpActive || !activeKillsEl) return false;
+      const elapsed = nowMs - countUpAnimStart;
+      const duration = 450;
+      const t = clamp(elapsed / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out kübik
+      displayedKillsValue = Math.round(countUpFrom + (countUpTo - countUpFrom) * eased);
+      activeKillsEl.textContent = formatKills(displayedKillsValue);
+      if (t >= 1) {
+        countUpActive = false;
+        displayedKillsValue = countUpTo;
+        activeKillsEl.textContent = formatKills(countUpTo);
+        return false;
+      }
+      return true;
+    }
+
+    function snapToAngle(targetAngle, userTriggered = false) {
+      const snappedTarget = Math.round(targetAngle / step) * step;
+      const nextIdx = computeIndexFromRot(snappedTarget);
+
+      if (prefersReducedMotion() || (!isInViewport && !checkBoundsVisible())) {
+        phase = 'idle';
+        rot = snappedTarget;
+        vel = 0;
+        swing = 0;
+        applyVisualTransforms();
+        if (nextIdx !== activeIndex || userTriggered) {
+          const changed = nextIdx !== activeIndex;
+          activeIndex = nextIdx;
+          if (changed) triggerCaptionSwap(activeIndex, userTriggered);
         }
-      }
-    }
-
-    function render3DScene() {
-      const effectiveRadius = Math.max(80, baseRadius + radiusSpring.value);
-
-      for (let i = 0; i < count; i++) {
-        const card = cards[i];
-        const cardLocalDeg = i * stepDeg * dirSign;
-        const relDeg = normalizeSignedAngle(cardLocalDeg + rotationDeg);
-        const rad = (relDeg * Math.PI) / 180;
-        const cosVal = Math.cos(rad); // 1 ön merkez, -1 tam arka
-        const depthNorm = (cosVal + 1) / 2; // 0..1
-
-        const opacity = clamp(0.18 + Math.pow(depthNorm, 1.35) * 0.82, 0.18, 1);
-        const zIndex = Math.round(depthNorm * 100) + 1;
-
-        card.style.transform = `translateZ(${-baseRadius}px) rotateY(${relDeg.toFixed(3)}deg) translateZ(${effectiveRadius.toFixed(2)}px)`;
-        card.style.opacity = opacity.toFixed(3);
-        card.style.zIndex = String(zIndex);
-        card.style.pointerEvents = depthNorm > 0.28 ? 'auto' : 'none';
-      }
-    }
-
-    function targetRotationForIndex(targetIndex) {
-      const desiredMod = -targetIndex * stepDeg * dirSign;
-      const diff = normalizeSignedAngle(desiredMod - rotationDeg);
-      return rotationDeg + diff;
-    }
-
-    function snapToNearestCard() {
-      const nearestIdx = computeNearestIndexFromRotation(rotationDeg);
-      snapToIndex(nearestIdx, true);
-    }
-
-    function snapToIndex(targetIndex, userTriggered = false) {
-      const cleanIdx = ((targetIndex % count) + count) % count;
-      const nextTargetDeg = targetRotationForIndex(cleanIdx);
-
-      if (prefersReducedMotion() || !isInViewport) {
-        mode = 'idle';
-        rotationDeg = nextTargetDeg;
-        angularVelocity = 0;
-        snapSpring.value = rotationDeg;
-        snapSpring.target = rotationDeg;
-        snapSpring.velocity = 0;
-        radiusSpring.value = 0;
-        radiusSpring.target = 0;
-        radiusSpring.velocity = 0;
-        updateActiveUi(cleanIdx, userTriggered);
-        render3DScene();
         stopLoop();
         return;
       }
 
-      mode = 'snap';
-      snapSpring.value = rotationDeg;
-      snapSpring.target = nextTargetDeg;
-      snapSpring.velocity = angularVelocity;
-      angularVelocity = 0;
-      radiusSpring.target = 0;
-      updateActiveUi(cleanIdx, userTriggered);
+      interactionActive = userTriggered;
+      phase = 'spring';
+      snapTarget = snappedTarget;
       ensureLoopRunning();
     }
 
-    function shouldAnimate() {
-      if (prefersReducedMotion()) return false;
-      if (document.visibilityState === 'hidden') return false;
-      if (!isInViewport) return false;
-      if (mode !== 'idle') return true;
-      if (cfg.autoRotate && !isHovered) return true;
-      return Math.abs(radiusSpring.target - radiusSpring.value) > 0.05 || Math.abs(radiusSpring.velocity) > 0.05;
+    function goToIndex(targetIdx, userTriggered = false) {
+      const cleanIdx = ((targetIdx % N) + N) % N;
+      const desiredMod = -cleanIdx * step;
+      const shortestDelta = normalizeSignedAngle(desiredMod - rot);
+      const targetAngle = rot + shortestDelta;
+      snapToAngle(targetAngle, userTriggered);
     }
 
-    function stepFrame(ts) {
-      if (!shouldAnimate()) {
+    function checkBoundsVisible() {
+      const rect = section.getBoundingClientRect();
+      const vh = global.innerHeight || document.documentElement.clientHeight || 900;
+      return rect.bottom > 0 && rect.top < vh && rect.width > 0 && rect.height > 0;
+    }
+
+    function shouldLoopRun() {
+      if (prefersReducedMotion()) return false;
+      if (document.visibilityState === 'hidden') return false;
+      if (!isInViewport) {
+        if (checkBoundsVisible()) {
+          isInViewport = true;
+        } else {
+          return false;
+        }
+      }
+      if (phase !== 'idle') return true;
+      if (countUpActive) return true;
+      if (cfg.autoRotate && !isHovered) return true;
+      return swing > 0.002;
+    }
+
+    function tick(ts) {
+      if (!shouldLoopRun()) {
         rafId = null;
         return;
       }
 
       if (!lastTs) lastTs = ts;
-      const dt = clamp((ts - lastTs) / 1000, 0.001, 0.045);
+      const dt = Math.min(1 / 30, Math.max(0.001, (ts - lastTs) / 1000));
       lastTs = ts;
 
-      let keepRunning = false;
+      if (phase === 'coast') {
+        rot += vel * dt;
+        vel *= Math.exp(-dt * 3.0);
 
-      if (mode === 'drag') {
-        keepRunning = true;
-      } else if (mode === 'coast') {
-        rotationDeg += angularVelocity * dt;
-        angularVelocity *= Math.exp(-3.9 * dt);
-        radiusSpring.target = clamp(Math.abs(angularVelocity) * 0.12, 0, 56);
+        const swingTarget = clamp(Math.abs(vel) / 600, 0, 1);
+        const rate = swingTarget > swing ? 6.0 : 2.5;
+        swing += (swingTarget - swing) * Math.min(1, rate * dt);
 
-        const passingIdx = computeNearestIndexFromRotation(rotationDeg);
-        if (passingIdx !== activeIndex) {
-          updateActiveUi(passingIdx, true);
+        if (Math.abs(vel) <= 25) {
+          snapTarget = Math.round((rot + vel * 0.35) / step) * step;
+          phase = 'spring';
         }
+      } else if (phase === 'spring') {
+        const accel = 170 * (snapTarget - rot) - 23 * vel;
+        vel += accel * dt;
+        rot += vel * dt;
 
-        if (Math.abs(angularVelocity) < 42) {
-          snapToNearestCard();
-        }
-        keepRunning = true;
-      } else if (mode === 'snap') {
-        const springActive = SpringApi.step(snapSpring, dt);
-        rotationDeg = snapSpring.value;
-        radiusSpring.target = clamp(Math.abs(snapSpring.velocity) * 0.06, 0, 32);
+        const swingTarget = clamp(Math.abs(vel) / 600, 0, 1);
+        const rate = swingTarget > swing ? 6.0 : 2.5;
+        swing += (swingTarget - swing) * Math.min(1, rate * dt);
 
-        if (!springActive) {
-          rotationDeg = snapSpring.target;
-          mode = 'idle';
-          radiusSpring.target = 0;
-        } else {
-          keepRunning = true;
+        if (Math.abs(snapTarget - rot) < 0.01 && Math.abs(vel) < 0.3 && swing < 0.004) {
+          rot = snapTarget;
+          vel = 0;
+          swing = 0;
+          phase = 'idle';
+          interactionActive = false;
         }
-      } else if (cfg.autoRotate && !isHovered) {
-        rotationDeg += (cfg.autoSpeed || 1) * dirSign * 14 * dt;
-        const passingIdx = computeNearestIndexFromRotation(rotationDeg);
-        if (passingIdx !== activeIndex) {
-          updateActiveUi(passingIdx, false);
-        }
-        keepRunning = true;
+      } else if (phase === 'idle' && cfg.autoRotate && !isHovered) {
+        rot += (cfg.autoSpeed || 1) * dirSign * 14 * dt;
+        swing += (0 - swing) * Math.min(1, 2.5 * dt);
+      } else if (phase === 'drag') {
+        const swingTarget = clamp(Math.abs(vel) / 600, 0, 1);
+        const rate = swingTarget > swing ? 6.0 : 2.5;
+        swing += (swingTarget - swing) * Math.min(1, rate * dt);
+      } else if (swing > 0.002) {
+        swing += (0 - swing) * Math.min(1, 2.5 * dt);
+        if (swing <= 0.002) swing = 0;
       }
 
-      const radiusMoving = SpringApi.step(radiusSpring, dt);
-      if (radiusMoving) keepRunning = true;
+      const currentFront = applyVisualTransforms();
+      if (currentFront !== activeIndex) {
+        activeIndex = currentFront;
+        triggerCaptionSwap(activeIndex, interactionActive);
+      }
 
-      render3DScene();
+      stepCountUp(ts);
 
-      if (keepRunning || shouldAnimate()) {
-        rafId = global.requestAnimationFrame(stepFrame);
+      if (shouldLoopRun()) {
+        rafId = global.requestAnimationFrame(tick);
       } else {
         rafId = null;
       }
@@ -378,9 +415,9 @@
 
     function ensureLoopRunning() {
       if (prefersReducedMotion()) return;
-      if (rafId === null && shouldAnimate()) {
+      if (rafId === null && shouldLoopRun()) {
         lastTs = 0;
-        rafId = global.requestAnimationFrame(stepFrame);
+        rafId = global.requestAnimationFrame(tick);
       }
     }
 
@@ -393,186 +430,240 @@
     }
 
     // --------------------------------------------------------------------------
-    // SÜRÜKLE-BIRAK & FIRLATMA (POINTER EVENTS)
+    // SÜRÜKLEME, FIRLATMA & TIKLAMA AYRIMI (POINTER EVENTS)
     // --------------------------------------------------------------------------
     let dragActive = false;
-    let dragMoved = false;
+    let dragPointerId = null;
     let dragStartX = 0;
+    let dragStartY = 0;
     let dragPrevX = 0;
-    let dragPrevTs = 0;
-    let smoothedVx = 0;
-    let activePointerId = null;
-    let suppressNextClick = false;
+    let dragMaxTravel = 0;
+    let suppressNextClickUntil = 0;
+    let velocitySamples = [];
 
-    viewport.addEventListener('pointerdown', (e) => {
+    function pushVelSample(nowMs, curRot) {
+      velocitySamples.push({ t: nowMs, rot: curRot });
+      const cutoff = nowMs - 95;
+      while (velocitySamples.length > 2 && velocitySamples[0].t < cutoff) {
+        velocitySamples.shift();
+      }
+    }
+
+    stage.addEventListener('pointerdown', (e) => {
       if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
       soundClient.markUserGesture();
 
       dragActive = true;
-      dragMoved = false;
+      dragPointerId = e.pointerId;
       dragStartX = e.clientX;
+      dragStartY = e.clientY;
       dragPrevX = e.clientX;
-      dragPrevTs = performance.now();
-      smoothedVx = 0;
-      activePointerId = e.pointerId;
-      mode = 'drag';
-      angularVelocity = 0;
-      viewport.classList.add('is-dragging');
+      dragMaxTravel = 0;
+      vel = 0;
+      phase = 'drag';
+      interactionActive = true;
+      velocitySamples = [{ t: performance.now(), rot }];
+      stage.classList.add('is-dragging');
+
+      if (typeof stage.setPointerCapture === 'function') {
+        try {
+          stage.setPointerCapture(e.pointerId);
+        } catch (_) {}
+      }
     });
 
-    viewport.addEventListener('pointermove', (e) => {
-      if (!dragActive || e.pointerId !== activePointerId) return;
+    stage.addEventListener('pointermove', (e) => {
+      if (!dragActive || e.pointerId !== dragPointerId) return;
       const dxTotal = e.clientX - dragStartX;
+      const dyTotal = e.clientY - dragStartY;
+      dragMaxTravel = Math.max(dragMaxTravel, Math.hypot(dxTotal, dyTotal));
+
+      // Dokunmatikte baskın dikey sayfa kaydırmasını bozma
+      if (e.pointerType === 'touch' && Math.abs(dyTotal) > Math.abs(dxTotal) && dragMaxTravel > 8) {
+        dragActive = false;
+        dragPointerId = null;
+        phase = 'idle';
+        stage.classList.remove('is-dragging');
+        snapToAngle(rot, false);
+        return;
+      }
+
       const dxStep = e.clientX - dragPrevX;
-      const now = performance.now();
-      const dtMs = Math.max(4, now - dragPrevTs);
-
-      if (!dragMoved && Math.abs(dxTotal) > 6) {
-        dragMoved = true;
-        if (typeof viewport.setPointerCapture === 'function') {
-          try {
-            viewport.setPointerCapture(activePointerId);
-          } catch (_) {}
-        }
-      }
-
-      if (!dragMoved) return;
-
-      const degPerPx = (0.38 * (cfg.scrollSpeed || 1)) / Math.max(0.7, currentItemWidth / 180);
-      const dDeg = dxStep * degPerPx;
-      rotationDeg += dDeg;
-
-      const instVel = (dDeg / dtMs) * 1000;
-      smoothedVx = smoothedVx * 0.55 + instVel * 0.45;
-
-      radiusSpring.target = prefersReducedMotion()
-        ? 0
-        : clamp(Math.abs(smoothedVx) * 0.08, 0, 38);
-
       dragPrevX = e.clientX;
-      dragPrevTs = now;
 
-      const curNearest = computeNearestIndexFromRotation(rotationDeg);
-      if (curNearest !== activeIndex) {
-        updateActiveUi(curNearest, true);
+      // Sağa sürükleyince (+dx) ön kart sağa hareket etsin (+dRot)
+      const degPerPx = (step / (itemWidth * 0.55)) * (cfg.scrollSpeed || 1);
+      rot += dxStep * degPerPx;
+
+      const now = performance.now();
+      pushVelSample(now, rot);
+      if (velocitySamples.length >= 2) {
+        const oldest = velocitySamples[0];
+        const latest = velocitySamples[velocitySamples.length - 1];
+        const spanSec = Math.max(0.012, (latest.t - oldest.t) / 1000);
+        vel = clamp((latest.rot - oldest.rot) / spanSec, -1400, 1400);
       }
 
-      render3DScene();
+      const currentFront = applyVisualTransforms();
+      if (currentFront !== activeIndex) {
+        activeIndex = currentFront;
+        triggerCaptionSwap(activeIndex, true);
+      }
       ensureLoopRunning();
     });
 
-    function finishPointerDrag(e) {
-      if (!dragActive || (e.pointerId !== undefined && e.pointerId !== activePointerId)) return;
+    function handlePointerEnd(e) {
+      if (!dragActive || (e.pointerId !== undefined && e.pointerId !== dragPointerId)) return;
       dragActive = false;
-      viewport.classList.remove('is-dragging');
+      stage.classList.remove('is-dragging');
 
-      if (typeof viewport.releasePointerCapture === 'function' && activePointerId !== null) {
+      if (typeof stage.releasePointerCapture === 'function' && dragPointerId !== null) {
         try {
-          if (viewport.hasPointerCapture && viewport.hasPointerCapture(activePointerId)) {
-            viewport.releasePointerCapture(activePointerId);
+          if (stage.hasPointerCapture && stage.hasPointerCapture(dragPointerId)) {
+            stage.releasePointerCapture(dragPointerId);
           }
         } catch (_) {}
       }
-      activePointerId = null;
+      dragPointerId = null;
 
-      if (!dragMoved) {
-        mode = 'idle';
-        radiusSpring.target = 0;
+      if (dragMaxTravel < 6) {
+        // Gerçek tıklama: kart seçilmişse en kısa yoldan öne getir, hemen ardındaki sentetik click'i yut
+        suppressNextClickUntil = performance.now() + 140;
+        phase = 'idle';
+        vel = 0;
+        const clickedCard = e.target && typeof e.target.closest === 'function' ? e.target.closest('.zirve-card') : null;
+        if (clickedCard) {
+          const idx = Number.parseInt(clickedCard.getAttribute('data-warrior-index') || '', 10);
+          if (Number.isInteger(idx)) {
+            goToIndex(idx, true);
+          }
+        }
         return;
       }
 
-      suppressNextClick = true;
-      global.setTimeout(() => {
-        suppressNextClick = false;
-      }, 60);
+      // Sürükleme sonrası olası click olayını yut
+      suppressNextClickUntil = performance.now() + 140;
 
       if (prefersReducedMotion()) {
-        snapToNearestCard();
+        snapToAngle(rot, true);
         return;
       }
 
-      angularVelocity = clamp(smoothedVx, -520, 520);
-      if (Math.abs(angularVelocity) >= 55) {
-        mode = 'coast';
+      const now = performance.now();
+      pushVelSample(now, rot);
+      if (velocitySamples.length >= 2) {
+        const oldest = velocitySamples[0];
+        const latest = velocitySamples[velocitySamples.length - 1];
+        const spanSec = Math.max(0.014, (latest.t - oldest.t) / 1000);
+        vel = clamp((latest.rot - oldest.rot) / spanSec, -1400, 1400);
+      }
+
+      if (Math.abs(vel) > 160) {
+        phase = 'coast';
         ensureLoopRunning();
       } else {
-        snapToNearestCard();
+        snapTarget = Math.round((rot + vel * 0.35) / step) * step;
+        phase = 'spring';
+        ensureLoopRunning();
       }
     }
 
-    viewport.addEventListener('pointerup', finishPointerDrag);
-    viewport.addEventListener('pointercancel', finishPointerDrag);
+    stage.addEventListener('pointerup', handlePointerEnd);
+    stage.addEventListener('pointercancel', handlePointerEnd);
 
-    // --------------------------------------------------------------------------
-    // YAN KARTLARA TIKLAMA & NOKTALARA TIKLAMA
-    // --------------------------------------------------------------------------
-    cards.forEach((card, idx) => {
-      card.addEventListener('click', (e) => {
-        if (suppressNextClick || dragMoved) {
+    stage.addEventListener(
+      'click',
+      (e) => {
+        if (performance.now() < suppressNextClickUntil) {
           e.preventDefault();
+          e.stopPropagation();
           return;
         }
-        soundClient.markUserGesture();
-        if (idx !== activeIndex) {
-          snapToIndex(idx, true);
+        // Dokunma/klavye sentetik click'i (pointerdown olmadan tetiklenirse)
+        const clickedCard = e.target && typeof e.target.closest === 'function' ? e.target.closest('.zirve-card') : null;
+        if (clickedCard) {
+          soundClient.markUserGesture();
+          const idx = Number.parseInt(clickedCard.getAttribute('data-warrior-index') || '', 10);
+          if (Number.isInteger(idx)) {
+            goToIndex(idx, true);
+          }
         }
-      });
-    });
+      },
+      true
+    );
 
+    // --------------------------------------------------------------------------
+    // ALT NOKTALAR VE KLAVYE OK TUŞLARI (ArrowLeft/Right/Home/End)
+    // --------------------------------------------------------------------------
     dotBtns.forEach((dot, idx) => {
       dot.addEventListener('click', () => {
         soundClient.markUserGesture();
-        snapToIndex(idx, true);
+        goToIndex(idx, true);
       });
     });
 
-    // --------------------------------------------------------------------------
-    // KLAVYE OK TUŞLARI (ArrowLeft, ArrowRight, Home, End)
-    // --------------------------------------------------------------------------
-    viewport.addEventListener('keydown', (e) => {
+    stage.addEventListener('keydown', (e) => {
       soundClient.markUserGesture();
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        snapToIndex(activeIndex + 1, true);
+        goToIndex(activeIndex + 1, true);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        snapToIndex(activeIndex - 1, true);
+        goToIndex(activeIndex - 1, true);
       } else if (e.key === 'Home') {
         e.preventDefault();
-        snapToIndex(0, true);
+        goToIndex(0, true);
       } else if (e.key === 'End') {
         e.preventDefault();
-        snapToIndex(count - 1, true);
+        goToIndex(N - 1, true);
       }
     });
 
     // --------------------------------------------------------------------------
-    // TEKERLEK KAYDIRMA (YATAY VEYA VİEWPORT ÜZERİ DİKEY)
+    // TEKERLEK: YALNIZCA YATAY BASKIN VEYA SHIFT+TEKERLEK (DİKEY KAYDIRMA SERBEST)
     // --------------------------------------------------------------------------
-    let lastWheelStepAt = 0;
-    viewport.addEventListener(
+    stage.addEventListener(
       'wheel',
       (e) => {
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-        if (Math.abs(delta) < 4) return;
+        const isHorizontalDominant = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+        const isShiftWheel = Boolean(e.shiftKey && Math.abs(e.deltaY) > 0);
+        if (!isHorizontalDominant && !isShiftWheel) {
+          return; // Dikey sayfa kaydırmasını asla engelleme
+        }
+
         e.preventDefault();
         soundClient.markUserGesture();
 
-        const now = performance.now();
-        if (now - lastWheelStepAt < 110) return;
-        lastWheelStepAt = now;
+        const rawDelta = isHorizontalDominant ? e.deltaX : e.deltaY;
+        const degPerPx = (step / (itemWidth * 0.65)) * (cfg.scrollSpeed || 1);
+        rot -= rawDelta * degPerPx * 0.45;
+        vel = clamp(-rawDelta * 3.2, -900, 900);
+        interactionActive = true;
+        phase = prefersReducedMotion() ? 'idle' : 'coast';
 
-        const stepDir = delta > 0 ? 1 : -1;
-        snapToIndex(activeIndex + stepDir, true);
+        const currentFront = applyVisualTransforms();
+        if (currentFront !== activeIndex) {
+          activeIndex = currentFront;
+          triggerCaptionSwap(activeIndex, true);
+        }
+
+        if (wheelTimer) global.clearTimeout(wheelTimer);
+        wheelTimer = global.setTimeout(() => {
+          wheelTimer = null;
+          vel = 0;
+          snapToAngle(rot, true);
+        }, 120);
+
+        ensureLoopRunning();
       },
       { passive: false }
     );
 
-    viewport.addEventListener('pointerenter', () => {
+    stage.addEventListener('pointerenter', () => {
       isHovered = true;
     });
 
-    viewport.addEventListener('pointerleave', () => {
+    stage.addEventListener('pointerleave', () => {
       isHovered = false;
       if (cfg.autoRotate && !prefersReducedMotion()) {
         ensureLoopRunning();
@@ -580,7 +671,7 @@
     });
 
     // --------------------------------------------------------------------------
-    // İSTEĞE BAĞLI AUTOPLAY / REDUCED MOTION / GÖRÜNÜRLÜK YÖNETİMİ
+    // GÖRÜNÜRLÜK, RESIZE & REDUCED-MOTION YÖNETİMİ
     // --------------------------------------------------------------------------
     function syncAutoplayTimer() {
       if (autoplayTimer) {
@@ -590,64 +681,80 @@
       if (cfg.autoplay && !prefersReducedMotion()) {
         autoplayTimer = global.setInterval(() => {
           if (isInViewport && !isHovered && !dragActive && document.visibilityState === 'visible') {
-            snapToIndex(activeIndex + 1, false);
+            goToIndex(activeIndex + 1, false);
           }
         }, 4200);
       }
+    }
+
+    function settleAndStopLoop() {
+      if (phase === 'spring' || phase === 'coast') {
+        rot = phase === 'spring' ? snapTarget : Math.round((rot + vel * 0.35) / step) * step;
+        vel = 0;
+        swing = 0;
+        phase = 'idle';
+        interactionActive = false;
+        const settledIdx = applyVisualTransforms();
+        if (settledIdx !== activeIndex) {
+          activeIndex = settledIdx;
+          triggerCaptionSwap(activeIndex, false);
+        }
+      }
+      stopLoop();
     }
 
     if (typeof global.IntersectionObserver === 'function') {
       const io = new global.IntersectionObserver(
         (entries) => {
           const entry = entries[0];
-          isInViewport = Boolean(entry && entry.isIntersecting);
-          if (isInViewport) {
-            ensureLoopRunning();
-          } else {
-            stopLoop();
-          }
+          isInViewport = Boolean(entry && entry.isIntersecting) || checkBoundsVisible();
+          if (isInViewport) ensureLoopRunning();
+          else settleAndStopLoop();
         },
         { threshold: 0.05 }
       );
-      io.observe(root);
+      io.observe(section);
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        stopLoop();
-      } else if (isInViewport) {
-        ensureLoopRunning();
-      }
+      if (document.visibilityState === 'hidden') settleAndStopLoop();
+      else if (isInViewport) ensureLoopRunning();
     });
 
-    global.addEventListener(
-      'resize',
-      () => {
-        recomputeGeometry();
-        render3DScene();
-      },
-      { passive: true }
-    );
+    function handleResize() {
+      recomputeGeometry();
+      const snapped = Math.round(rot / step) * step;
+      if (phase === 'idle') {
+        rot = snapped;
+      }
+      applyVisualTransforms();
+    }
+
+    if (typeof global.ResizeObserver === 'function') {
+      const ro = new global.ResizeObserver(handleResize);
+      ro.observe(section);
+    } else {
+      global.addEventListener('resize', handleResize, { passive: true });
+    }
 
     if (reducedMotionQuery && typeof reducedMotionQuery.addEventListener === 'function') {
       reducedMotionQuery.addEventListener('change', () => {
         syncAutoplayTimer();
         if (prefersReducedMotion()) {
-          snapToIndex(activeIndex, false);
+          snapToAngle(rot, false);
         } else {
           ensureLoopRunning();
         }
       });
     }
 
-    // Başlangıç sahnesi: 1. sıradaki savaşçı (#1 Bacon_Exe1341) tam önde
-    updateActiveUi(0, false);
-    render3DScene();
+    // İlk kare: #1 Bacon_Exe1341 tam önde (rot = 0)
+    applyVisualTransforms();
     syncAutoplayTimer();
     if (cfg.autoRotate && !prefersReducedMotion()) {
       ensureLoopRunning();
     }
   }
 
-  document.addEventListener('DOMContentLoaded', initWarriorsCarousel);
+  document.addEventListener('DOMContentLoaded', initZirveCarousel);
 })(window);

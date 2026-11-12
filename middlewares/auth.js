@@ -214,10 +214,73 @@ async function requireFreshManagement(req, res, next) {
   }
 }
 
+function sendHidden404(req, res) {
+  res.locals.disableFeedbackPill = true;
+  const wantsJson = Boolean(
+    req.xhr ||
+    req.get('X-Requested-With') === 'XMLHttpRequest' ||
+    (req.headers.accept && req.headers.accept.includes('application/json'))
+  );
+  if (wantsJson) {
+    return res.status(404).json({ ok: false, error: 'Sayfa bulunamadı.' });
+  }
+  return res.status(404).render('errors/404', {
+    title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı',
+    path: req.originalUrl,
+    disableFeedbackPill: true,
+  });
+}
+
+/**
+ * Yalnızca Developer (1561777507223601353) rolüne açık gizli rotalar için TAZE Bot API rol kontrolü.
+ * Girişsiz, üye veya Yönetmenlik dahil Developer olmayan herkese 404 döner (rota varlığını gizler).
+ */
+async function requireFreshDeveloper(req, res, next) {
+  markNoIndex(req, res);
+  if (!req.session || !req.session.user || !req.session.user.id) {
+    return sendHidden404(req, res);
+  }
+
+  const actorId = req.session.user.id;
+  try {
+    const freshRolesData = await botApiClient.getMemberRoles(actorId);
+    const roles = freshRolesData.roles || [];
+    const level = freshRolesData.level || 'unregistered';
+
+    req.session.user.roles = roles;
+    req.session.user.level = level;
+    req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.inGuild = true;
+    req.session.user.rolesSyncedAt = Date.now();
+    res.locals.currentUser = req.session.user;
+    res.locals.isRegistered = isRegisteredMember(roles, level);
+    res.locals.isManagement = isManagement(roles, level);
+    res.locals.isDeveloper = isDeveloper(roles, level);
+
+    if (!isDeveloper(roles, level)) {
+      return sendHidden404(req, res);
+    }
+
+    req.freshActorRoles = freshRolesData;
+    req._warriorsDeveloperChecked = true;
+    return next();
+  } catch (err) {
+    if (err.statusCode === 404) {
+      return req.session.destroy(() => {
+        res.clearCookie('piyade.sid');
+        res.locals.currentUser = null;
+        return sendHidden404(req, res);
+      });
+    }
+    return next(err);
+  }
+}
+
 module.exports = {
   syncRolesMiddleware,
   requireLogin,
   requireRegisteredMember,
   requireManagement,
   requireFreshManagement,
+  requireFreshDeveloper,
 };

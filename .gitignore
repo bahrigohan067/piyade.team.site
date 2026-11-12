@@ -6,8 +6,9 @@ node_modules/
 .env.*
 !.env.example
 
-# Kalıcı Oturum Deposu (PersistentSessionStore)
+# Kalıcı Oturum Deposu (PersistentSessionStore) ve Savaşçı Verileri (Volume)
 .sessions/
+data/
 
 # Loglar ve Geçici Dosyalar
 *.log

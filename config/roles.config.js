@@ -84,10 +84,30 @@ function isOnlyUnregistered(roles) {
   return hasRole(roles, ROLES.UNREGISTERED);
 }
 
+const LEVEL_RANK = {
+  public: 0,
+  none: 0,
+  unregistered: 0,
+  registered: 1,
+  yonetmenlik: 2,
+  developer: 3,
+};
+
+/**
+ * Kullanıcının seviye dizisinin minimum gerekli seviyeyi karşılayıp karşılamadığını denetler.
+ */
+function hasMinLevel(userLevel, minLevel) {
+  if (minLevel === 'public') return true;
+  const currentRank = LEVEL_RANK[userLevel] ?? 0;
+  const requiredRank = LEVEL_RANK[minLevel] ?? 99;
+  return currentRank >= requiredRank;
+}
+
 module.exports = {
   ROLES,
   MANAGEMENT_ROLES,
   hasRole,
+  hasMinLevel,
   isManagement,
   isDeveloper,
   isRegisteredMember,

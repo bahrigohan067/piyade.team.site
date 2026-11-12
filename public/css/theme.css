@@ -255,4 +255,28 @@
   --feedback-close-hover-bg: rgba(139, 92, 246, 0.24);
   --feedback-spinner-track: rgba(255, 255, 255, 0.4);
   --feedback-shadow: 0 0 0 1px var(--feedback-border-subtle), 0 18px 40px -20px rgba(0, 0, 0, 0.7);
+
+  /* Klanın Zirvesi — 3D Card Carousel & Developer Savaşçı Yönetimi */
+  --warrior-card-bg: linear-gradient(165deg, rgba(24, 18, 42, 0.92) 0%, rgba(12, 10, 22, 0.95) 100%);
+  --warrior-card-border: rgba(168, 85, 247, 0.26);
+  --warrior-card-active-border: rgba(192, 132, 252, 0.72);
+  --warrior-card-active-glow: 0 0 32px rgba(139, 92, 246, 0.36), 0 18px 36px -14px rgba(0, 0, 0, 0.78);
+  --warrior-card-shadow: 0 14px 32px -16px rgba(0, 0, 0, 0.72);
+  --warrior-stage-ambient: radial-gradient(ellipse at 50% 56%, rgba(139, 92, 246, 0.14) 0%, rgba(139, 92, 246, 0) 68%);
+  --warrior-rank-bg: rgba(17, 13, 30, 0.88);
+  --warrior-rank-border: rgba(168, 85, 247, 0.4);
+  --warrior-rank-text: #e9d5ff;
+  --warrior-rank-crown: #f5d0fe;
+  --warrior-avatar-well: rgba(139, 92, 246, 0.08);
+  --warrior-silhouette-bg: rgba(27, 20, 48, 0.88);
+  --warrior-silhouette-fill: rgba(192, 132, 252, 0.5);
+  --warrior-silhouette-ring: rgba(168, 85, 247, 0.28);
+  --warrior-dot-bg: rgba(255, 255, 255, 0.2);
+  --warrior-dot-hover: rgba(192, 132, 252, 0.6);
+  --warrior-dot-active: var(--color-accent);
+  --warrior-dot-active-glow: 0 0 10px rgba(139, 92, 246, 0.8);
+  --warrior-dirty-bg: rgba(245, 158, 11, 0.09);
+  --warrior-dirty-border: rgba(245, 158, 11, 0.55);
+  --warrior-custom-badge-bg: rgba(139, 92, 246, 0.18);
+  --warrior-row-hover: rgba(255, 255, 255, 0.025);
 }

@@ -239,37 +239,6 @@
   </div>
 </div>
 
-<!-- ==============================================================================
- * ORBITAL LOADER TAM EKRAN KATMANI (Yalnızca Kanıt Dosyası Yüklenirken Açılır)
- * ============================================================================== -->
-<div
-  id="orbitalLoaderOverlay"
-  class="orbital-overlay"
-  role="status"
-  aria-live="polite"
-  aria-modal="true"
-  hidden
->
-  <div class="orbital-dialog">
-    <div class="orbital-stage">
-      <svg class="orbital-svg" viewBox="0 0 140 140" width="128" height="128" aria-hidden="true">
-        <circle class="orbital-track" cx="70" cy="70" r="52" />
-        <circle class="orbital-burst-ring" cx="70" cy="70" r="52" />
-        <circle class="orbital-progress-arc" id="orbitalProgressArc" cx="70" cy="70" r="52" />
-        <path class="orbital-comet-arc" id="orbitalCometArc" d="" />
-        <circle class="orbital-comet-head" id="orbitalCometHead" cx="70" cy="18" r="4.5" />
-        <path class="orbital-check-path" d="M46 72 L62 88 L95 54" />
-        <path class="orbital-cross-path" d="M50 50 L90 90 M90 50 L50 90" />
-      </svg>
-    </div>
-
-    <div class="orbital-status-text" id="orbitalStatusText"><%= t('adminWarn.loaderUploading') %></div>
-    <div class="orbital-sub-text" id="orbitalSubText">0%</div>
-
-    <button type="button" class="btn btn-secondary btn-sm orbital-close-btn" id="orbitalCloseBtn" hidden>
-      <span><%= t('adminWarn.loaderCloseBtn') %></span>
-    </button>
-  </div>
-</div>
+<%- include('../partials/orbital-loader') %>
 
 <%- include('../layouts/footer') %>

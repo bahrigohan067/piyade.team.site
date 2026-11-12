@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 
 const MAX_EVIDENCE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_WARRIOR_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 /**
  * Dosya içeriğinin gerçek formatını magic-byte (ilk bayt imzaları) ile doğrular.
@@ -9,9 +10,17 @@ const MAX_EVIDENCE_BYTES = 5 * 1024 * 1024; // 5 MB
  * @param {Buffer} buffer - Multer memoryStorage'dan gelen dosya belleği
  * @param {string} [originalMimetype] - İstemcinin bildirdiği MIME tipi
  * @param {string} [originalName] - İstemcinin bildirdiği dosya adı
+ * @param {object} [options] - maxBytes, prefix, fileTooLargeErrorKey, fileTooLargeError
  * @returns {{ valid: boolean, ext?: string, mimeType?: string, randomFileName?: string, errorKey?: string, error?: string }}
  */
-function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName = '') {
+function validateImageBuffer(buffer, originalMimetype = '', originalName = '', options = {}) {
+  const maxBytes = Number.isFinite(options.maxBytes) ? options.maxBytes : MAX_EVIDENCE_BYTES;
+  const prefix = typeof options.prefix === 'string' ? options.prefix : 'kanit_';
+  const tooLargeKey = options.fileTooLargeErrorKey || 'errors.fileTooLarge';
+  const tooLargeMsg =
+    options.fileTooLargeError ||
+    `Görsel boyutu en fazla ${Math.round(maxBytes / (1024 * 1024))} MB olabilir.`;
+
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     return {
       valid: false,
@@ -20,11 +29,11 @@ function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName
     };
   }
 
-  if (buffer.length > MAX_EVIDENCE_BYTES) {
+  if (buffer.length > maxBytes) {
     return {
       valid: false,
-      errorKey: 'errors.fileTooLarge',
-      error: 'Kanıt görseli boyutu en fazla 5 MB olabilir.',
+      errorKey: tooLargeKey,
+      error: tooLargeMsg,
     };
   }
 
@@ -99,7 +108,7 @@ function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName
     };
   }
 
-  const randomFileName = `kanit_${crypto.randomBytes(16).toString('hex')}.${ext}`;
+  const randomFileName = `${prefix}${crypto.randomBytes(16).toString('hex')}.${ext}`;
 
   return {
     valid: true,
@@ -109,7 +118,21 @@ function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName
   };
 }
 
+/**
+ * Kanıt yüklemeleri için 5 MB sınırıyla magic-byte doğrulaması.
+ */
+function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName = '') {
+  return validateImageBuffer(buffer, originalMimetype, originalName, {
+    maxBytes: MAX_EVIDENCE_BYTES,
+    prefix: 'kanit_',
+    fileTooLargeErrorKey: 'errors.fileTooLarge',
+    fileTooLargeError: 'Kanıt görseli boyutu en fazla 5 MB olabilir.',
+  });
+}
+
 module.exports = {
   MAX_EVIDENCE_BYTES,
+  MAX_WARRIOR_IMAGE_BYTES,
+  validateImageBuffer,
   validateEvidenceImageBuffer,
 };

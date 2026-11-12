@@ -3,6 +3,8 @@ const router = express.Router();
 const siteConfig = require('../config/site.config');
 const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
+const warriorsStore = require('../services/warriorsStore');
+const robloxAvatarService = require('../services/robloxAvatarService');
 const { requireLogin } = require('../middlewares/auth');
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
@@ -130,9 +132,26 @@ router.get('/', async (req, res) => {
     activeStats.activeRegisteredCount = null;
   }
 
+  let topWarriors = [];
+  try {
+    const rawWarriors = warriorsStore.getWarriors();
+    topWarriors = await robloxAvatarService.enrichWarriorsForDisplay(rawWarriors);
+  } catch (err) {
+    console.warn('[HOME] Savaşçılar verisi yüklenemedi, seed fallback:', err.message);
+    topWarriors = warriorsStore.getWarriors().map((w, idx) => ({
+      ...w,
+      rank: idx + 1,
+      avatarUrl: null,
+      robloxProfileUrl: null,
+      isCustomImage: false,
+      isPlaceholder: true,
+    }));
+  }
+
   return res.render('pages/home', {
     title: res.locals.seo ? res.locals.seo.title : req.t('home.pageTitle'),
     activeStats,
+    topWarriors,
   });
 });
 

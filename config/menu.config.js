@@ -11,7 +11,7 @@
  * - "developer"   : Sadece Developer (1561777507223601353)
  */
 
-const { hasMinLevel, isRegisteredMember, isManagement } = require('./roles.config');
+const { hasMinLevel, isRegisteredMember, isManagement, isDeveloper } = require('./roles.config');
 
 const MENU_ITEMS = [
   // ==========================================
@@ -155,6 +155,22 @@ const MENU_ITEMS = [
     description: 'Üye arama, profil detayları ve sicil geçmişi görüntüleme',
     descriptionEn: 'Search members, inspect profiles, and review disciplinary history',
   },
+  {
+    id: 'admin-warriors',
+    title: 'Savaşçılar',
+    titleEn: 'Warriors',
+    path: '/yonetim/savascilar',
+    icon: 'crown',
+    section: 'admin',
+    minLevel: 'developer',
+    showWhenLoggedIn: true,
+    showWhenLoggedOut: false,
+    badge: 'Developer',
+    badgeEn: 'Developer',
+    badgeClass: 'badge-purple',
+    description: 'Anasayfa "Klanın Zirvesi" savaşçı sırası, kill ve görsel yönetimi',
+    descriptionEn: 'Manage the homepage "Top Warriors" order, kills, and custom avatars',
+  },
 ];
 
 /**
@@ -169,6 +185,7 @@ function getVisibleMenuItems(user, lang = 'tr') {
   const userRoles = user?.roles || [];
   const registered = isLogged && isRegisteredMember(userRoles, userLevel);
   const management = isLogged && isManagement(userRoles, userLevel);
+  const developer = isLogged && isDeveloper(userRoles, userLevel);
   const isEn = lang === 'en';
 
   return MENU_ITEMS.filter((item) => {
@@ -188,6 +205,10 @@ function getVisibleMenuItems(user, lang = 'tr') {
 
     if (item.minLevel === 'yonetmenlik') {
       return management;
+    }
+
+    if (item.minLevel === 'developer') {
+      return developer;
     }
 
     return hasMinLevel(userLevel, item.minLevel);

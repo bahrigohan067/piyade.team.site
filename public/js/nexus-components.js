@@ -1567,22 +1567,27 @@
   }
 
   // ============================================================================
-  // 5) ORBITAL LOADER: YALNIZCA KANIT DOSYASI YÜKLENİRKEN (admin-warn)
+  // 5) ORBITAL LOADER: DOSYA YÜKLENİRKEN (admin-warn & admin-warriors)
   // ============================================================================
   function initAdminWarnOrbitalLoader() {
-    const form = document.getElementById('adminWarnForm');
+    const form =
+      document.getElementById('adminWarnForm') ||
+      document.querySelector('form[data-orbital-loader="true"]');
     const overlay = document.getElementById('orbitalLoaderOverlay');
     if (!form || !overlay) return;
 
-    const fileInput = document.getElementById('evidenceFile');
     const progressArc = document.getElementById('orbitalProgressArc');
     const cometArc = document.getElementById('orbitalCometArc');
     const cometHead = document.getElementById('orbitalCometHead');
     const statusText = document.getElementById('orbitalStatusText');
     const subText = document.getElementById('orbitalSubText');
     const closeBtn = document.getElementById('orbitalCloseBtn');
-    const errorBanner = document.getElementById('adminWarnErrorBanner');
-    const errorBannerText = document.getElementById('adminWarnErrorText');
+    const errorBanner = document.getElementById(
+      form.getAttribute('data-error-banner-id') || 'adminWarnErrorBanner'
+    );
+    const errorBannerText = document.getElementById(
+      form.getAttribute('data-error-text-id') || 'adminWarnErrorText'
+    );
 
     const cfg = Object.assign(
       {
@@ -1823,7 +1828,8 @@
     global.NexusOrbitalUploadReady = true;
 
     form.addEventListener('submit', (e) => {
-      const hasFile = Boolean(fileInput && fileInput.files && fileInput.files.length > 0);
+      const fileInputs = Array.from(form.querySelectorAll('input[type="file"]'));
+      const hasFile = fileInputs.some((inp) => inp && inp.files && inp.files.length > 0);
       if (!hasFile) {
         // Dosya yoksa loader çıkmaz; app.js / normal form gönderimi devam eder
         return;
@@ -1897,7 +1903,9 @@
           switchToSuccess();
           const waitMs = prefersReducedMotion() ? 220 : cfg.successRedirectDelayMs || 750;
           global.setTimeout(() => {
-            global.location.assign(data.redirectUrl || '/yonetim/uyari');
+            global.location.assign(
+              data.redirectUrl || form.getAttribute('data-default-redirect') || '/yonetim/uyari'
+            );
           }, waitMs);
           return;
         }

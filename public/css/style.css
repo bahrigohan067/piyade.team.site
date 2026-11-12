@@ -2555,6 +2555,582 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
     stroke-dashoffset: 0 !important;
     animation: none !important;
   }
+
+  .warriors-card {
+    transition: none !important;
+  }
+}
+
+/* ==========================================
+ * KLANIN ZİRVESİ — NEXUS UI 3D CARD CAROUSEL
+ * ========================================== */
+.warriors-section {
+  position: relative;
+  margin-bottom: 4.5rem;
+  padding: 2.5rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--warrior-stage-ambient);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.warriors-header {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 2rem;
+}
+
+.warriors-title {
+  font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0.6rem 0 0.45rem;
+  letter-spacing: -0.02em;
+}
+
+.warriors-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.warriors-order-note {
+  margin-top: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.warriors-carousel-root {
+  --warrior-item-w: 180px;
+  --warrior-item-h: 236px;
+  --carousel-perspective: 1100px;
+  position: relative;
+  width: 100%;
+  outline: none;
+}
+
+.warriors-viewport {
+  position: relative;
+  width: 100%;
+}
+
+/* JS devre dışıysa (SSR Fallback): Temiz responsive kart ızgarası */
+.warriors-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.15rem;
+  align-items: stretch;
+  justify-items: center;
+}
+
+/* JS aktifken 3D silindir sahnesi */
+.warriors-carousel-root.is-3d-ready .warriors-viewport {
+  height: calc(var(--warrior-item-h) + 64px);
+  perspective: var(--carousel-perspective);
+  perspective-origin: 50% 48%;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  border-radius: var(--radius-md);
+}
+
+.warriors-carousel-root.is-3d-ready .warriors-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.warriors-carousel-root.is-3d-ready .warriors-track {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.warriors-card {
+  width: var(--warrior-item-w);
+  height: var(--warrior-item-h);
+  padding: 0.75rem 0.75rem 0.7rem;
+  border-radius: 18px;
+  background: var(--warrior-card-bg);
+  border: 1px solid var(--warrior-card-border);
+  box-shadow: var(--warrior-card-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.warriors-carousel-root.is-3d-ready .warriors-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: calc(var(--warrior-item-w) / -2);
+  margin-top: calc(var(--warrior-item-h) / -2);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.warriors-card.is-front {
+  border-color: var(--warrior-card-active-border);
+  box-shadow: var(--warrior-card-active-glow);
+}
+
+.warriors-rank-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  background: var(--warrior-rank-bg);
+  border: 1px solid var(--warrior-rank-border);
+  color: var(--warrior-rank-text);
+}
+
+.warriors-rank-crown {
+  color: var(--warrior-rank-crown);
+  display: inline-flex;
+  align-items: center;
+}
+
+.warriors-avatar-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--warrior-avatar-well);
+  padding: 0.35rem;
+  margin-bottom: 0.55rem;
+  overflow: hidden;
+}
+
+.warriors-avatar-img {
+  width: 100%;
+  height: 100%;
+  max-width: 148px;
+  max-height: 148px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.warriors-silhouette {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--warrior-silhouette-bg);
+  border: 1px solid var(--warrior-silhouette-ring);
+  color: var(--warrior-silhouette-fill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warriors-card-meta {
+  width: 100%;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.warriors-card-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.warriors-card-kills {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Carousel Altındaki Aktif Kart Özeti + Roblox Profili + Noktalar */
+.warriors-active-panel {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.65rem;
+}
+
+.warriors-carousel-root:not(.is-3d-ready) .warriors-dots,
+.warriors-carousel-root:not(.is-3d-ready) .warriors-hint {
+  display: none;
+}
+
+.warriors-active-identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+}
+
+.warriors-active-rank {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--warrior-rank-bg);
+  border: 1px solid var(--warrior-rank-border);
+  color: var(--warrior-rank-text);
+}
+
+.warriors-active-username {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.warriors-active-kills-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.warriors-active-kills-num {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--color-accent-light);
+}
+
+.warriors-active-kills-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.warriors-profile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--warrior-custom-badge-bg);
+  border: 1px solid var(--warrior-card-border);
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.warriors-profile-link:hover {
+  border-color: var(--warrior-card-active-border);
+  background: var(--dock-icon-hover-bg);
+  transform: translateY(-1px);
+}
+
+.warriors-profile-link[hidden] {
+  display: none;
+}
+
+.warriors-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.warriors-dot-btn {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--warrior-dot-bg);
+  cursor: pointer;
+  transition: width 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.warriors-dot-btn:hover {
+  background: var(--warrior-dot-hover);
+}
+
+.warriors-dot-btn.is-active {
+  width: 26px;
+  background: var(--warrior-dot-active);
+  box-shadow: var(--warrior-dot-active-glow);
+}
+
+.warriors-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================
+ * DEVELOPER PANELİ: SAVAŞÇILAR YÖNETİMİ
+ * ========================================== */
+.warriors-admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.warriors-admin-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.warriors-dirty-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--warrior-dirty-bg);
+  border: 1px solid var(--warrior-dirty-border);
+  color: var(--text-primary);
+}
+
+.warriors-dirty-indicator[hidden] {
+  display: none;
+}
+
+.warriors-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.warriors-admin-row {
+  display: grid;
+  grid-template-columns: 56px 76px minmax(170px, 1.4fr) minmax(130px, 1fr) minmax(190px, 1.3fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.warriors-admin-row:hover {
+  background: var(--warrior-row-hover);
+}
+
+.warriors-admin-row.is-dirty {
+  background: var(--warrior-dirty-bg);
+  border-color: var(--warrior-dirty-border);
+}
+
+.warriors-admin-order-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warriors-admin-rank-pill {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: var(--warrior-rank-bg);
+  border: 1px solid var(--warrior-rank-border);
+  color: var(--warrior-rank-text);
+}
+
+.warriors-admin-thumb-box {
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  background: var(--warrior-avatar-well);
+  border: 1px solid var(--warrior-card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.warriors-admin-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.warriors-admin-image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.warriors-admin-mode-badge {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.warriors-admin-file-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.warriors-file-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.warriors-file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.warriors-admin-move-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.warriors-icon-btn {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warriors-icon-btn:hover:not(:disabled) {
+  border-color: var(--warrior-card-active-border);
+  background: var(--dock-icon-hover-bg);
+}
+
+.warriors-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.warriors-history-card {
+  margin-top: 2rem;
+}
+
+.warriors-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.warriors-history-item {
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  font-size: 0.85rem;
+}
+
+.warriors-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+}
+
+.warriors-history-changes {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+@media (max-width: 992px) {
+  .warriors-admin-row {
+    grid-template-columns: 52px 68px 1fr 1fr;
+  }
+  .warriors-admin-image-actions {
+    grid-column: 1 / span 3;
+  }
+  .warriors-admin-move-group {
+    grid-column: 4 / span 1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 639px) {
+  .warriors-carousel-root {
+    --warrior-item-w: 148px;
+    --warrior-item-h: 196px;
+  }
+  .warriors-section {
+    padding: 1.85rem 0.85rem;
+  }
+  .warriors-admin-row {
+    grid-template-columns: 1fr;
+  }
+  .warriors-admin-image-actions,
+  .warriors-admin-move-group {
+    grid-column: auto;
+    justify-content: flex-start;
+  }
 }
 
 /* ==========================================

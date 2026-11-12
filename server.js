@@ -20,6 +20,7 @@ const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/member');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
+const warriorsRoutes = require('./routes/warriors');
 
 function createServerApp() {
   const app = express();
@@ -156,6 +157,8 @@ function createServerApp() {
   }, authRoutes);
   app.use('/', publicRoutes);
   app.use('/', memberRoutes);
+  // Savaşçılar rotaları (/savascilar/gorsel/:file ve gizli Developer /yonetim/savascilar) adminRoutes'dan ÖNCE bağlanır
+  app.use('/', warriorsRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
 

@@ -23,6 +23,11 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
+  // Gizli Developer rotası: önce requireFreshDeveloper (yetkisizlere 404), hemen ardından verifyCsrfToken çalışır
+  if (req.method === 'POST' && req.path === '/yonetim/savascilar' && !req._warriorsDeveloperChecked) {
+    return next();
+  }
+
   // /geri-bildirim oturum süresi dolmuş veya girişsiz isteklerde 403 CSRF yerine net 401 SESSION_EXPIRED dön
   if (
     req.method === 'POST' &&

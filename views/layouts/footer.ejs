@@ -53,12 +53,30 @@
   <script src="/vendor/aero-webgl.js?v=<%= assetVer %>" defer></script>
   <script src="/js/background/aero-shards.js?v=<%= assetVer %>" defer></script>
 
+  <%
+    const hasWarriorsCarousel = Boolean(typeof topWarriors !== 'undefined' && Array.isArray(topWarriors) && topWarriors.length > 0);
+  %>
   <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text, NexusSpring) -->
   <script src="/js/nexus-components.js?v=<%= assetVer %>" defer></script>
 
+  <% if (showFeedbackPill || hasWarriorsCarousel) { %>
+    <!-- Ortak Web Audio Sentezleyici -->
+    <script src="/js/nexus-sound.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (hasWarriorsCarousel) { %>
+    <!-- Klanın Zirvesi: Nexus UI 3D Card Carousel -->
+    <script src="/js/warriors-carousel.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
   <% if (showFeedbackPill) { %>
-    <!-- Feedback Pill Mantığı ve Web Audio Sentezleyici (Yalnızca gösterildiğinde yüklenir) -->
+    <!-- Feedback Pill Mantığı -->
     <script src="/js/feedback-pill.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isWarriorsAdminPage !== 'undefined' && isWarriorsAdminPage) { %>
+    <!-- Klanın Zirvesi: Developer Paneli Scripti -->
+    <script src="/js/admin-warriors.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
   <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->

@@ -1,0 +1,315 @@
+<%- include('../layouts/header') %>
+
+<%
+  const wList = Array.isArray(warriors) ? warriors : [];
+  const wLimits = (typeof warriorsConfig !== 'undefined' && warriorsConfig && warriorsConfig.LIMITS)
+    ? warriorsConfig.LIMITS
+    : { minWarriors: 3, maxWarriors: 8, maxCustomImageBytes: 2 * 1024 * 1024 };
+  const numberLocale = (typeof lang !== 'undefined' && lang === 'en') ? 'en-US' : 'tr-TR';
+  const adminI18n = {
+    modeRoblox: t('warriors.modeRoblox'),
+    modeCustom: t('warriors.modeCustom'),
+    newFilePending: t('warriors.newFilePending'),
+    errFileTooLarge: t('warriors.errFileTooLarge'),
+    errInvalidFile: t('errors.invalidFileType'),
+    btnChangeImage: t('warriors.btnChangeImage'),
+    btnUseRobloxAvatar: t('warriors.btnUseRobloxAvatar'),
+    btnMoveUp: t('warriors.btnMoveUp'),
+    btnMoveDown: t('warriors.btnMoveDown'),
+    btnRemoveRow: t('warriors.btnRemoveRow'),
+    colUsername: t('warriors.colUsername'),
+    colKills: t('warriors.colKills'),
+  };
+%>
+
+<div style="max-width: 1080px; margin: 0 auto; padding-top: 1rem;">
+  <div style="margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem;">
+      <span class="badge badge-purple"><%= t('warriors.adminBadge') %></span>
+      <span class="badge badge-neutral">v<%= typeof storeVersion !== 'undefined' ? storeVersion : 1 %></span>
+    </div>
+    <h1 style="font-size: clamp(1.75rem, 3.2vw, 2.25rem); margin-bottom: 0.5rem;"><%= t('warriors.adminHeading') %></h1>
+    <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+      <%= t('warriors.adminSubheading') %>
+    </p>
+  </div>
+
+  <% if (typeof flash !== 'undefined' && flash && flash.success) { %>
+    <div class="alert alert-success" style="margin-bottom: 1.5rem; justify-content: space-between; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.35rem;">✅</span>
+        <div>
+          <strong><%= flash.message %></strong>
+          <% if (flash.version) { %>
+            <span class="badge badge-neutral" style="margin-left: 8px;">v<%= flash.version %></span>
+          <% } %>
+        </div>
+      </div>
+      <a href="/#savascilar" class="btn btn-secondary btn-sm">
+        <span><%= t('warriors.btnViewHome') %></span>
+      </a>
+    </div>
+
+    <% if (flash.warning) { %>
+      <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+        <span style="font-size: 1.25rem;">⚠️</span>
+        <div>
+          <strong><%= t('warriors.warningPrefix') %></strong>
+          <span><%= flash.warning %></span>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger" id="warriorsErrorBanner" style="margin-bottom: 1.5rem;">
+      <span style="font-size: 1.35rem;">🛑</span>
+      <p style="margin: 0;" id="warriorsErrorText"><%= error %></p>
+    </div>
+  <% } else { %>
+    <div class="alert alert-danger" id="warriorsErrorBanner" style="margin-bottom: 1.5rem;" hidden>
+      <span style="font-size: 1.35rem;">🛑</span>
+      <p style="margin: 0;" id="warriorsErrorText"></p>
+    </div>
+  <% } %>
+
+  <div class="glass-card">
+    <form
+      id="adminWarriorsForm"
+      action="/yonetim/savascilar?_csrf=<%= encodeURIComponent(csrfToken) %>&_idempotencyKey=<%= encodeURIComponent(typeof idempotencyKey !== 'undefined' ? idempotencyKey : '') %>"
+      method="POST"
+      enctype="multipart/form-data"
+      data-prevent-double-submit="true"
+      data-orbital-loader="true"
+      data-error-banner-id="warriorsErrorBanner"
+      data-error-text-id="warriorsErrorText"
+      data-default-redirect="/yonetim/savascilar"
+      data-min-warriors="<%= wLimits.minWarriors %>"
+      data-max-warriors="<%= wLimits.maxWarriors %>"
+      data-max-image-bytes="<%= wLimits.maxCustomImageBytes %>"
+      data-admin-i18n="<%= JSON.stringify(adminI18n) %>"
+      data-loader-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.orbitalLoader) : '{}' %>"
+      data-loader-i18n="<%= JSON.stringify({
+        uploading: t('warriors.loaderUploading'),
+        forwarding: t('warriors.loaderSaving'),
+        success: t('warriors.loaderSuccess'),
+        errorTitle: t('adminWarn.loaderErrorTitle'),
+        timeoutError: t('adminWarn.loaderTimeoutErr'),
+        networkError: t('adminWarn.loaderNetworkErr'),
+        closeBtn: t('adminWarn.loaderCloseBtn')
+      }) %>"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
+      <input type="hidden" name="version" value="<%= typeof storeVersion !== 'undefined' ? storeVersion : 1 %>" />
+
+      <!-- Üst İşlem Çubuğu -->
+      <div class="warriors-admin-toolbar">
+        <div class="warriors-admin-toolbar-actions">
+          <button
+            type="submit"
+            id="warriorsSaveBtn"
+            class="btn btn-primary"
+            data-submitting-text="<%= t('warriors.btnSaving') %>"
+          >
+            <span>💾 <%= t('warriors.btnSaveAll') %></span>
+          </button>
+
+          <button
+            type="button"
+            id="warriorsAddRowBtn"
+            class="btn btn-secondary btn-sm"
+            <%= wList.length >= wLimits.maxWarriors ? 'disabled' : '' %>
+          >
+            <span><%= t('warriors.btnAddWarrior') %></span>
+          </button>
+
+          <a href="/yonetim/savascilar/yedek" class="btn btn-secondary btn-sm">
+            <span>⬇️ <%= t('warriors.btnDownloadBackup') %></span>
+          </a>
+
+          <a href="/#savascilar" class="btn btn-secondary btn-sm">
+            <span><%= t('warriors.btnViewHome') %></span>
+          </a>
+        </div>
+
+        <span id="warriorsDirtyBadge" class="warriors-dirty-indicator" hidden>
+          <span>●</span>
+          <span><%= t('warriors.dirtyBadge') %></span>
+        </span>
+      </div>
+
+      <!-- Düzenlenebilir Savaşçı Satırları -->
+      <div id="warriorsAdminList" class="warriors-admin-list">
+        <% wList.forEach(function (w, idx) { %>
+          <div class="warriors-admin-row" data-slot-index="<%= idx %>">
+            <input type="hidden" name="rowId" value="<%= w.id %>" />
+            <input type="hidden" name="slotIndex" value="<%= idx %>" />
+            <input type="hidden" name="imageMode" value="<%= w.imageMode === 'custom' ? 'custom' : 'roblox' %>" />
+            <input type="hidden" name="customImageFile" value="<%= w.customImageFile || '' %>" />
+
+            <!-- 1. Sıra Numarası -->
+            <div class="warriors-admin-order-cell">
+              <span class="warriors-admin-rank-pill" data-rank-pill>#<%= idx + 1 %></span>
+            </div>
+
+            <!-- 2. Mevcut Görsel Önizleme -->
+            <div
+              class="warriors-admin-thumb-box"
+              data-roblox-preview="<%= w.imageMode !== 'custom' && w.avatarUrl ? w.avatarUrl : '' %>"
+            >
+              <% if (w.avatarUrl) { %>
+                <img
+                  src="<%= w.avatarUrl %>"
+                  alt="<%= w.robloxUsername %>"
+                  class="warriors-admin-thumb-img"
+                  width="64"
+                  height="64"
+                />
+                <span class="warriors-silhouette" style="width: 48px; height: 48px;" aria-hidden="true" hidden>
+                  <svg viewBox="0 0 64 64" width="28" height="28" fill="currentColor" aria-hidden="true">
+                    <circle cx="32" cy="22" r="12" />
+                    <path d="M12 54c0-11 9-18 20-18s20 7 20 18H12z" />
+                  </svg>
+                </span>
+              <% } else { %>
+                <img
+                  src=""
+                  alt="<%= w.robloxUsername %>"
+                  class="warriors-admin-thumb-img"
+                  width="64"
+                  height="64"
+                  hidden
+                />
+                <span class="warriors-silhouette" style="width: 48px; height: 48px;" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" width="28" height="28" fill="currentColor" aria-hidden="true">
+                    <circle cx="32" cy="22" r="12" />
+                    <path d="M12 54c0-11 9-18 20-18s20 7 20 18H12z" />
+                  </svg>
+                </span>
+              <% } %>
+            </div>
+
+            <!-- 3. Roblox Kullanıcı Adı -->
+            <div>
+              <label class="form-label" style="font-size: 0.76rem; margin-bottom: 0.25rem;">
+                <%= t('warriors.colUsername') %>
+              </label>
+              <input
+                type="text"
+                name="robloxUsername"
+                class="form-control"
+                value="<%= w.robloxUsername %>"
+                required
+                maxlength="20"
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- 4. Kill Sayısı -->
+            <div>
+              <label class="form-label" style="font-size: 0.76rem; margin-bottom: 0.25rem;">
+                <%= t('warriors.colKills') %>
+              </label>
+              <input
+                type="text"
+                name="kills"
+                class="form-control"
+                value="<%= w.kills %>"
+                required
+                inputmode="numeric"
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- 5. Görsel Değiştir / Roblox Avatarına Sıfırla -->
+            <div class="warriors-admin-image-actions">
+              <span class="warriors-admin-mode-badge" data-mode-badge>
+                <%= w.imageMode === 'custom' ? t('warriors.modeCustom') : t('warriors.modeRoblox') %>
+              </span>
+              <div class="warriors-admin-file-buttons">
+                <label class="btn btn-secondary btn-sm warriors-file-trigger">
+                  <span><%= t('warriors.btnChangeImage') %></span>
+                  <input
+                    type="file"
+                    name="warriorImage_<%= idx %>"
+                    accept="image/png,image/jpeg,image/webp"
+                    class="warriors-file-input-hidden"
+                    data-row-file-input
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  data-reset-roblox
+                  <%= w.imageMode !== 'custom' ? 'hidden' : '' %>
+                >
+                  <span><%= t('warriors.btnUseRobloxAvatar') %></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 6. Yukarı / Aşağı Taşı & Kaldır -->
+            <div class="warriors-admin-move-group">
+              <button
+                type="button"
+                class="warriors-icon-btn"
+                data-move-up
+                title="<%= t('warriors.btnMoveUp') %>"
+                aria-label="<%= t('warriors.btnMoveUp') %>"
+                <%= idx === 0 ? 'disabled' : '' %>
+              >↑</button>
+              <button
+                type="button"
+                class="warriors-icon-btn"
+                data-move-down
+                title="<%= t('warriors.btnMoveDown') %>"
+                aria-label="<%= t('warriors.btnMoveDown') %>"
+                <%= idx === wList.length - 1 ? 'disabled' : '' %>
+              >↓</button>
+              <button
+                type="button"
+                class="warriors-icon-btn"
+                data-remove-row
+                title="<%= t('warriors.btnRemoveRow') %>"
+                aria-label="<%= t('warriors.btnRemoveRow') %>"
+                <%= wList.length <= wLimits.minWarriors ? 'disabled' : '' %>
+              >✕</button>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </form>
+  </div>
+
+  <!-- Son 20 Değişiklik Geçmişi -->
+  <section class="glass-card warriors-history-card" aria-labelledby="warriorsHistoryHeading">
+    <h2 id="warriorsHistoryHeading" style="font-size: 1.25rem; margin-bottom: 0.4rem;">
+      <%= t('warriors.historyHeading') %>
+    </h2>
+    <% const histList = Array.isArray(recentHistory) ? recentHistory : []; %>
+    <% if (histList.length === 0) { %>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0.5rem 0 0;"><%= t('warriors.historyEmpty') %></p>
+    <% } else { %>
+      <div class="warriors-history-list">
+        <% histList.forEach(function (entry) { %>
+          <div class="warriors-history-item">
+            <div class="warriors-history-meta">
+              <span><strong><%= t('warriors.historyActorLabel') %></strong> <%= entry.actorTag || entry.actorId %></span>
+              <span><strong><%= t('warriors.historyVersionLabel') %></strong> v<%= entry.fromVersion %> → v<%= entry.toVersion %></span>
+              <span><%= new Date(entry.timestamp).toLocaleString(numberLocale) %></span>
+            </div>
+            <div class="warriors-history-changes">
+              <%= Array.isArray(entry.changes) ? entry.changes.join(' • ') : '' %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </section>
+</div>
+
+<%- include('../partials/orbital-loader') %>
+
+<%- include('../layouts/footer') %>

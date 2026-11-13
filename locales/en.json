@@ -148,7 +148,33 @@
     "errRealNameLength": "Please enter a valid real name (between 2 and 32 characters).",
     "errSelectGender": "Please select a valid gender option.",
     "errRobloxRequired": "Please enter a valid Roblox username, ID, or profile URL.",
-    "msgSubmittedSuccess": "Your registration application has been sent to the bot! A review card has been opened for staff."
+    "msgSubmittedSuccess": "Your registration application has been sent to the bot! A review card has been opened for staff.",
+    "selectTypeHeading": "Select Registration Type",
+    "selectTypeSubheading": "Choose the status under which you want to register in our server to proceed to the application form.",
+    "typePiyadeTitle": "🛡️ I Want to Join the Piyade Clan",
+    "typePiyadeDesc": "Fill out the application form to become a member of our clan.",
+    "typeOtherTitle": "🏳️ I Already Have a Clan",
+    "typeOtherDesc": "You are in another clan; register to the server. You need to write your clan name. You will receive the Other Clan role and your clan's role instead of the Registered Member role.",
+    "typeSelectBtn": "Select & Proceed",
+    "badgeTypePiyade": "Piyade Clan Application",
+    "badgeTypeOther": "Other Clan Registration",
+    "btnChangeSelection": "Change selection",
+    "labelClanName": "Which clan are you in?",
+    "placeholderClanName": "Örn: Dark Wolves",
+    "helpClanName": "Even if you make a typo, officials will review it.",
+    "charCounterSuffix": "/ 32",
+    "btnSwitchToPiyade": "Switch to Piyade Clan Application",
+    "errClanRequired": "Please specify which clan you are in.",
+    "errClanInvalid": "Please enter a valid clan name (between 2 and 32 characters).",
+    "errClanBlocked": "This clan name cannot be used.",
+    "errClanIsOwn": "If you want to join the Piyade Clan, please use the first option.",
+    "errAlreadyRegistered": "You already have a verified membership or a pending application on the server.",
+    "errGenericRegistration": "An error occurred while processing your registration. Please check your details and try again.",
+    "msgOtherClanSubmittedSuccess": "Your application has been submitted to staff; once approved, you will be granted the Other Clan role and your clan's role.",
+    "pendingDescOther": "Your other clan registration application has been received. Once our staff reviews and approves your clan info, your Other Clan role and your clan's role will be assigned automatically.",
+    "badgePiyadeClan": "Piyade Clan",
+    "badgeOtherClan": "Other Clan Member",
+    "clanPrefix": "Clan:"
   },
   "profile": {
     "pageTitle": "My Profile — Piyade Team | TSB",
@@ -191,7 +217,12 @@
     "labelStaffWarnings": "Staff Warnings",
     "staffWarnSuffix": "Staff Warnings",
     "staffWarnNote": "All staff permissions are automatically revoked upon the 4th staff warning.",
-    "amnestyBoxText": "Automatic Amnesty: If you commit no rule violations for 30 consecutive days after your last penalty, all penalty points are automatically cleared."
+    "amnestyBoxText": "Automatic Amnesty: If you commit no rule violations for 30 consecutive days after your last penalty, all penalty points are automatically cleared.",
+    "badgePiyadeClan": "Piyade Clan",
+    "badgeOtherClan": "Other Clan Member",
+    "clanLabel": "Clan",
+    "labelRegistrationType": "Registration Type",
+    "labelClan": "Clan Name"
   },
   "tryout": {
     "pageTitle": "Tryout Leaderboard — Piyade Team | TSB",
@@ -234,7 +265,8 @@
     "infoItem1": "The backup call is dispatched directly to the <#1559928245598560336> alert channel.",
     "infoItem2": "Your Roblox Profile Link is embedded in the alert card so clan members can join your game server in one click.",
     "infoItem3": "To prevent spam and false alarms, a 5-minute cooldown and disciplinary rules are strictly enforced.",
-    "msgCallSuccess": "Your emergency backup call has been dispatched!"
+    "msgCallSuccess": "Your emergency backup call has been dispatched!",
+    "errOtherClanHelpDisabled": "Emergency backup calls are currently disabled for other clan members. This feature is open to Piyade Clan members only."
   },
   "interactive": {
     "pageTitle": "Dart Range & Meteor Sky — Piyade Clan | TSB",
@@ -327,7 +359,9 @@
     "colAuthLevel": "Access Level",
     "colActions": "Actions",
     "btnDetail": "Details / Record",
-    "btnWarn": "Warn"
+    "btnWarn": "Warn",
+    "labelRegistrationType": "Registration Type",
+    "labelClanName": "Clan Name"
   },
   "adminWarn": {
     "pageTitle": "Issue Warning — Staff Panel",

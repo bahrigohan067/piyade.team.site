@@ -384,4 +384,41 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // 6. Kayıt Sayfası: Klan Adı Canlı Karakter Sayacı (2-32 karakter) ve Seçim Kartları Klavye Navigasyonu
+  const clanNameInput = document.getElementById('clanName');
+  const clanNameCounter = document.getElementById('clanNameCounter');
+  if (clanNameInput && clanNameCounter) {
+    const maxLen = parseInt(clanNameInput.getAttribute('maxlength'), 10) || 32;
+    const minLen = parseInt(clanNameInput.getAttribute('minlength'), 10) || 2;
+    const updateClanCounter = () => {
+      const len = clanNameInput.value.trim().length;
+      const rawLen = clanNameInput.value.length;
+      clanNameCounter.textContent = `${rawLen} / ${maxLen}`;
+      clanNameCounter.classList.toggle('is-valid', len >= minLen && rawLen <= maxLen);
+      clanNameCounter.classList.toggle('is-invalid', rawLen > 0 && len < minLen);
+    };
+    clanNameInput.addEventListener('input', updateClanCounter);
+    updateClanCounter();
+  }
+
+  const registerTypeCards = Array.from(document.querySelectorAll('.register-type-card'));
+  if (registerTypeCards.length > 0) {
+    registerTypeCards.forEach((card, idx) => {
+      card.addEventListener('keydown', (e) => {
+        if (e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = registerTypeCards[(idx + 1) % registerTypeCards.length];
+          if (next) next.focus();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = registerTypeCards[(idx - 1 + registerTypeCards.length) % registerTypeCards.length];
+          if (prev) prev.focus();
+        }
+      });
+    });
+  }
 });

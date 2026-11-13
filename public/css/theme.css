@@ -330,4 +330,13 @@
   --zirve-profile-text: #d8b4fe;
   --zirve-profile-hover-bg: rgba(168, 85, 247, 0.26);
   --zirve-profile-hover-glow: 0 0 22px rgba(168, 85, 247, 0.42);
+
+  /* Kayıt Türü Seçim Kartları (Mor Parıltı & Koyu Cam) */
+  --register-card-bg: rgba(14, 17, 29, 0.84);
+  --register-card-hover-bg: rgba(24, 20, 44, 0.92);
+  --register-card-border: rgba(168, 85, 247, 0.28);
+  --register-card-hover-border: #c084fc;
+  --register-card-glow: 0 0 32px -4px rgba(168, 85, 247, 0.55);
+  --register-card-icon-bg: rgba(139, 92, 246, 0.16);
+  --register-card-icon-border: rgba(192, 132, 252, 0.36);
 }

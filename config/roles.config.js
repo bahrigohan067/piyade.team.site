@@ -9,6 +9,9 @@ const ROLES = {
   // Kayıtlı Üye Rolü (Üye menülerine erişim için minimum rol)
   REGISTERED: '1559604702143062016',
 
+  // Diğer Klan Rolü (Başka klandan kayıtlı üyeler; üye menülerine erişebilir, yönetim yetkisi yoktur)
+  OTHER_CLAN: '1570460155437518960',
+
   // Kurucu / Developer Rolü (En üst düzey yönetim)
   DEVELOPER: '1561777507223601353',
 
@@ -66,19 +69,24 @@ function isDeveloper(roles, userLevel) {
 }
 
 /**
- * Kullanıcının Kayıtlı Üye (veya üstü) olup olmadığını denetler
+ * Kullanıcının Kayıtlı Üye (Kayıtlı Üye 1559604702143062016, Diğer Klan 1570460155437518960 veya üstü) olup olmadığını denetler.
+ * Öncelik: Bot /api/member/:id/roles yanıtındaki registered alanı varsa onu kullanır; yoksa yerel rol kontrolüne düşer.
  */
-function isRegisteredMember(roles, userLevel) {
+function isRegisteredMember(roles, userLevel, registeredFlag) {
+  if (registeredFlag === true) return true;
   if (isManagement(roles, userLevel)) return true;
-  return hasRole(roles, ROLES.REGISTERED);
+  if (hasRole(roles, ROLES.REGISTERED) || hasRole(roles, ROLES.OTHER_CLAN)) return true;
+  if (typeof registeredFlag === 'boolean') return registeredFlag;
+  return false;
 }
 
 /**
  * Kullanıcının yalnızca Kayıtsız rolünde olup olmadığını veya hiç kaydı olmadığını denetler
  */
-function isOnlyUnregistered(roles) {
+function isOnlyUnregistered(roles, registeredFlag) {
+  if (registeredFlag === true) return false;
   if (!Array.isArray(roles) || roles.length === 0) return true;
-  const hasReg = hasRole(roles, ROLES.REGISTERED);
+  const hasReg = hasRole(roles, ROLES.REGISTERED) || hasRole(roles, ROLES.OTHER_CLAN);
   const hasMgmt = MANAGEMENT_ROLES.some((id) => hasRole(roles, id));
   if (hasReg || hasMgmt) return false;
   return hasRole(roles, ROLES.UNREGISTERED);

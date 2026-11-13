@@ -59,9 +59,11 @@
   <meta name="description" content="<%= pageSeo.description %>">
   <meta name="robots" content="<%= pageSeo.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' %>">
 
-  <% if (!pageSeo.noindex) { %>
-    <!-- Canonical & Çok Dilli (hreflang) Etiketleri -->
+  <% if ((!pageSeo.noindex || pageSeo.keepCanonical) && pageSeo.canonicalUrl) { %>
     <link rel="canonical" href="<%= pageSeo.canonicalUrl %>">
+  <% } %>
+  <% if (!pageSeo.noindex) { %>
+    <!-- Çok Dilli (hreflang) Etiketleri -->
     <link rel="alternate" hreflang="tr" href="<%= pageSeo.alternateUrls.tr %>">
     <link rel="alternate" hreflang="en" href="<%= pageSeo.alternateUrls.en %>">
     <link rel="alternate" hreflang="x-default" href="<%= pageSeo.alternateUrls.xDefault %>">

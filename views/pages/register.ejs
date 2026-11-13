@@ -1,33 +1,39 @@
 <%- include('../layouts/header') %>
 
-<div style="max-width: 780px; margin: 0 auto; padding-top: 1rem;">
+<%
+  const activeStep = typeof step !== 'undefined' && step ? step : (typeof tur !== 'undefined' && (tur === 'piyade' || tur === 'baska') ? 'form' : 'select');
+  const activeTur = typeof tur !== 'undefined' && (tur === 'piyade' || tur === 'baska') ? tur : null;
+  const safeForm = typeof formData !== 'undefined' && formData ? formData : { realName: '', gender: '', robloxInput: '', clanName: '' };
+%>
+
+<div class="register-page-container">
   
   <!-- Üst Başlık & İlerleme Adımları -->
-  <div style="text-align: center; margin-bottom: 2.5rem;">
-    <span class="badge badge-primary" style="margin-bottom: 0.5rem;"><%= t('register.badgeTop') %></span>
-    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;"><%= t('register.heading') %></h1>
-    <p style="color: var(--text-secondary); max-width: 580px; margin: 0 auto 1.75rem; font-size: 0.95rem;">
+  <div class="register-header-block">
+    <span class="badge badge-primary register-top-badge"><%= t('register.badgeTop') %></span>
+    <h1 class="register-main-heading"><%= t('register.heading') %></h1>
+    <p class="register-main-subheading">
       <%= t('register.subheading') %>
     </p>
 
     <!-- 3 Aşamalı İlerleme Çubuğu -->
-    <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; max-width: 540px; margin: 0 auto;">
-      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= currentUser ? '#10b981' : '#3b82f6' %>;">
-        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= currentUser ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)' %>; border: 1px solid <%= currentUser ? '#10b981' : '#3b82f6' %>; display: flex; align-items: center; justify-content: center;">
+    <div class="register-steps-bar">
+      <div class="register-step-item <%= currentUser ? 'is-done' : 'is-active' %>">
+        <span class="register-step-circle">
           <%= currentUser ? '✓' : '1' %>
         </span>
         <span><%= t('register.step1') %></span>
       </div>
-      <div style="flex: 1; height: 2px; background: rgba(255, 255, 255, 0.1);"></div>
-      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= state === 'pending' || state === 'approved' ? '#10b981' : (currentUser ? '#3b82f6' : 'var(--text-muted)') %>;">
-        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= state === 'pending' || state === 'approved' ? 'rgba(16, 185, 129, 0.2)' : (currentUser ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)') %>; border: 1px solid <%= state === 'pending' || state === 'approved' ? '#10b981' : (currentUser ? '#3b82f6' : 'var(--border-color)') %>; display: flex; align-items: center; justify-content: center;">
+      <div class="register-step-divider"></div>
+      <div class="register-step-item <%= state === 'pending' || state === 'approved' ? 'is-done' : (currentUser ? 'is-active' : 'is-idle') %>">
+        <span class="register-step-circle">
           <%= state === 'pending' || state === 'approved' ? '✓' : '2' %>
         </span>
         <span><%= t('register.step2') %></span>
       </div>
-      <div style="flex: 1; height: 2px; background: rgba(255, 255, 255, 0.1);"></div>
-      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: <%= state === 'approved' ? '#10b981' : (state === 'pending' ? '#f59e0b' : 'var(--text-muted)') %>;">
-        <span style="width: 22px; height: 22px; border-radius: 50%; background: <%= state === 'approved' ? 'rgba(16, 185, 129, 0.2)' : (state === 'pending' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.05)') %>; border: 1px solid <%= state === 'approved' ? '#10b981' : (state === 'pending' ? '#f59e0b' : 'var(--border-color)') %>; display: flex; align-items: center; justify-content: center;">
+      <div class="register-step-divider"></div>
+      <div class="register-step-item <%= state === 'approved' ? 'is-done' : (state === 'pending' ? 'is-warning' : 'is-idle') %>">
+        <span class="register-step-circle">
           <%= state === 'approved' ? '✓' : '3' %>
         </span>
         <span><%= t('register.step3') %></span>
@@ -37,27 +43,36 @@
 
   <!-- Hata ve Başarı Bildirimleri -->
   <% if (typeof error !== 'undefined' && error) { %>
-    <div class="alert alert-danger">
-      <span style="font-size: 1.25rem;">🛑</span>
-      <div><%= error %></div>
+    <div class="alert alert-danger" role="alert">
+      <span class="register-alert-icon">🛑</span>
+      <div class="register-alert-body">
+        <div><%= error %></div>
+        <% if (typeof clanOwnError !== 'undefined' && clanOwnError) { %>
+          <div class="register-alert-action">
+            <a href="/kayit?tur=piyade" class="btn btn-primary btn-sm register-switch-own-link">
+              <span>🛡️ <%= t('register.btnSwitchToPiyade') %> →</span>
+            </a>
+          </div>
+        <% } %>
+      </div>
     </div>
   <% } %>
 
   <% if (typeof success !== 'undefined' && success) { %>
-    <div class="alert alert-success">
-      <span style="font-size: 1.25rem;">✅</span>
+    <div class="alert alert-success" role="status">
+      <span class="register-alert-icon">✅</span>
       <div><%= success %></div>
     </div>
   <% } %>
 
   <!-- DURUM 1: DİSCORD İLE GİRİŞ GEREKLİ -->
   <% if (state === 'login_required') { %>
-    <div class="glass-card" style="text-align: center; padding: 3.5rem 2rem;">
-      <div style="width: 64px; height: 64px; border-radius: 20px; background: rgba(88, 101, 242, 0.15); border: 1px solid rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.85rem; margin: 0 auto 1.25rem;">
+    <div class="glass-card register-login-card">
+      <div class="register-login-icon">
         🔐
       </div>
-      <h2 style="font-size: 1.6rem; margin-bottom: 0.5rem;"><%= t('register.loginReqTitle') %></h2>
-      <p style="max-width: 500px; margin: 0 auto 1.75rem; color: var(--text-secondary); font-size: 0.95rem;">
+      <h2 class="register-login-title"><%= t('register.loginReqTitle') %></h2>
+      <p class="register-login-desc">
         <%= t('register.loginReqDesc') %>
       </p>
       <a href="/auth/discord" class="btn btn-discord btn-lg">
@@ -67,30 +82,40 @@
 
   <!-- DURUM 2: ZATEN ONAYLANDI / KAYITLI ÜYE -->
   <% } else if (state === 'approved') { %>
-    <div class="glass-card" style="border-left: 4px solid var(--color-success); padding: 2.5rem 2rem;">
-      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
-        <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.75rem;">
+    <div class="glass-card register-status-card register-status-card--approved">
+      <div class="register-status-head">
+        <div class="register-status-icon register-status-icon--approved">
           🎉
         </div>
         <div>
-          <span class="badge badge-success"><%= t('register.approvedBadge') %></span>
-          <h2 style="margin: 4px 0 0; font-size: 1.5rem;"><%= t('register.approvedTitle') %></h2>
+          <div class="register-badge-row">
+            <span class="badge badge-success"><%= t('register.approvedBadge') %></span>
+            <% if (statusData && statusData.registration && statusData.registration.type === 'other') { %>
+              <span class="badge badge-purple"><%= t('register.badgeOtherClan') %></span>
+              <% if (statusData.registration.clan) { %>
+                <span class="badge badge-neutral"><%= t('register.clanPrefix') %> <%= statusData.registration.clan %></span>
+              <% } %>
+            <% } else if (statusData && statusData.registration && statusData.registration.type === 'own') { %>
+              <span class="badge badge-primary"><%= t('register.badgePiyadeClan') %></span>
+            <% } %>
+          </div>
+          <h2 class="register-status-title"><%= t('register.approvedTitle') %></h2>
         </div>
       </div>
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+      <p class="register-status-desc">
         <%= t('register.approvedDesc') %>
       </p>
 
       <% if (statusData && statusData.registration) { %>
-        <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: rgba(8, 9, 13, 0.7);">
-          <div class="grid grid-2" style="gap: 1rem;">
+        <div class="glass-card register-summary-box">
+          <div class="grid grid-2">
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('register.registeredNameLabel') %></span>
-              <div style="font-weight: 700; color: #ffffff; font-size: 1.05rem;"><%= statusData.registration.realName || t('register.notSpecified') %></div>
+              <span class="register-meta-label"><%= t('register.registeredNameLabel') %></span>
+              <div class="register-meta-value"><%= statusData.registration.realName || t('register.notSpecified') %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('register.robloxUsernameLabel') %></span>
-              <div style="font-weight: 700; color: #60a5fa; font-size: 1.05rem;">
+              <span class="register-meta-label"><%= t('register.robloxUsernameLabel') %></span>
+              <div class="register-meta-value register-meta-value--accent">
                 <% if (statusData.registration.robloxUsername) { %>
                   @<%= statusData.registration.robloxUsername %>
                 <% } else { %>
@@ -102,7 +127,7 @@
         </div>
       <% } %>
 
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div class="register-status-actions">
         <a href="/profil" class="btn btn-primary">
           <span><%= t('register.btnViewProfile') %></span>
         </a>
@@ -114,117 +139,234 @@
 
   <!-- DURUM 3: BAŞVURU BEKLEMEDE -->
   <% } else if (state === 'pending') { %>
-    <div class="glass-card" style="border-left: 4px solid var(--color-warning); padding: 2.5rem 2rem;">
-      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
-        <div style="width: 52px; height: 52px; border-radius: 16px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.75rem;">
+    <%
+      const isPendingOther = Boolean(
+        (statusData && statusData.application && statusData.application.type === 'other') ||
+        activeTur === 'baska'
+      );
+      const pendingClanName =
+        (statusData && statusData.application && statusData.application.clan) ||
+        safeForm.clanName ||
+        null;
+    %>
+    <div class="glass-card register-status-card register-status-card--pending">
+      <div class="register-status-head">
+        <div class="register-status-icon register-status-icon--pending">
           ⏳
         </div>
         <div>
-          <span class="badge badge-warning"><%= t('register.pendingBadge') %></span>
-          <h2 style="margin: 4px 0 0; font-size: 1.5rem;"><%= t('register.pendingTitle') %></h2>
+          <div class="register-badge-row">
+            <span class="badge badge-warning"><%= t('register.pendingBadge') %></span>
+            <% if (isPendingOther) { %>
+              <span class="badge badge-purple">🏳️ <%= t('register.badgeTypeOther') %></span>
+            <% } else { %>
+              <span class="badge badge-primary">🛡️ <%= t('register.badgeTypePiyade') %></span>
+            <% } %>
+          </div>
+          <h2 class="register-status-title"><%= t('register.pendingTitle') %></h2>
         </div>
       </div>
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
-        <%= t('register.pendingDesc') %>
+      <p class="register-status-desc">
+        <%= isPendingOther ? t('register.pendingDescOther') : t('register.pendingDesc') %>
       </p>
 
       <% if (statusData && statusData.application) { %>
-        <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: rgba(8, 9, 13, 0.7);">
-          <div class="grid grid-2" style="gap: 1rem;">
+        <div class="glass-card register-summary-box">
+          <div class="grid grid-2">
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('register.applicantLabel') %></span>
-              <div style="font-weight: 700; color: #ffffff;"><%= statusData.application.realName || currentUser.displayName %></div>
+              <span class="register-meta-label"><%= t('register.applicantLabel') %></span>
+              <div class="register-meta-value"><%= statusData.application.realName || currentUser.displayName %></div>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('register.robloxAccountLabel') %></span>
-              <div style="font-weight: 700; color: #60a5fa;">@<%= statusData.application.robloxUsername || t('register.reviewing') %></div>
+              <span class="register-meta-label"><%= t('register.robloxAccountLabel') %></span>
+              <div class="register-meta-value register-meta-value--accent">@<%= statusData.application.robloxUsername || t('register.reviewing') %></div>
             </div>
+            <% if (isPendingOther && pendingClanName) { %>
+              <div>
+                <span class="register-meta-label"><%= t('profile.labelClan') %></span>
+                <div class="register-meta-value"><%= pendingClanName %></div>
+              </div>
+            <% } %>
           </div>
         </div>
       <% } %>
 
-      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <button onclick="window.location.reload();" class="btn btn-secondary btn-sm">
+      <div class="register-status-actions">
+        <button type="button" onclick="window.location.reload();" class="btn btn-secondary btn-sm">
           <span><%= t('register.btnRefresh') %></span>
         </button>
-        <span style="font-size: 0.85rem; color: var(--text-muted);"><%= t('register.pendingNote') %></span>
+        <span class="register-pending-note"><%= t('register.pendingNote') %></span>
       </div>
     </div>
 
-  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU FORMU -->
+  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU (ADIM 1 SEÇİM / ADIM 2 FORM) -->
   <% } else { %>
     <% if (state === 'rejected' && statusData && statusData.rejected) { %>
-      <div class="glass-card" style="border-left: 4px solid var(--color-danger); margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.06);">
-        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-          <span style="font-size: 1.5rem;">🛑</span>
-          <h3 style="margin: 0; color: var(--color-danger); font-size: 1.2rem;"><%= t('register.rejectedTitle') %></h3>
+      <div class="glass-card register-rejected-card">
+        <div class="register-rejected-head">
+          <span class="register-alert-icon">🛑</span>
+          <h3 class="register-rejected-title"><%= t('register.rejectedTitle') %></h3>
         </div>
-        <p style="margin-bottom: 0.75rem; color: var(--text-secondary);">
+        <p class="register-rejected-reason">
           <strong><%= t('register.rejectedReasonLabel') %></strong> <%= statusData.rejected.reason %>
         </p>
-        <div style="font-size: 0.85rem; color: var(--text-muted);">
+        <div class="register-rejected-hint">
           <%= t('register.rejectedHint') %>
         </div>
       </div>
     <% } %>
 
-    <!-- Kayıt Başvuru Formu (Madde 6: Tekil Idempotency Anahtarı & Buton Kilitleme) -->
-    <div class="glass-card">
-      <form action="/kayit" method="POST" data-prevent-double-submit="true">
-        <!-- CSRF Güvenlik Anahtarı -->
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
-        <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
-
-        <div class="form-group">
-          <label class="form-label" for="realName"><%= t('register.labelRealName') %></label>
-          <input
-            type="text"
-            id="realName"
-            name="realName"
-            class="form-control"
-            placeholder="<%= t('register.placeholderRealName') %>"
-            minlength="2"
-            maxlength="32"
-            required
-          />
-          <div class="form-text"><%= t('register.helpRealName') %></div>
+    <% if (activeStep === 'select' || !activeTur) { %>
+      <!-- ADIM 1: KAYIT TÜRÜ SEÇİM EKRANI -->
+      <div class="glass-card register-select-wrapper">
+        <div class="register-select-header">
+          <h2 class="register-select-title"><%= t('register.selectTypeHeading') %></h2>
+          <p class="register-select-subtitle"><%= t('register.selectTypeSubheading') %></p>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="gender"><%= t('register.labelGender') %></label>
-          <select id="gender" name="gender" class="form-select" required>
-            <option value=""><%= t('register.selectGender') %></option>
-            <option value="Erkek"><%= t('register.genderMale') %></option>
-            <option value="Kız"><%= t('register.genderFemale') %></option>
-          </select>
-        </div>
+        <div class="register-type-cards" role="list">
+          <!-- Seçenek 1: Piyade Klanına Katılmak İstiyorum -->
+          <a
+            href="/kayit?tur=piyade"
+            class="register-type-card register-type-card--piyade"
+            data-tur="piyade"
+            role="listitem"
+          >
+            <div class="register-type-card-top">
+              <span class="register-type-card-icon" aria-hidden="true">🛡️</span>
+              <span class="badge badge-primary"><%= t('register.badgePiyadeClan') %></span>
+            </div>
+            <h3 class="register-type-card-title"><%= t('register.typePiyadeTitle') %></h3>
+            <p class="register-type-card-desc"><%= t('register.typePiyadeDesc') %></p>
+            <div class="register-type-card-cta">
+              <span><%= t('register.typeSelectBtn') %></span>
+              <span aria-hidden="true">→</span>
+            </div>
+          </a>
 
-        <div class="form-group">
-          <label class="form-label" for="robloxInput"><%= t('register.labelRoblox') %></label>
-          <input
-            type="text"
-            id="robloxInput"
-            name="robloxInput"
-            class="form-control"
-            placeholder="<%= t('register.placeholderRoblox') %>"
-            required
-          />
-          <div class="form-text">
-            ⚠️ <%= t('register.helpRoblox') %>
+          <!-- Seçenek 2: Bir Klanım Bulunmakta -->
+          <a
+            href="/kayit?tur=baska"
+            class="register-type-card register-type-card--other"
+            data-tur="baska"
+            role="listitem"
+          >
+            <div class="register-type-card-top">
+              <span class="register-type-card-icon" aria-hidden="true">🏳️</span>
+              <span class="badge badge-purple"><%= t('register.badgeOtherClan') %></span>
+            </div>
+            <h3 class="register-type-card-title"><%= t('register.typeOtherTitle') %></h3>
+            <p class="register-type-card-desc"><%= t('register.typeOtherDesc') %></p>
+            <div class="register-type-card-cta">
+              <span><%= t('register.typeSelectBtn') %></span>
+              <span aria-hidden="true">→</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+    <% } else { %>
+      <!-- ADIM 2: KAYIT BAŞVURU FORMU (?tur=piyade veya ?tur=baska) -->
+      <div class="glass-card">
+        <!-- Seçilen Tür Rozeti ve Seçimi Değiştir Bağlantısı -->
+        <div class="register-form-topbar">
+          <div class="register-selected-type">
+            <% if (activeTur === 'baska') { %>
+              <span class="badge badge-purple register-type-badge">🏳️ <%= t('register.badgeTypeOther') %></span>
+            <% } else { %>
+              <span class="badge badge-primary register-type-badge">🛡️ <%= t('register.badgeTypePiyade') %></span>
+            <% } %>
           </div>
+          <a href="/kayit" class="btn btn-secondary btn-sm register-change-type-link">
+            <span>← <%= t('register.btnChangeSelection') %></span>
+          </a>
         </div>
 
-        <div style="margin-top: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-          <div style="font-size: 0.85rem; color: var(--text-muted);">
-            <%= t('register.sessionLabel') %> <strong style="color: #ffffff;"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
+        <form action="/kayit" method="POST" data-prevent-double-submit="true">
+          <!-- CSRF Güvenlik Anahtarı -->
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
+          <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
+          <!-- Seçilen Kayıt Türü ('piyade' | 'baska') -->
+          <input type="hidden" name="tur" value="<%= activeTur %>" />
+
+          <% if (activeTur === 'baska') { %>
+            <div class="form-group clan-name-group">
+              <div class="clan-label-row">
+                <label class="form-label" for="clanName">
+                  <%= t('register.labelClanName') %>
+                </label>
+                <span id="clanNameCounter" class="char-counter" aria-live="polite">
+                  <%= (safeForm.clanName || '').length %> <%= t('register.charCounterSuffix') %>
+                </span>
+              </div>
+              <input
+                type="text"
+                id="clanName"
+                name="clanName"
+                class="form-control"
+                placeholder="<%= t('register.placeholderClanName') %>"
+                value="<%= safeForm.clanName || '' %>"
+                minlength="2"
+                maxlength="32"
+                required
+              />
+              <div class="form-text"><%= t('register.helpClanName') %></div>
+            </div>
+          <% } %>
+
+          <div class="form-group">
+            <label class="form-label" for="realName"><%= t('register.labelRealName') %></label>
+            <input
+              type="text"
+              id="realName"
+              name="realName"
+              class="form-control"
+              placeholder="<%= t('register.placeholderRealName') %>"
+              value="<%= safeForm.realName || '' %>"
+              minlength="2"
+              maxlength="32"
+              required
+            />
+            <div class="form-text"><%= t('register.helpRealName') %></div>
           </div>
-          <button type="submit" class="btn btn-primary btn-lg" data-submitting-text="<%= t('register.btnSubmitting') %>">
-            <span><%= t('register.btnSubmit') %></span>
-          </button>
-        </div>
-      </form>
-    </div>
+
+          <div class="form-group">
+            <label class="form-label" for="gender"><%= t('register.labelGender') %></label>
+            <select id="gender" name="gender" class="form-select" required>
+              <option value=""><%= t('register.selectGender') %></option>
+              <option value="Erkek" <%= safeForm.gender === 'Erkek' ? 'selected' : '' %>><%= t('register.genderMale') %></option>
+              <option value="Kız" <%= safeForm.gender === 'Kız' ? 'selected' : '' %>><%= t('register.genderFemale') %></option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="robloxInput"><%= t('register.labelRoblox') %></label>
+            <input
+              type="text"
+              id="robloxInput"
+              name="robloxInput"
+              class="form-control"
+              placeholder="<%= t('register.placeholderRoblox') %>"
+              value="<%= safeForm.robloxInput || '' %>"
+              required
+            />
+            <div class="form-text">
+              ⚠️ <%= t('register.helpRoblox') %>
+            </div>
+          </div>
+
+          <div class="register-form-footer">
+            <div class="register-session-info">
+              <%= t('register.sessionLabel') %> <strong class="register-session-user"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" data-submitting-text="<%= t('register.btnSubmitting') %>">
+              <span><%= t('register.btnSubmit') %></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    <% } %>
   <% } %>
 
 </div>

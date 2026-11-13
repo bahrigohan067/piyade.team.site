@@ -183,7 +183,7 @@ function getVisibleMenuItems(user, lang = 'tr') {
   const isLogged = Boolean(user && user.id);
   const userLevel = user?.level || 'none';
   const userRoles = user?.roles || [];
-  const registered = isLogged && isRegisteredMember(userRoles, userLevel);
+  const registered = isLogged && isRegisteredMember(userRoles, userLevel, user?.registered);
   const management = isLogged && isManagement(userRoles, userLevel);
   const developer = isLogged && isDeveloper(userRoles, userLevel);
   const isEn = lang === 'en';

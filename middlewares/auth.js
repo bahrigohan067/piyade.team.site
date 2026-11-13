@@ -31,6 +31,9 @@ async function syncRolesMiddleware(req, res, next) {
       user.highestRolePosition = rolesData.highestRolePosition || 0;
       user.displayName = rolesData.displayName || user.username;
       user.avatarUrl = rolesData.avatarUrl || user.avatarUrl;
+      user.registered = typeof rolesData.registered === 'boolean' ? rolesData.registered : undefined;
+      user.registrationType = rolesData.registrationType || null;
+      user.clan = rolesData.clan || null;
       user.inGuild = true;
       user.rolesSyncedAt = now;
     } catch (err) {
@@ -39,6 +42,9 @@ async function syncRolesMiddleware(req, res, next) {
         user.roles = [];
         user.level = 'none';
         user.highestRolePosition = 0;
+        user.registered = false;
+        user.registrationType = null;
+        user.clan = null;
         user.inGuild = false;
         user.rolesSyncedAt = now;
       } else if (err.isOffline) {
@@ -49,7 +55,7 @@ async function syncRolesMiddleware(req, res, next) {
   }
 
   res.locals.currentUser = user;
-  res.locals.isRegistered = isRegisteredMember(user.roles, user.level);
+  res.locals.isRegistered = isRegisteredMember(user.roles, user.level, user.registered);
   res.locals.isManagement = isManagement(user.roles, user.level);
   res.locals.isDeveloper = isDeveloper(user.roles, user.level);
   res.locals.visibleMenus = getVisibleMenuItems(user, req.lang || 'tr');
@@ -91,7 +97,7 @@ function requireRegisteredMember(req, res, next) {
   }
 
   const user = req.session.user;
-  if (!isRegisteredMember(user.roles, user.level)) {
+  if (!isRegisteredMember(user.roles, user.level, user.registered)) {
     return res.status(403).render('pages/not-registered', {
       title: req.t ? req.t('notRegistered.pageTitle') : 'Önce Kayıt Ol — Piyade Clan | TSB',
       inGuild: Boolean(user.inGuild),
@@ -147,6 +153,9 @@ async function requireFreshManagement(req, res, next) {
     req.session.user.roles = roles;
     req.session.user.level = level;
     req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.registered = typeof freshRolesData.registered === 'boolean' ? freshRolesData.registered : undefined;
+    req.session.user.registrationType = freshRolesData.registrationType || null;
+    req.session.user.clan = freshRolesData.clan || null;
     req.session.user.inGuild = true;
     req.session.user.rolesSyncedAt = Date.now();
 
@@ -250,10 +259,13 @@ async function requireFreshDeveloper(req, res, next) {
     req.session.user.roles = roles;
     req.session.user.level = level;
     req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.registered = typeof freshRolesData.registered === 'boolean' ? freshRolesData.registered : undefined;
+    req.session.user.registrationType = freshRolesData.registrationType || null;
+    req.session.user.clan = freshRolesData.clan || null;
     req.session.user.inGuild = true;
     req.session.user.rolesSyncedAt = Date.now();
     res.locals.currentUser = req.session.user;
-    res.locals.isRegistered = isRegisteredMember(roles, level);
+    res.locals.isRegistered = isRegisteredMember(roles, level, req.session.user.registered);
     res.locals.isManagement = isManagement(roles, level);
     res.locals.isDeveloper = isDeveloper(roles, level);
 

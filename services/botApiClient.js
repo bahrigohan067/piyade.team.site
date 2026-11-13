@@ -349,14 +349,47 @@ async function runStartupConnectivityTest() {
 // 2. ÜYE VE ROL SORGULARI
 // ============================================================================
 
+/**
+ * Bot yanıtındaki kayıt nesnesini (type / registrationType ve clan / clanName) normalize eder.
+ * Eski bot sürümlerinde type alanı yoksa uydurmaz (undefined bırakır).
+ */
+function normalizeRegistrationObject(reg, parentObj = null) {
+  const base = reg && typeof reg === 'object' ? { ...reg } : { registered: false };
+  const rawType = base.type || base.registrationType || (parentObj && parentObj.registrationType) || null;
+  if (rawType === 'own' || rawType === 'other') {
+    base.type = rawType;
+    base.registrationType = rawType;
+  }
+  const rawClan =
+    base.clan ||
+    base.clanName ||
+    (parentObj && (parentObj.clan || parentObj.clanName)) ||
+    null;
+  if (typeof rawClan === 'string' && rawClan.trim()) {
+    base.clan = rawClan.trim();
+    base.clanName = rawClan.trim();
+  }
+  return base;
+}
+
 async function getMemberRoles(discordId) {
   const data = await requestBotApi(`/api/member/${encodeURIComponent(discordId)}/roles`, {
     method: 'GET',
   });
 
-  if (data && typeof data.highestRolePosition !== 'number') {
-    const roles = Array.isArray(data.roles) ? data.roles : [];
-    data.highestRolePosition = roles.reduce((max, r) => Math.max(max, Number(r.position) || 0), 0);
+  if (data) {
+    if (typeof data.highestRolePosition !== 'number') {
+      const roles = Array.isArray(data.roles) ? data.roles : [];
+      data.highestRolePosition = roles.reduce((max, r) => Math.max(max, Number(r.position) || 0), 0);
+    }
+    if (typeof data.registered !== 'boolean') {
+      data.registered = undefined;
+    }
+    data.registrationType =
+      data.registrationType === 'own' || data.registrationType === 'other'
+        ? data.registrationType
+        : null;
+    data.clan = typeof data.clan === 'string' && data.clan.trim() ? data.clan.trim() : null;
   }
 
   return data;
@@ -369,7 +402,7 @@ async function getMemberProfile(discordId) {
 
   if (data) {
     data.discord = data.discord || {};
-    data.registration = data.registration || { registered: false };
+    data.registration = normalizeRegistrationObject(data.registration, data);
     data.tryout = data.tryout || { level: 0, formCount: 0 };
     data.vs = data.vs || { points: 0, wins: 0, losses: 0, kills: 0 };
     data.warnings = data.warnings || { points: 0, tier: 0, staffWarnings: 0, totalWarnings: 0 };
@@ -383,12 +416,36 @@ async function getMemberProfile(discordId) {
 // ============================================================================
 
 async function getRegistrationStatus(discordId) {
-  return requestBotApi(`/api/register/status/${encodeURIComponent(discordId)}`, {
+  const data = await requestBotApi(`/api/register/status/${encodeURIComponent(discordId)}`, {
     method: 'GET',
   });
+
+  if (data && typeof data === 'object') {
+    if (data.registration) {
+      data.registration = normalizeRegistrationObject(data.registration, data);
+    }
+    if (data.application) {
+      data.application = normalizeRegistrationObject(data.application, data);
+    }
+  }
+
+  return data;
 }
 
-async function submitRegistration({ discordId, realName, gender, robloxInput }) {
+async function submitRegistration({
+  discordId,
+  realName,
+  gender,
+  robloxInput,
+  registrationType = 'own',
+  clanName = null,
+}) {
+  const normalizedType = registrationType === 'other' ? 'other' : 'own';
+  const cleanedClan =
+    normalizedType === 'other' && typeof clanName === 'string' && clanName.trim()
+      ? clanName.trim()
+      : null;
+
   return requestBotApi('/api/register', {
     method: 'POST',
     body: {
@@ -396,6 +453,8 @@ async function submitRegistration({ discordId, realName, gender, robloxInput }) 
       realName,
       gender,
       robloxInput,
+      registrationType: normalizedType,
+      clanName: cleanedClan,
     },
     retries: 0, // Kayıt oluşturmada çift tetiklemeyi önlemek için POST retry kapalı
   });
@@ -454,12 +513,28 @@ async function sendFeedback({ actorId, message, page, lang }) {
 
 async function searchAdminMembers(actorId, query = '') {
   const qParam = query ? `?query=${encodeURIComponent(query)}` : '';
-  return requestBotApi(`/api/admin/members${qParam}`, {
+  const data = await requestBotApi(`/api/admin/members${qParam}`, {
     method: 'GET',
     headers: {
       'X-Actor-Id': String(actorId),
     },
   });
+
+  if (data && Array.isArray(data.members)) {
+    data.members = data.members.map((m) => {
+      if (!m || typeof m !== 'object') return m;
+      const copy = { ...m };
+      if (copy.registration || copy.registrationType || copy.clan) {
+        copy.registration = normalizeRegistrationObject(
+          copy.registration || { registered: Boolean(copy.registered) },
+          copy
+        );
+      }
+      return copy;
+    });
+  }
+
+  return data;
 }
 
 async function getAdminMemberDetail(actorId, targetId, options = { audit: true }) {
@@ -473,7 +548,7 @@ async function getAdminMemberDetail(actorId, targetId, options = { audit: true }
 
   if (data) {
     data.discord = data.discord || { roles: [] };
-    data.registration = data.registration || { registered: false };
+    data.registration = normalizeRegistrationObject(data.registration, data);
     data.tryout = data.tryout || { current: { level: 0, formCount: 0 }, forms: [] };
     data.tryout.current = data.tryout.current || { level: 0, formCount: 0 };
     data.tryout.forms = data.tryout.forms || [];

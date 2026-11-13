@@ -73,7 +73,14 @@ router.post('/takviye', requireRegisteredMember, formActionLimiter, verifyCsrfTo
     const result = await botApiClient.triggerHelpCall(req.session.user.id);
     req.session.flashSuccess = result.message || req.t('help.msgCallSuccess');
   } catch (err) {
-    req.session.flashError = err.message;
+    const rawCode = String(
+      (err && err.details && (err.details.code || err.details.error)) || (err && err.message) || ''
+    );
+    if (rawCode === 'OTHER_CLAN_HELP_DISABLED' || rawCode.includes('OTHER_CLAN_HELP_DISABLED')) {
+      req.session.flashError = req.t('help.errOtherClanHelpDisabled');
+    } else {
+      req.session.flashError = err.message;
+    }
   }
 
   return res.redirect('/takviye');

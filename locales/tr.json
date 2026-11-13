@@ -148,7 +148,33 @@
     "errRealNameLength": "Lütfen geçerli bir gerçek ad giriniz (en az 2, en fazla 32 karakter).",
     "errSelectGender": "Lütfen cinsiyet seçiniz (Erkek veya Kız).",
     "errRobloxRequired": "Lütfen geçerli bir Roblox kullanıcı adı, ID veya profil linki giriniz.",
-    "msgSubmittedSuccess": "Kayıt başvurunuz başarıyla bota iletildi! Sunucuda yetkililer için onay kartı açıldı."
+    "msgSubmittedSuccess": "Kayıt başvurunuz başarıyla bota iletildi! Sunucuda yetkililer için onay kartı açıldı.",
+    "selectTypeHeading": "Kayıt Türünü Seçiniz",
+    "selectTypeSubheading": "Sunucumuza hangi statüde kayıt olmak istediğinizi seçerek başvuru formuna ilerleyin.",
+    "typePiyadeTitle": "🛡️ Piyade Klanına Katılmak İstiyorum",
+    "typePiyadeDesc": "Klanımıza üye olmak için başvuru formunu doldur.",
+    "typeOtherTitle": "🏳️ Bir Klanım Bulunmakta",
+    "typeOtherDesc": "Başka bir klandasın; sunucuya kayıt ol. Klan adını yazman gerekir. Kayıtlı Üye rolü yerine Diğer Klan rolü ve klanının rolü verilir.",
+    "typeSelectBtn": "Seç ve Devam Et",
+    "badgeTypePiyade": "Piyade Klanı Başvurusu",
+    "badgeTypeOther": "Diğer Klan Kaydı",
+    "btnChangeSelection": "Seçimi değiştir",
+    "labelClanName": "Hangi klandasın?",
+    "placeholderClanName": "Örn: Dark Wolves",
+    "helpClanName": "Yazım hatası yapsan bile yetkililer kontrol eder.",
+    "charCounterSuffix": "/ 32",
+    "btnSwitchToPiyade": "Piyade Klanı Başvurusuna Geç",
+    "errClanRequired": "Lütfen hangi klanda olduğunuzu yazınız.",
+    "errClanInvalid": "Lütfen geçerli bir klan adı yazınız (en az 2, en fazla 32 karakter).",
+    "errClanBlocked": "Bu klan adı kullanılamaz.",
+    "errClanIsOwn": "Piyade Klanına katılmak istiyorsan ilk seçeneği kullan.",
+    "errAlreadyRegistered": "Zaten sunucuda kayıtlı bir üyeliğiniz veya bekleyen başvurunuz bulunmaktadır.",
+    "errGenericRegistration": "Kayıt başvurusu işlenirken bir sorun oluştu. Lütfen bilgilerinizi kontrol edip tekrar deneyiniz.",
+    "msgOtherClanSubmittedSuccess": "Başvurun yetkililere iletildi, onaylanınca Diğer Klan rolü ve klanının rolü verilecek.",
+    "pendingDescOther": "Diğer klan kayıt başvurunuz başarıyla alındı. Yetkililerimiz klan bilginizi inceleyip onayladığında Diğer Klan rolünüz ve klanınızın rolü otomatik olarak tanımlanacaktır.",
+    "badgePiyadeClan": "Piyade Klanı",
+    "badgeOtherClan": "Diğer Klan Üyesi",
+    "clanPrefix": "Klan:"
   },
   "profile": {
     "pageTitle": "Profilim — Piyade Team | TSB",
@@ -191,7 +217,12 @@
     "labelStaffWarnings": "Yetkili İhtarları",
     "staffWarnSuffix": "Yetkili Uyarısı",
     "staffWarnNote": "4. yetkili uyarısında tüm yetkiler otomatik geri alınır.",
-    "amnestyBoxText": "Otomatik Af: Son cezanızdan itibaren 30 gün boyunca kural ihlali yapmadığınız takdirde tüm ceza puanlarınız sistem tarafından otomatik silinir."
+    "amnestyBoxText": "Otomatik Af: Son cezanızdan itibaren 30 gün boyunca kural ihlali yapmadığınız takdirde tüm ceza puanlarınız sistem tarafından otomatik silinir.",
+    "badgePiyadeClan": "Piyade Klanı",
+    "badgeOtherClan": "Diğer Klan Üyesi",
+    "clanLabel": "Klan",
+    "labelRegistrationType": "Kayıt Türü",
+    "labelClan": "Klan Adı"
   },
   "tryout": {
     "pageTitle": "Tryout Tablosu — Piyade Team | TSB",
@@ -234,7 +265,8 @@
     "infoItem1": "Takviye çağrısı doğrudan <#1559928245598560336> bildirim kanalına iletilir.",
     "infoItem2": "Bildirim kartına sizin Roblox Profil Linkiniz eklenir; klan üyeleri tek tıkla profilinize tıklayıp oyun sunucunuza katılabilirler.",
     "infoItem3": "Gereksiz çağrı ve spam yapılmasını önlemek adına 5 dakikalık bekleme süresi ve kural yaptırımları uygulanır.",
-    "msgCallSuccess": "Acil takviye çağrınız başarıyla gönderildi!"
+    "msgCallSuccess": "Acil takviye çağrınız başarıyla gönderildi!",
+    "errOtherClanHelpDisabled": "Diğer klan üyeleri için acil takviye çağrısı şu anda kapalıdır. Bu özellik yalnızca Piyade Klanı üyelerine açıktır."
   },
   "interactive": {
     "pageTitle": "Atış Poligonu & Dilek Gökyüzü — Piyade Clan | TSB",
@@ -327,7 +359,9 @@
     "colAuthLevel": "Yetki Seviyesi",
     "colActions": "İşlemler",
     "btnDetail": "Detay / Sicil",
-    "btnWarn": "Ceza Ver"
+    "btnWarn": "Ceza Ver",
+    "labelRegistrationType": "Kayıt Türü",
+    "labelClanName": "Klan Adı"
   },
   "adminWarn": {
     "pageTitle": "Uyarı Ver — Yönetim Paneli",

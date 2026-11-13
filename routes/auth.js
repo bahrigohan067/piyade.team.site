@@ -69,6 +69,9 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
     let roles = [];
     let level = 'none';
     let highestRolePosition = 0;
+    let registered = undefined;
+    let registrationType = null;
+    let clan = null;
     let inGuild = false;
     let displayName = discordUser.global_name || discordUser.username;
 
@@ -78,6 +81,11 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
       level = memberRoleData.level || 'unregistered';
       highestRolePosition = memberRoleData.highestRolePosition || 0;
       displayName = memberRoleData.displayName || displayName;
+      if (typeof memberRoleData.registered === 'boolean') {
+        registered = memberRoleData.registered;
+      }
+      registrationType = memberRoleData.registrationType || null;
+      clan = memberRoleData.clan || null;
       inGuild = true;
     } catch (roleErr) {
       if (roleErr.statusCode === 404) {
@@ -97,6 +105,9 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
       roles,
       level,
       highestRolePosition,
+      registered,
+      registrationType,
+      clan,
       inGuild,
       rolesSyncedAt: Date.now(),
     };

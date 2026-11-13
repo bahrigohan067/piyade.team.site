@@ -182,6 +182,7 @@ function buildPageSeo(req, overrides = {}) {
     ogImageUrl: `${baseUrl}${brandConfig.ASSETS.ogImage}`,
     logoUrl: `${baseUrl}${brandConfig.ASSETS.icon512}`,
     noindex,
+    keepCanonical: Boolean(overrides.keepCanonical),
     isPublic: isPublic && !noindex,
     googleSiteVerification: getGoogleSiteVerification(),
     sameAs: getSocialLinks(),

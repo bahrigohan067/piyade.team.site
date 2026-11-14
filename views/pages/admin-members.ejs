@@ -11,7 +11,7 @@
       <%= t('adminMembers.subheading') %>
     </p>
   </div>
-  <% if (selectedMember) { %>
+  <% if (selectedMember || (typeof botInternalError !== 'undefined' && botInternalError && botInternalError.mode === 'detail')) { %>
     <div>
       <a href="/yonetim/uyeler" class="btn btn-secondary">
         <span><%= t('adminMembers.btnBackToList') %></span>
@@ -367,8 +367,28 @@
     </form>
   </div>
 
-  <!-- Arama Sonuçları Listesi -->
-  <% if (!members || members.length === 0) { %>
+  <!-- Arama Sonuçları Listesi veya Geçici Bot Hatası Uyarı Kartı -->
+  <% if (typeof botInternalError !== 'undefined' && botInternalError) { %>
+    <div class="glass-card admin-members-error-card" role="alert">
+      <div class="admin-members-error-icon" aria-hidden="true">⚠️</div>
+      <p class="admin-members-error-desc">
+        <%= botInternalError.mode === 'detail' ? t('adminMembers.botErrorDetailMsg') : t('adminMembers.botErrorListMsg') %>
+      </p>
+      <div class="admin-members-error-meta">
+        <span><%= t('adminMembers.errorCodeLabel') %> <code class="admin-members-error-code"><%= botInternalError.errorCode %></code></span>
+      </div>
+      <div class="admin-members-error-actions">
+        <a href="<%= botInternalError.retryUrl %>" class="btn btn-primary">
+          <span>🔄 <%= t('adminMembers.btnRetry') %></span>
+        </a>
+        <% if (botInternalError.mode === 'detail') { %>
+          <a href="/yonetim/uyeler" class="btn btn-secondary">
+            <span><%= t('adminMembers.btnBackToList') %></span>
+          </a>
+        <% } %>
+      </div>
+    </div>
+  <% } else if (!members || members.length === 0) { %>
     <div class="glass-card" style="text-align: center; padding: 4rem 1.5rem;">
       <div style="width: 64px; height: 64px; border-radius: 20px; background: var(--color-primary-light); border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.25rem;">
         🔍

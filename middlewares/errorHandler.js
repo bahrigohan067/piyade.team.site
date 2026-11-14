@@ -55,12 +55,10 @@ function notFoundHandler(req, res) {
 }
 
 /**
- * Global Hata Yakalayıcı
- * - Her hatada 8 karakterli rastgele "Hata Kodu" üretir, hem sayfada gösterir hem Railway loguna yazar.
- * - Mesaj + Stack + İstek Yolunu secret/token değerlerini maskeleyerek Railway loglarına yazar.
- * - Bot REST API'sine erişilemiyorsa (isOffline = true) 500 yerine "bot-offline" sayfasını gösterir.
+ * Hata detaylarını secret/token değerlerini maskeleyerek Railway loglarına yazar
+ * ve 8 karakterli rastgele Hata Kodu döndürür.
  */
-function globalErrorHandler(err, req, res, next) {
+function logServerError(err, req) {
   const errorCode = generateErrorCode();
   const method = req ? req.method : 'GET';
   const requestPath = sanitizeLogText(req ? req.originalUrl || req.url || '/' : '/');
@@ -76,6 +74,24 @@ function globalErrorHandler(err, req, res, next) {
   console.error(`💬 Hata Mesajı : ${safeMessage}`);
   console.error(`📄 Stack İzleri:\n${safeStack}`);
   console.error('================================================================');
+
+  return {
+    errorCode,
+    safeMessage,
+    safeStack,
+    errorCategory,
+    statusCode,
+  };
+}
+
+/**
+ * Global Hata Yakalayıcı
+ * - Her hatada 8 karakterli rastgele "Hata Kodu" üretir, hem sayfada gösterir hem Railway loguna yazar.
+ * - Mesaj + Stack + İstek Yolunu secret/token değerlerini maskeleyerek Railway loglarına yazar.
+ * - Bot REST API'sine erişilemiyorsa (isOffline = true) 500 yerine "bot-offline" sayfasını gösterir.
+ */
+function globalErrorHandler(err, req, res, next) {
+  const { errorCode, safeMessage, safeStack, statusCode } = logServerError(err, req);
 
   res.locals.disableFeedbackPill = true;
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
@@ -136,6 +152,7 @@ function globalErrorHandler(err, req, res, next) {
 module.exports = {
   sanitizeLogText,
   generateErrorCode,
+  logServerError,
   notFoundHandler,
   globalErrorHandler,
 };

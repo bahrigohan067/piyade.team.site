@@ -361,7 +361,11 @@
     "btnDetail": "Detay / Sicil",
     "btnWarn": "Ceza Ver",
     "labelRegistrationType": "Kayıt Türü",
-    "labelClanName": "Klan Adı"
+    "labelClanName": "Klan Adı",
+    "botErrorListMsg": "Üye listesi şu an alınamıyor (botta geçici bir hata var). Lütfen biraz sonra tekrar dene.",
+    "botErrorDetailMsg": "Üye detayları şu an alınamıyor (botta geçici bir hata var). Lütfen biraz sonra tekrar dene.",
+    "errorCodeLabel": "Hata Kodu:",
+    "btnRetry": "Yeniden Dene"
   },
   "adminWarn": {
     "pageTitle": "Uyarı Ver — Yönetim Paneli",

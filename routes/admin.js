@@ -8,7 +8,19 @@ const { requireManagement, requireFreshManagement } = require('../middlewares/au
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
 const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
+const { logServerError } = require('../middlewares/errorHandler');
 const { MAX_EVIDENCE_BYTES, validateEvidenceImageBuffer } = require('../utils/fileValidator');
+
+/**
+ * Bot API'den dönen 5xx iç hatalarını (BOT_INTERNAL_ERROR) tespit eder.
+ * Ağ kesintisi / zaman aşımı (isOffline = true) hataları bot-offline akışında kalır.
+ */
+function isBot5xxInternalError(err) {
+  if (!err || err.isOffline) return false;
+  if (err.errorCategory === 'BOT_INTERNAL_ERROR') return true;
+  if (typeof err.statusCode === 'number' && err.statusCode >= 500 && err.statusCode < 600) return true;
+  return false;
+}
 
 /**
  * Madde 1: Kanıt görselleri diske (public/uploads) KAYDEDİLMEZ.
@@ -57,8 +69,24 @@ router.get('/uyeler', async (req, res, next) => {
       members: searchData.members || [],
       total: searchData.total || 0,
       selectedMember: null,
+      botInternalError: null,
     });
   } catch (err) {
+    if (isBot5xxInternalError(err)) {
+      const { errorCode } = logServerError(err, req);
+      return res.render('pages/admin-members', {
+        title: req.t('adminMembers.pageTitle'),
+        query,
+        members: [],
+        total: 0,
+        selectedMember: null,
+        botInternalError: {
+          mode: 'list',
+          errorCode,
+          retryUrl: req.originalUrl || '/yonetim/uyeler',
+        },
+      });
+    }
     return next(err);
   }
 });
@@ -89,8 +117,25 @@ router.get('/uyeler/:id', async (req, res, next) => {
       members: [],
       total: 0,
       selectedMember: memberDetail,
+      botInternalError: null,
     });
   } catch (err) {
+    if (isBot5xxInternalError(err)) {
+      const { errorCode } = logServerError(err, req);
+      return res.render('pages/admin-members', {
+        title: `${targetId} ${req.t('adminMembers.detailPageTitleSuffix')}`,
+        query: '',
+        members: [],
+        total: 0,
+        selectedMember: null,
+        botInternalError: {
+          mode: 'detail',
+          targetId,
+          errorCode,
+          retryUrl: req.originalUrl || `/yonetim/uyeler/${encodeURIComponent(targetId)}`,
+        },
+      });
+    }
     return next(err);
   }
 });

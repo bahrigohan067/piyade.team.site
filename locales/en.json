@@ -361,7 +361,11 @@
     "btnDetail": "Details / Record",
     "btnWarn": "Warn",
     "labelRegistrationType": "Registration Type",
-    "labelClanName": "Clan Name"
+    "labelClanName": "Clan Name",
+    "botErrorListMsg": "Member list is currently unavailable (temporary error on the bot). Please try again in a moment.",
+    "botErrorDetailMsg": "Member details are currently unavailable (temporary error on the bot). Please try again in a moment.",
+    "errorCodeLabel": "Error Code:",
+    "btnRetry": "Try Again"
   },
   "adminWarn": {
     "pageTitle": "Issue Warning — Staff Panel",

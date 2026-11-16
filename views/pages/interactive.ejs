@@ -139,26 +139,9 @@
     data-meteors-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.meteors) : '{}' %>"
   >
     <div class="meteors-overlay">
-      <h2 class="meteors-title"><%= t('home.meteorsTitle') %></h2>
-      <p class="meteors-subtitle"><%= t('home.meteorsSubtitle') %></p>
+      <h2 class="meteors-title"><%= t('interactive.meteorsTitle') %></h2>
+      <p class="meteors-subtitle"><%= t('interactive.meteorsSubtitle') %></p>
     </div>
-  </div>
-</section>
-
-<!-- ==============================================================================
- * BÖLÜM 3: SCROLL REVEAL TEXT (AŞAĞI KAYDIRINCA NETLEŞEN METİN)
- * ============================================================================== -->
-<section class="scroll-reveal-section">
-  <div style="margin-bottom: 1.5rem;">
-    <span class="badge badge-purple"><%= t('interactive.manifestoBadge') %></span>
-  </div>
-
-  <div class="scroll-reveal-line"><%= t('home.manifestoLine1') %></div>
-  <div class="scroll-reveal-line"><%= t('home.manifestoLine2') %></div>
-  <div class="scroll-reveal-line gradient-text text-glow-purple"><%= t('home.manifestoLine3') %></div>
-
-  <div class="interactive-manifesto-hint">
-    <%= t('interactive.manifestoHint') %>
   </div>
 </section>
 

@@ -22,14 +22,21 @@
 
 <!-- MOD 1: TEKİL ÜYE DETAY KARTLARI (selectedMember VARSA) -->
 <% if (selectedMember) { %>
+  <%
+    const detailDiscord = selectedMember.discord || {};
+    const detailReg = selectedMember.registration || null;
+    const isDetailRegActive = Boolean(detailReg && detailReg.registered && (detailReg.realName || detailReg.robloxUsername || detailReg.robloxId));
+    const detailWarnStats = (selectedMember.warnings && selectedMember.warnings.stats) ? selectedMember.warnings.stats : { points: 0, tier: 0 };
+    const detailWarnHistory = (selectedMember.warnings && Array.isArray(selectedMember.warnings.history)) ? selectedMember.warnings.history : [];
+  %>
   <!-- Üst Profil Özeti (Obsidian Glass Banner) -->
-  <div class="glass-card" style="margin-bottom: 2rem; padding: 2rem; border-color: rgba(255, 255, 255, 0.1);">
+  <div class="glass-card" style="margin-bottom: 2rem; padding: 2rem; border-color: var(--border-color);">
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
       <div style="display: flex; align-items: center; gap: 1.25rem;">
         <div style="position: relative;">
           <img
-            src="<%= selectedMember.discord.avatarUrl %>"
-            alt="<%= selectedMember.discord.displayName %>"
+            src="<%= detailDiscord.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+            alt="<%= detailDiscord.displayName || detailDiscord.username || '-' %>"
             width="82"
             height="82"
             loading="lazy"
@@ -40,35 +47,27 @@
         </div>
         <div>
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap;">
-            <h2 style="font-size: 1.75rem; margin: 0; color: var(--text-primary);"><%= selectedMember.discord.displayName %></h2>
-            <% if (selectedMember.discord.level === 'developer') { %>
+            <h2 style="font-size: 1.75rem; margin: 0; color: var(--text-primary);"><%= detailDiscord.displayName || detailDiscord.username || '-' %></h2>
+            <% if (detailDiscord.level === 'developer') { %>
               <span class="badge badge-danger"><%= t('profile.roleDeveloper') %></span>
-            <% } else if (selectedMember.discord.level === 'yonetmenlik') { %>
+            <% } else if (detailDiscord.level === 'yonetmenlik') { %>
               <span class="badge badge-warning"><%= t('profile.roleManagement') %></span>
             <% } else { %>
               <span class="badge badge-success"><%= t('nav.roleMember') %></span>
             <% } %>
-            <% if (selectedMember.registration && selectedMember.registration.type === 'other') { %>
-              <span class="badge badge-purple"><%= t('profile.badgeOtherClan') %></span>
-              <% if (selectedMember.registration.clan) { %>
-                <span class="badge badge-neutral"><%= t('profile.clanLabel') %>: <%= selectedMember.registration.clan %></span>
-              <% } %>
-            <% } else if (selectedMember.registration && selectedMember.registration.type === 'own') { %>
-              <span class="badge badge-primary"><%= t('profile.badgePiyadeClan') %></span>
-            <% } %>
           </div>
           <p style="margin: 0; font-size: 0.875rem; color: var(--text-muted);">
-            @<%= selectedMember.discord.username %> • Discord ID: <code><%= selectedMember.discord.id %></code>
+            @<%= detailDiscord.username || '-' %> • Discord ID: <code><%= detailDiscord.id || '-' %></code>
           </p>
         </div>
       </div>
 
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="/yonetim/uyari?targetUserId=<%= selectedMember.discord.id %>" class="btn btn-danger">
+        <a href="/yonetim/uyari?targetUserId=<%= detailDiscord.id %>" class="btn btn-danger">
           <span><%= t('adminMembers.btnWarnMember') %></span>
         </a>
-        <% if (selectedMember.registration && selectedMember.registration.robloxProfileUrl) { %>
-          <a href="<%= selectedMember.registration.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
+        <% if (detailReg && detailReg.robloxProfileUrl) { %>
+          <a href="<%= detailReg.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
             <span><%= t('adminMembers.btnRobloxProfile') %></span>
           </a>
         <% } %>
@@ -76,44 +75,18 @@
     </div>
   </div>
 
-  <!-- Hızlı İstatistik Sayaçları -->
-  <div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('adminMembers.statTryout') %></span>
-        <span style="font-size: 1.2rem;">🏆</span>
-      </div>
-      <div class="stat-value" style="color: var(--color-info); font-size: 1.4rem;">
-        <%= selectedMember.tryout?.current?.roleName || t('adminMembers.none') %>
-      </div>
-      <div class="stat-desc">
-        <%= t('profile.tierWord') %> <%= selectedMember.tryout?.current?.level || 0 %>/37 • <%= selectedMember.tryout?.current?.formCount || 0 %> <%= t('adminMembers.formSuffix') %>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('adminMembers.statVs') %></span>
-        <span style="font-size: 1.2rem;">⚔️</span>
-      </div>
-      <div class="stat-value" style="color: var(--color-purple-badge-text); font-size: 1.4rem;">
-        <%= selectedMember.vs?.points || 0 %> P
-      </div>
-      <div class="stat-desc">
-        <%= selectedMember.vs?.wins || 0 %>W / <%= selectedMember.vs?.losses || 0 %>L • <%= selectedMember.vs?.kills || 0 %> Kill
-      </div>
-    </div>
-
+  <!-- Hızlı Disiplin İstatistik Sayaçları -->
+  <div class="grid grid-2" style="margin-bottom: 2rem;">
     <div class="stat-card">
       <div class="stat-header">
         <span class="stat-label"><%= t('adminMembers.statPenalty') %></span>
         <span style="font-size: 1.2rem;">⚖️</span>
       </div>
-      <div class="stat-value" style="color: <%= (selectedMember.warnings?.stats?.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.4rem;">
-        <%= selectedMember.warnings?.stats?.points || 0 %> <%= t('profile.pointsWord') %>
+      <div class="stat-value" style="color: <%= (detailWarnStats.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.4rem;">
+        <%= detailWarnStats.points || 0 %> <%= t('profile.pointsWord') %>
       </div>
       <div class="stat-desc">
-        <%= selectedMember.warnings?.stats?.tier ? t('profile.warningTierPrefix') + selectedMember.warnings.stats.tier : t('adminMembers.clean') %>
+        <%= detailWarnStats.tier ? t('profile.warningTierPrefix') + detailWarnStats.tier : t('adminMembers.clean') %>
       </div>
     </div>
 
@@ -143,18 +116,18 @@
         <div style="margin-bottom: 1.25rem;">
           <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminMembers.labelJoinedAt') %></span>
           <div style="font-weight: 600; color: var(--text-primary); font-size: 0.95rem; margin-top: 2px;">
-            <%= selectedMember.discord.joinedAt ? new Date(selectedMember.discord.joinedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
+            <%= detailDiscord.joinedAt ? new Date(detailDiscord.joinedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
           </div>
         </div>
 
         <div>
           <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 8px; font-weight: 700;"><%= t('adminMembers.labelRoles') %></span>
           <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <% if (selectedMember.discord.roles && selectedMember.discord.roles.length > 0) { %>
-              <% selectedMember.discord.roles.forEach(function(r) { %>
+            <% if (detailDiscord.roles && detailDiscord.roles.length > 0) { %>
+              <% detailDiscord.roles.forEach(function(r) { %>
                 <span class="badge" style="background: var(--bg-subtle-hover); border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.8rem; padding: 4px 10px;">
                   <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); display: inline-block; margin-right: 4px;"></span>
-                  <%= r.name %>
+                  <%= r.name || r.id || r %>
                 </span>
               <% }); %>
             <% } else { %>
@@ -165,53 +138,39 @@
       </div>
     </div>
 
-    <!-- 2. Roblox ve Kayıt Kartı -->
+    <!-- 2. Kayıt Bilgisi Kartı -->
     <div class="glass-card">
       <div class="card-header">
-        <h3 class="card-title"><span>🟥</span> <%= t('adminMembers.cardRobloxTitle') %></h3>
-        <% if (selectedMember.registration && selectedMember.registration.registered) { %>
+        <h3 class="card-title"><span>📋</span> <%= t('adminMembers.cardRegistrationTitle') %></h3>
+        <% if (isDetailRegActive) { %>
           <span class="badge badge-success"><%= t('register.registeredStatus') %></span>
         <% } else { %>
-          <span class="badge badge-warning"><%= t('profile.badgeUnregistered') %></span>
+          <span class="badge badge-neutral"><%= t('profile.badgeUnregistered') %></span>
         <% } %>
       </div>
       <div>
-        <% if (selectedMember.registration && selectedMember.registration.registered) { %>
+        <% if (isDetailRegActive) { %>
           <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <% if (selectedMember.registration.type === 'other' || selectedMember.registration.type === 'own') { %>
-              <div>
-                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminMembers.labelRegistrationType') %></span>
-                <div style="margin-top: 4px;">
-                  <% if (selectedMember.registration.type === 'other') { %>
-                    <span class="badge badge-purple"><%= t('profile.badgeOtherClan') %></span>
-                  <% } else { %>
-                    <span class="badge badge-primary"><%= t('profile.badgePiyadeClan') %></span>
-                  <% } %>
-                </div>
-              </div>
-              <% if (selectedMember.registration.type === 'other' && selectedMember.registration.clan) { %>
-                <div>
-                  <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminMembers.labelClanName') %></span>
-                  <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= selectedMember.registration.clan %></div>
-                </div>
-              <% } %>
-            <% } %>
             <div>
               <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRealName') %></span>
-              <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= selectedMember.registration.realName || '-' %></div>
+              <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= detailReg.realName || '-' %></div>
             </div>
             <div>
               <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelGender') %></span>
-              <div style="font-weight: 600; color: var(--text-primary);"><%= selectedMember.registration.gender || '-' %></div>
+              <div style="font-weight: 600; color: var(--text-primary);"><%= detailReg.gender || '-' %></div>
             </div>
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxUser') %></span>
-              <div style="font-weight: 700; color: var(--color-info); font-size: 1.05rem;">@<%= selectedMember.registration.robloxUsername || '-' %></div>
-            </div>
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxId') %></span>
-              <div><code><%= selectedMember.registration.robloxId || '-' %></code></div>
-            </div>
+            <% if (detailReg.robloxUsername) { %>
+              <div>
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxUser') %></span>
+                <div style="font-weight: 700; color: var(--color-info); font-size: 1.05rem;">@<%= detailReg.robloxUsername %></div>
+              </div>
+            <% } %>
+            <% if (detailReg.robloxId) { %>
+              <div>
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxId') %></span>
+                <div><code><%= detailReg.robloxId %></code></div>
+              </div>
+            <% } %>
           </div>
         <% } else { %>
           <p style="color: var(--text-muted); font-size: 0.925rem;"><%= t('adminMembers.unregisteredMemberMsg') %></p>
@@ -226,11 +185,11 @@
     <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
       <h3 class="card-title" style="margin: 0;"><span>⚖️</span> <%= t('adminMembers.cardHistoryTitle') %></h3>
       <span class="badge badge-primary">
-        <%= t('adminMembers.totalRecordsPrefix') %> <%= (selectedMember.warnings?.history || []).length %> <%= t('adminMembers.totalRecordsSuffix') %>
+        <%= t('adminMembers.totalRecordsPrefix') %> <%= detailWarnHistory.length %> <%= t('adminMembers.totalRecordsSuffix') %>
       </span>
     </div>
     <div>
-      <% if (!selectedMember.warnings?.history || selectedMember.warnings.history.length === 0) { %>
+      <% if (detailWarnHistory.length === 0) { %>
         <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;"><%= t('adminMembers.emptyHistoryMsg') %></p>
       <% } else { %>
         <div class="table-responsive">
@@ -247,7 +206,7 @@
               </tr>
             </thead>
             <tbody>
-              <% selectedMember.warnings.history.forEach(function(w) { %>
+              <% detailWarnHistory.forEach(function(w) { %>
                 <tr>
                   <td><code>#<%= w.id %></code></td>
                   <td style="font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;">
@@ -281,56 +240,6 @@
                       </a>
                     <% } else { %>
                       <span style="color: var(--text-muted); font-size: 0.8rem;"><%= t('adminMembers.none') %></span>
-                    <% } %>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-    </div>
-  </div>
-
-  <!-- 4. Tryout Değerlendirme Form Geçmişi -->
-  <div class="glass-card" style="padding: 0; overflow: hidden;">
-    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-      <h3 class="card-title" style="margin: 0;"><span>📋</span> <%= t('adminMembers.cardTryoutFormsTitle') %></h3>
-      <span class="badge badge-primary">
-        <%= (selectedMember.tryout?.forms || []).length %> <%= t('adminMembers.formSuffix') %>
-      </span>
-    </div>
-    <div>
-      <% if (!selectedMember.tryout?.forms || selectedMember.tryout.forms.length === 0) { %>
-        <p style="color: var(--text-muted); margin: 0; padding: 2rem 1.5rem;"><%= t('adminMembers.emptyFormsMsg') %></p>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table">
-            <thead>
-              <tr>
-                <th><%= t('adminMembers.colFormCode') %></th>
-                <th><%= t('adminMembers.colDate') %></th>
-                <th><%= t('adminMembers.colPrevLevel') %></th>
-                <th><%= t('adminMembers.colNewLevel') %></th>
-                <th><%= t('adminMembers.colEvaluator') %></th>
-                <th><%= t('adminMembers.colStatus') %></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% selectedMember.tryout.forms.forEach(function(f) { %>
-                <tr>
-                  <td><code><%= f.formCode %></code></td>
-                  <td style="font-size: 0.85rem; color: var(--text-muted);">
-                    <%= f.createdAt ? new Date(f.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-' %>
-                  </td>
-                  <td><%= f.previousLevel %></td>
-                  <td><strong style="color: var(--color-info);"><%= f.newLevel %></strong></td>
-                  <td style="font-size: 0.85rem; color: var(--text-secondary);">ID: <%= f.staffId %></td>
-                  <td>
-                    <% if (f.cancelled) { %>
-                      <span class="badge badge-danger"><%= t('adminMembers.statusCancelled') %></span>
-                    <% } else { %>
-                      <span class="badge badge-success"><%= t('adminMembers.statusValid') %></span>
                     <% } %>
                   </td>
                 </tr>
@@ -405,7 +314,7 @@
           <thead>
             <tr>
               <th><%= t('adminMembers.colMember') %></th>
-              <th><%= t('adminMembers.colRobloxAccount') %></th>
+              <th><%= t('adminMembers.colRegistration') %></th>
               <th><%= t('adminMembers.colAuthLevel') %></th>
               <th><%= t('adminMembers.statPenalty') %></th>
               <th style="text-align: right;"><%= t('adminMembers.colActions') %></th>
@@ -432,20 +341,12 @@
                   </div>
                 </td>
                 <td>
-                  <% if (m.registration && m.registration.registered) { %>
-                    <strong style="color: var(--color-info); font-size: 0.9rem;">@<%= m.registration.robloxUsername %></strong>
-                    <div style="font-size: 0.775rem; color: var(--text-muted);"><%= m.registration.realName %></div>
-                    <% if (m.registration.type === 'other') { %>
-                      <div style="margin-top: 4px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                        <span class="badge badge-purple" style="font-size: 0.7rem; padding: 2px 6px;"><%= t('profile.badgeOtherClan') %></span>
-                        <% if (m.registration.clan) { %>
-                          <span class="badge badge-neutral" style="font-size: 0.7rem; padding: 2px 6px;"><%= t('profile.clanLabel') %>: <%= m.registration.clan %></span>
-                        <% } %>
-                      </div>
-                    <% } else if (m.registration.type === 'own') { %>
-                      <div style="margin-top: 4px;">
-                        <span class="badge badge-primary" style="font-size: 0.7rem; padding: 2px 6px;"><%= t('profile.badgePiyadeClan') %></span>
-                      </div>
+                  <% if (m.registration && m.registration.registered && (m.registration.robloxUsername || m.registration.realName)) { %>
+                    <% if (m.registration.robloxUsername) { %>
+                      <strong style="color: var(--color-info); font-size: 0.9rem;">@<%= m.registration.robloxUsername %></strong>
+                    <% } %>
+                    <% if (m.registration.realName) { %>
+                      <div style="font-size: 0.775rem; color: var(--text-muted);"><%= m.registration.realName %></div>
                     <% } %>
                   <% } else { %>
                     <span style="color: var(--text-muted); font-size: 0.85rem;"><%= t('profile.badgeUnregistered') %></span>

@@ -1,13 +1,32 @@
 <%- include('../layouts/header') %>
 
+<%
+  const safeDiscord = (typeof profile !== 'undefined' && profile && profile.discord && typeof profile.discord === 'object')
+    ? profile.discord
+    : {
+        id: (currentUser && currentUser.id) || '-',
+        username: (currentUser && currentUser.username) || '-',
+        displayName: (currentUser && currentUser.displayName) || '-',
+        avatarUrl: (currentUser && currentUser.avatarUrl) || 'https://cdn.discordapp.com/embed/avatars/0.png',
+        level: (currentUser && currentUser.level) || 'registered',
+      };
+  const safeReg = (typeof profile !== 'undefined' && profile && profile.registration && typeof profile.registration === 'object')
+    ? profile.registration
+    : null;
+  const isRegActive = Boolean(safeReg && safeReg.registered && (safeReg.realName || safeReg.robloxUsername || safeReg.robloxId));
+  const safeWarn = (typeof profile !== 'undefined' && profile && profile.warnings && typeof profile.warnings === 'object')
+    ? profile.warnings
+    : { points: 0, tier: 0, staffWarnings: 0 };
+%>
+
 <!-- Üst Profil Özeti (Obsidian Glass Banner) -->
 <div class="glass-card" style="margin-bottom: 2rem; padding: 2rem; border-color: var(--border-color);">
   <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
     <div style="display: flex; align-items: center; gap: 1.25rem;">
       <div style="position: relative;">
         <img
-          src="<%= profile.discord.avatarUrl %>"
-          alt="<%= profile.discord.displayName %>"
+          src="<%= safeDiscord.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png' %>"
+          alt="<%= safeDiscord.displayName %>"
           width="86"
           height="86"
           loading="lazy"
@@ -18,33 +37,24 @@
       </div>
       <div>
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap;">
-          <h1 style="font-size: 1.85rem; margin: 0; color: var(--text-primary);"><%= profile.discord.displayName %></h1>
-          <% if (profile.discord.level === 'developer') { %>
+          <h1 style="font-size: 1.85rem; margin: 0; color: var(--text-primary);"><%= safeDiscord.displayName %></h1>
+          <% if (safeDiscord.level === 'developer') { %>
             <span class="badge badge-danger"><%= t('profile.roleDeveloper') %></span>
-          <% } else if (profile.discord.level === 'yonetmenlik') { %>
+          <% } else if (safeDiscord.level === 'yonetmenlik') { %>
             <span class="badge badge-warning"><%= t('profile.roleManagement') %></span>
           <% } else { %>
             <span class="badge badge-success"><%= t('profile.roleMember') %></span>
           <% } %>
-
-          <% if (profile.registration && profile.registration.type === 'other') { %>
-            <span class="badge badge-purple profile-clan-badge"><%= t('profile.badgeOtherClan') %></span>
-            <% if (profile.registration.clan) { %>
-              <span class="badge badge-neutral profile-clan-name-badge"><%= t('profile.clanLabel') %>: <%= profile.registration.clan %></span>
-            <% } %>
-          <% } else if (profile.registration && profile.registration.type === 'own') { %>
-            <span class="badge badge-primary profile-clan-badge"><%= t('profile.badgePiyadeClan') %></span>
-          <% } %>
         </div>
         <p style="margin: 0; font-size: 0.875rem; color: var(--text-muted);">
-          @<%= profile.discord.username %> • Discord ID: <code><%= profile.discord.id %></code>
+          @<%= safeDiscord.username %> • Discord ID: <code><%= safeDiscord.id %></code>
         </p>
       </div>
     </div>
 
     <div>
-      <% if (profile.registration && profile.registration.robloxProfileUrl) { %>
-        <a href="<%= profile.registration.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
+      <% if (safeReg && safeReg.robloxProfileUrl) { %>
+        <a href="<%= safeReg.robloxProfileUrl %>" target="_blank" rel="noopener" class="btn btn-secondary">
           <span><%= t('profile.btnOpenRoblox') %></span>
         </a>
       <% } %>
@@ -52,129 +62,56 @@
   </div>
 </div>
 
-<!-- 4 Ana İstatistik Kartı -->
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-  
-  <div class="stat-card">
-    <div class="stat-header">
-      <span class="stat-label"><%= t('profile.statTryoutLabel') %></span>
-      <span style="font-size: 1.2rem;">🏆</span>
-    </div>
-    <div class="stat-value" style="color: var(--color-info); font-size: 1.45rem;">
-      <%= profile.tryout?.roleName || t('profile.noLevel') %>
-    </div>
-    <div class="stat-desc">
-      <%= t('profile.tierWord') %> <%= profile.tryout?.level || 0 %>/37 • <%= profile.tryout?.formCount || 0 %> <%= t('profile.evalCountSuffix') %>
-    </div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-header">
-      <span class="stat-label"><%= t('profile.statVsLabel') %></span>
-      <span style="font-size: 1.2rem;">⚔️</span>
-    </div>
-    <div class="stat-value" style="color: var(--color-purple-badge-text); font-size: 1.45rem;">
-      <%= profile.vs?.points || 0 %> <%= t('profile.pointsWord') %>
-    </div>
-    <div class="stat-desc">
-      <%= profile.vs?.wins || 0 %> <%= t('profile.winsWord') %> / <%= profile.vs?.losses || 0 %> <%= t('profile.lossesWord') %>
-    </div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-header">
-      <span class="stat-label"><%= t('profile.statKillsLabel') %></span>
-      <span style="font-size: 1.2rem;">💀</span>
-    </div>
-    <div class="stat-value" style="color: var(--text-primary); font-size: 1.45rem;">
-      <%= profile.vs?.kills || 0 %>
-    </div>
-    <div class="stat-desc">
-      <%= t('profile.statKillsDesc') %>
-    </div>
-  </div>
-
-  <div class="stat-card">
-    <div class="stat-header">
-      <span class="stat-label"><%= t('profile.statPenaltyLabel') %></span>
-      <span style="font-size: 1.2rem;">⚖️</span>
-    </div>
-    <div class="stat-value" style="color: <%= (profile.warnings?.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>; font-size: 1.45rem;">
-      <%= profile.warnings?.points || 0 %> / 15
-    </div>
-    <div class="stat-desc">
-      <%= profile.warnings?.tier ? t('profile.warningTierPrefix') + profile.warnings.tier : t('profile.cleanRecord') %>
-    </div>
-    <!-- Jail Risk Çubuğu -->
-    <% const riskPct = Math.min(100, Math.round(((profile.warnings?.points || 0) / 15) * 100)); %>
-    <div class="progress-bar-track">
-      <div class="progress-bar-fill" style="width: <%= riskPct %>%; background: <%= riskPct > 60 ? 'var(--color-danger)' : (riskPct > 0 ? 'var(--color-warning)' : 'var(--color-success)') %>;"></div>
-    </div>
-  </div>
-
-</div>
-
 <!-- Detay Kartları Izgarası -->
 <div class="grid grid-2">
   
-  <!-- 1. Roblox & Kayıt Bilgileri Kartı -->
+  <!-- 1. Kayıt Bilgileri Kartı -->
   <div class="glass-card">
     <div class="card-header">
-      <h3 class="card-title"><span>🟥</span> <%= t('profile.cardRobloxTitle') %></h3>
-      <% if (profile.registration && profile.registration.registered) { %>
+      <h3 class="card-title"><span>📋</span> <%= t('profile.cardRegistrationTitle') %></h3>
+      <% if (isRegActive) { %>
         <span class="badge badge-success"><%= t('profile.badgeApproved') %></span>
       <% } else { %>
-        <span class="badge badge-warning"><%= t('profile.badgeUnregistered') %></span>
+        <span class="badge badge-neutral"><%= t('profile.badgeUnregistered') %></span>
       <% } %>
     </div>
     <div>
-      <% if (profile.registration && profile.registration.registered) { %>
+      <% if (isRegActive) { %>
         <div style="display: flex; flex-direction: column; gap: 1rem;">
-          <% if (profile.registration.type === 'other' || profile.registration.type === 'own') { %>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRealName') %></span>
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= safeReg.realName || t('register.notSpecified') %></div>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelGender') %></span>
+            <div style="font-weight: 600; color: var(--text-primary);"><%= safeReg.gender || t('register.notSpecified') %></div>
+          </div>
+          <% if (safeReg.robloxUsername) { %>
             <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRegistrationType') %></span>
-              <div style="margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <% if (profile.registration.type === 'other') { %>
-                  <span class="badge badge-purple"><%= t('profile.badgeOtherClan') %></span>
-                  <% if (profile.registration.clan) { %>
-                    <span style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;"><%= t('profile.clanLabel') %>: <%= profile.registration.clan %></span>
-                  <% } %>
-                <% } else { %>
-                  <span class="badge badge-primary"><%= t('profile.badgePiyadeClan') %></span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxUser') %></span>
+              <div style="font-weight: 700; color: var(--color-info); font-size: 1.05rem;">
+                @<%= safeReg.robloxUsername %>
+                <% if (safeReg.robloxDisplayName) { %>
+                  <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(<%= safeReg.robloxDisplayName %>)</span>
                 <% } %>
               </div>
             </div>
           <% } %>
-          <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRealName') %></span>
-            <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= profile.registration.realName || t('register.notSpecified') %></div>
-          </div>
-          <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelGender') %></span>
-            <div style="font-weight: 600; color: var(--text-primary);"><%= profile.registration.gender || t('register.notSpecified') %></div>
-          </div>
-          <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxUser') %></span>
-            <div style="font-weight: 700; color: var(--color-info); font-size: 1.05rem;">
-              @<%= profile.registration.robloxUsername || t('profile.notFound') %>
-              <% if (profile.registration.robloxDisplayName) { %>
-                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(<%= profile.registration.robloxDisplayName %>)</span>
-              <% } %>
+          <% if (safeReg.robloxId) { %>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxId') %></span>
+              <div><code><%= safeReg.robloxId %></code></div>
             </div>
-          </div>
-          <div>
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRobloxId') %></span>
-            <div><code><%= profile.registration.robloxId || '-' %></code></div>
-          </div>
-          <% if (profile.registration.registeredAt) { %>
+          <% } %>
+          <% if (safeReg.registeredAt) { %>
             <div>
               <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRegDate') %></span>
-              <div style="font-size: 0.875rem; color: var(--text-secondary);"><%= new Date(profile.registration.registeredAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') %></div>
+              <div style="font-size: 0.875rem; color: var(--text-secondary);"><%= new Date(safeReg.registeredAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') %></div>
             </div>
           <% } %>
         </div>
       <% } else { %>
-        <p style="color: var(--text-secondary); margin-bottom: 1rem;"><%= t('profile.unregisteredMsg') %></p>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;"><%= t('profile.noRegistrationInfo') %></p>
         <a href="/kayit" class="btn btn-primary btn-sm"><%= t('profile.btnRegister') %></a>
       <% } %>
     </div>
@@ -184,36 +121,40 @@
   <div class="glass-card">
     <div class="card-header">
       <h3 class="card-title"><span>⚖️</span> <%= t('profile.cardDisciplineTitle') %></h3>
-      <% if (profile.warnings?.suspendedUntil && profile.warnings.suspendedUntil > Date.now()) { %>
+      <% if (safeWarn.suspendedUntil && safeWarn.suspendedUntil > Date.now()) { %>
         <span class="badge badge-danger"><%= t('profile.badgeSuspended') %></span>
-      <% } else if ((profile.warnings?.points || 0) === 0) { %>
+      <% } else if ((safeWarn.points || 0) === 0) { %>
         <span class="badge badge-success"><%= t('profile.cleanRecord') %></span>
       <% } else { %>
-        <span class="badge badge-warning"><%= profile.warnings?.points || 0 %> <%= t('profile.penaltyPointsSuffix') %></span>
+        <span class="badge badge-warning"><%= safeWarn.points || 0 %> <%= t('profile.penaltyPointsSuffix') %></span>
       <% } %>
     </div>
     <div>
       <div style="display: flex; flex-direction: column; gap: 1rem;">
         <div>
           <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelTotalPenalty') %></span>
-          <div style="font-weight: 800; font-size: 1.35rem; color: <%= (profile.warnings?.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>;">
-            <%= profile.warnings?.points || 0 %> / 15 <%= t('profile.pointsWord') %>
+          <div style="font-weight: 800; font-size: 1.35rem; color: <%= (safeWarn.points || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)' %>;">
+            <%= safeWarn.points || 0 %> / 15 <%= t('profile.pointsWord') %>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;"><%= t('profile.jailThresholdNote') %></div>
+          <% const riskPct = Math.min(100, Math.round(((safeWarn.points || 0) / 15) * 100)); %>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width: <%= riskPct %>%; background: <%= riskPct > 60 ? 'var(--color-danger)' : (riskPct > 0 ? 'var(--color-warning)' : 'var(--color-success)') %>;"></div>
+          </div>
         </div>
 
         <div>
           <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelCurrentWarnTier') %></span>
           <div style="font-weight: 600; color: var(--text-primary);">
-            <%= profile.warnings?.tier ? t('profile.warningTierPrefix') + profile.warnings.tier + t('profile.warnRoleDefinedSuffix') : t('profile.noActiveWarnRole') %>
+            <%= safeWarn.tier ? t('profile.warningTierPrefix') + safeWarn.tier + t('profile.warnRoleDefinedSuffix') : t('profile.noActiveWarnRole') %>
           </div>
         </div>
 
-        <% if (profile.discord?.level === 'yonetmenlik' || profile.discord?.level === 'developer') { %>
+        <% if (safeDiscord.level === 'yonetmenlik' || safeDiscord.level === 'developer') { %>
           <div>
             <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelStaffWarnings') %></span>
-            <div style="font-weight: 600; color: <%= (profile.warnings?.staffWarnings || 0) > 0 ? 'var(--color-danger)' : 'var(--text-primary)' %>;">
-              <%= profile.warnings?.staffWarnings || 0 %> / 4 <%= t('profile.staffWarnSuffix') %>
+            <div style="font-weight: 600; color: <%= (safeWarn.staffWarnings || 0) > 0 ? 'var(--color-danger)' : 'var(--text-primary)' %>;">
+              <%= safeWarn.staffWarnings || 0 %> / 4 <%= t('profile.staffWarnSuffix') %>
             </div>
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;"><%= t('profile.staffWarnNote') %></div>
           </div>

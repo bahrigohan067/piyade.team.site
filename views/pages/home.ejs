@@ -8,69 +8,56 @@
         logo768: '/img/brand/logo-768.webp?v=1',
         logo1024: '/img/brand/logo-1024.webp?v=1',
       };
+  const heroSiteName = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getSiteName === 'function')
+    ? brandConfig.getSiteName()
+    : ((typeof brandConfig !== 'undefined' && brandConfig && brandConfig.SITE_NAME) ? brandConfig.SITE_NAME : t('brand.name'));
+  const discordInviteUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function')
+    ? brandConfig.getDiscordInviteUrl()
+    : ((typeof brandConfig !== 'undefined' && brandConfig && brandConfig.DISCORD_INVITE_URL) ? brandConfig.DISCORD_INVITE_URL : '');
 %>
 
 <!-- ==============================================================================
- * 1. HERO TANITIM ALANI (OBSIDIAN DARK & GLOWING TYPOGRAPHY)
+ * TODO(yeni-tasarım): GEÇİCİ SADE ANASAYFA HERO ALANI
  * ============================================================================== -->
 <section class="hero-section">
-
   <div class="hero-split">
-    <!-- Sol Sütun (Mobilde Altta): Mevcut Başlık, Açıklama ve Aksiyon Butonları -->
+    <!-- Sol Sütun (Mobilde Altta): Marka Adı, Geçici Slogan ve Aksiyon Butonları -->
     <div class="hero-copy-col">
-      <!-- Üst Duyuru Rozeti (Announcement Pill) -->
-      <div class="hero-pill-wrap">
-        <div class="glass-card" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 9999px; border-color: rgba(59, 130, 246, 0.3); font-size: 0.85rem; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);">
-          <span class="status-dot-ping"></span>
-          <span style="font-weight: 700; color: #ffffff;"><%= t('home.pillTitle') %></span>
-          <span style="color: var(--text-dim);">|</span>
-          <span style="color: #60a5fa; font-weight: 600;"><%= t('home.pillSubtitle') %></span>
-        </div>
-      </div>
-
-      <!-- Hero Başlık -->
-      <div style="margin-bottom: 1.5rem;">
-        <h1 style="font-size: clamp(2.2rem, 5.2vw, 3.85rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1.25rem;">
-          <span class="gradient-text text-glow-blue"><%= t('home.heroTitleLine1') %></span> <br />
-          <%= t('home.heroTitleLine2') %> <br />
-          <%= t('home.heroTitleLine3') %>
+      <!-- TODO(yeni-tasarım): Geçici başlık ve slogan -->
+      <div style="margin-bottom: 1.75rem;">
+        <h1 style="font-size: clamp(2.4rem, 5.4vw, 4rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1.15rem;">
+          <span class="gradient-text text-glow-blue"><%= heroSiteName %></span>
         </h1>
-        <p style="font-size: clamp(1rem, 1.8vw, 1.15rem); color: var(--text-secondary); max-width: 660px; margin-bottom: 2rem; line-height: 1.7;">
+        <p style="font-size: clamp(1.05rem, 1.8vw, 1.2rem); color: var(--text-secondary); max-width: 640px; margin-bottom: 2rem; line-height: 1.7;">
           <%= t('home.heroSubtitle') %>
         </p>
       </div>
 
       <!-- Ana Aksiyon Butonları -->
       <div class="hero-actions">
-        <% if (!currentUser) { %>
-          <a href="/auth/discord" class="btn btn-discord btn-lg">
-            <span><%= t('home.btnLoginDiscord') %></span>
-          </a>
-          <a href="/kayit" class="btn btn-primary btn-lg">
-            <span><%= t('home.btnApplyClan') %></span>
-          </a>
-        <% } else if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+        <% if (currentUser && typeof isRegistered !== 'undefined' && isRegistered) { %>
           <a href="/profil" class="btn btn-primary btn-lg">
             <span><%= t('home.btnMyProfile') %></span>
-          </a>
-          <a href="/takviye" class="btn btn-danger btn-lg">
-            <span><%= t('home.btnEmergencyCall') %></span>
           </a>
         <% } else { %>
           <a href="/kayit" class="btn btn-primary btn-lg">
             <span><%= t('home.btnRegisterNow') %></span>
           </a>
         <% } %>
+
         <a href="/kurallar" class="btn btn-secondary btn-lg">
           <span><%= t('home.btnRules') %></span>
         </a>
-        <a href="/etkilesim" class="btn btn-blur btn-lg">
-          <span><%= t('home.btnInteractive') %></span>
-        </a>
+
+        <% if (discordInviteUrl) { %>
+          <a href="<%= discordInviteUrl %>" target="_blank" rel="noopener" class="btn btn-discord btn-lg">
+            <span><%= t('home.btnDiscordServer') %></span>
+          </a>
+        <% } %>
       </div>
     </div>
 
-    <!-- Sağ Sütun (Mobilde Üstte Ortada): Büyük Şeffaf Klan Logosu + Mor Parıltı -->
+    <!-- Sağ Sütun (Mobilde Üstte Ortada): Büyük Şeffaf Logo + Mor Parıltı -->
     <div class="hero-logo-col">
       <div class="hero-logo-stage">
         <div class="hero-logo-glow" aria-hidden="true"></div>
@@ -97,210 +84,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Canlı Metrik Kartları (Live Metrics Grid) -->
-  <div class="grid grid-4" style="margin-bottom: 4rem;">
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('home.statStatusLabel') %></span>
-        <span class="status-dot-success"></span>
-      </div>
-      <div class="stat-value" style="color: var(--color-success); font-size: 1.6rem;">
-        <%= t('home.statStatusValue') %>
-      </div>
-      <div class="stat-desc">
-        <%= t('home.statStatusDesc') %>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('home.statActiveLabel') %></span>
-        <span style="font-size: 1.2rem;">👥</span>
-      </div>
-      <div class="stat-value" style="color: #60a5fa; font-size: 1.6rem;">
-        <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %>
-      </div>
-      <div class="stat-desc">
-        <%= t('home.statActiveDesc') %>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('home.statTryoutLabel') %></span>
-        <span style="font-size: 1.2rem;">🏆</span>
-      </div>
-      <div class="stat-value" style="color: #c084fc; font-size: 1.6rem;">
-        <%= t('home.statTryoutValue') %>
-      </div>
-      <div class="stat-desc">
-        <%= t('home.statTryoutDesc') %>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-header">
-        <span class="stat-label"><%= t('home.statBackupLabel') %></span>
-        <span style="font-size: 1.2rem;">🚨</span>
-      </div>
-      <div class="stat-value" style="color: var(--color-warning); font-size: 1.6rem;">
-        <%= t('home.statBackupValue') %>
-      </div>
-      <div class="stat-desc">
-        <%= t('home.statBackupDesc') %>
-      </div>
-    </div>
-  </div>
-
 </section>
-
-<!-- ==============================================================================
- * 2. KLAN SÜTUNLARI VE ÖZELLİK KARTLARI
- * ============================================================================== -->
-<section style="margin-bottom: 4rem;">
-  <div style="text-align: center; margin-bottom: 2.5rem;">
-    <span class="badge badge-primary" style="margin-bottom: 0.5rem;"><%= t('home.featuresBadge') %></span>
-    <h2 style="font-size: 2rem;"><%= t('home.featuresTitle') %></h2>
-    <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto;">
-      <%= t('home.featuresSubtitle') %>
-    </p>
-  </div>
-
-  <div class="grid grid-4">
-    
-    <div class="glass-card glass-card-hover" style="display: flex; flex-direction: column; justify-content: space-between;">
-      <div>
-        <div style="font-size: 2rem; margin-bottom: 1rem;">🏆</div>
-        <h3 class="card-title" style="margin-bottom: 0.5rem;"><%= t('home.feat1Title') %></h3>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-          <%= t('home.feat1Desc') %>
-        </p>
-      </div>
-      <div style="margin-top: 1.25rem;">
-        <a href="/tryout" style="font-size: 0.85rem; font-weight: 700; color: #60a5fa;"><%= t('home.feat1Link') %></a>
-      </div>
-    </div>
-
-    <div class="glass-card glass-card-hover" style="display: flex; flex-direction: column; justify-content: space-between;">
-      <div>
-        <div style="font-size: 2rem; margin-bottom: 1rem;">⚔️</div>
-        <h3 class="card-title" style="margin-bottom: 0.5rem;"><%= t('home.feat2Title') %></h3>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-          <%= t('home.feat2Desc') %>
-        </p>
-      </div>
-      <div style="margin-top: 1.25rem;">
-        <a href="/profil" style="font-size: 0.85rem; font-weight: 700; color: #c084fc;"><%= t('home.feat2Link') %></a>
-      </div>
-    </div>
-
-    <div class="glass-card glass-card-hover" style="display: flex; flex-direction: column; justify-content: space-between;">
-      <div>
-        <div style="font-size: 2rem; margin-bottom: 1rem;">🚨</div>
-        <h3 class="card-title" style="margin-bottom: 0.5rem;"><%= t('home.feat3Title') %></h3>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-          <%= t('home.feat3Desc') %>
-        </p>
-      </div>
-      <div style="margin-top: 1.25rem;">
-        <a href="/takviye" style="font-size: 0.85rem; font-weight: 700; color: var(--color-danger);"><%= t('home.feat3Link') %></a>
-      </div>
-    </div>
-
-    <div class="glass-card glass-card-hover" style="display: flex; flex-direction: column; justify-content: space-between;">
-      <div>
-        <div style="font-size: 2rem; margin-bottom: 1rem;">🛡️</div>
-        <h3 class="card-title" style="margin-bottom: 0.5rem;"><%= t('home.feat4Title') %></h3>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
-          <%= t('home.feat4Desc') %>
-        </p>
-      </div>
-      <div style="margin-top: 1.25rem;">
-        <a href="/kurallar" style="font-size: 0.85rem; font-weight: 700; color: var(--color-success);"><%= t('home.feat4Link') %></a>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<!-- ==============================================================================
- * 2.5 SUNUCU TARAFLI KLAN TANITIM METNİ (SEO & KURUMSAL GENEL BAKIŞ — 185+ KELİME)
- * ============================================================================== -->
-<%
-  const seoIntro = (typeof seo !== 'undefined' && seo && seo.homeSeoIntro)
-    ? seo.homeSeoIntro
-    : (typeof siteConfig !== 'undefined' && siteConfig.HOME_SEO_INTRO ? siteConfig.HOME_SEO_INTRO.tr : null);
-  const homeDiscordLink = (typeof seo !== 'undefined' && seo && Array.isArray(seo.sameAs) && seo.sameAs.length > 0)
-    ? seo.sameAs[0]
-    : '/kayit';
-%>
-<% if (seoIntro) { %>
-<section aria-labelledby="homeSeoIntroHeading" style="margin-bottom: 4rem;">
-  <article class="glass-card" style="padding: 2.25rem; border-left: 4px solid var(--accent-primary);">
-    <div style="margin-bottom: 1rem;">
-      <span class="badge badge-primary"><%= seoIntro.badge %></span>
-    </div>
-    <h2 id="homeSeoIntroHeading" style="font-size: clamp(1.35rem, 2.6vw, 1.85rem); margin-bottom: 1.15rem;">
-      <%= seoIntro.heading %>
-    </h2>
-    <div style="display: flex; flex-direction: column; gap: 1rem; color: var(--text-secondary); font-size: 0.98rem; line-height: 1.75;">
-      <% seoIntro.paragraphs.forEach(function (para) { %>
-        <p style="margin: 0;"><%= para %></p>
-      <% }); %>
-    </div>
-  </article>
-</section>
-<% } %>
-
-<!-- ==============================================================================
- * 2.75 KLANIN ZİRVESİ (NEXUS UI 3D CARD CAROUSEL — HERKESE AÇIK)
- * ============================================================================== -->
-<%- include('../partials/warriors-carousel') %>
-
-<!-- ==============================================================================
- * 3. SCROLL REVEAL METNİ (KLAN MANİFESTOSU)
- * ============================================================================== -->
-<section class="scroll-reveal-section" style="padding: 4rem 1rem 5rem;">
-  <div style="margin-bottom: 1.5rem;">
-    <span class="badge badge-purple"><%= t('home.manifestoBadge') %></span>
-  </div>
-  <div class="scroll-reveal-line"><%= t('home.manifestoLine1') %></div>
-  <div class="scroll-reveal-line"><%= t('home.manifestoLine2') %></div>
-  <div class="scroll-reveal-line gradient-text text-glow-purple"><%= t('home.manifestoLine3') %></div>
-</section>
-
-<!-- ==============================================================================
- * 4. METEORS COMPONENT (DİLEK GÖKYÜZÜ — TEK CANVAS KATMANI)
- * ============================================================================== -->
-<section style="margin-bottom: 4rem;">
-  <div
-    class="meteors-container"
-    id="meteorsContainer"
-    data-meteors-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.meteors) : '{}' %>"
-  >
-    <div class="meteors-overlay">
-      <h2 class="meteors-title"><%= t('home.meteorsTitle') %></h2>
-      <p class="meteors-subtitle"><%= t('home.meteorsSubtitle') %></p>
-    </div>
-  </div>
-</section>
-
-<!-- ==============================================================================
- * 5. ALT BİLGİ & DISCORD ÇAĞRI KARTI
- * ============================================================================== -->
-<div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; border-left: 4px solid #3b82f6; background: rgba(14, 17, 26, 0.85);">
-  <div>
-    <h3 style="margin-bottom: 0.35rem; color: #ffffff;"><%= t('home.discordCtaTitle') %></h3>
-    <p style="margin: 0; font-size: 0.925rem; color: var(--text-secondary);">
-      <%= t('home.discordCtaDesc') %>
-    </p>
-  </div>
-  <div style="display: flex; gap: 1rem; align-items: center;">
-    <a href="<%= homeDiscordLink %>" <% if (homeDiscordLink.startsWith('http')) { %>target="_blank" rel="noopener"<% } %> class="btn btn-discord">
-      <span><%= t('home.discordCtaBtn') %></span>
-    </a>
-  </div>
-</div>
 
 <%- include('../layouts/footer') %>

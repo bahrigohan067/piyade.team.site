@@ -16,8 +16,13 @@
       <p style="color: var(--text-secondary); margin-bottom: 1.75rem; font-size: 0.95rem; line-height: 1.6;">
         <%= t('notRegistered.notInGuildDesc') %>
       </p>
+      <%
+        const notRegDiscordUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function' && brandConfig.getDiscordInviteUrl())
+          ? brandConfig.getDiscordInviteUrl()
+          : 'https://discord.gg';
+      %>
       <div style="margin-bottom: 1.5rem;">
-        <a href="https://discord.gg" target="_blank" rel="noopener" class="btn btn-discord">
+        <a href="<%= notRegDiscordUrl %>" target="_blank" rel="noopener" class="btn btn-discord">
           <span><%= t('notRegistered.btnJoinDiscord') %></span>
         </a>
       </div>

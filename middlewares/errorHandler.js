@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const appConfig = require('../config/app.config');
+const brandConfig = require('../config/brand.config');
 const { BotApiError } = require('../services/botApiClient');
 
 /**
@@ -48,8 +49,9 @@ function notFoundHandler(req, res) {
   }
 
   res.locals.disableFeedbackPill = true;
+  const siteName = brandConfig.getSiteName ? brandConfig.getSiteName() : 'Piyade';
   res.status(404).render('errors/404', {
-    title: req.t ? req.t('errors.404Title') : 'Sayfa Bulunamadı — Piyade Clan | TSB',
+    title: req.t ? req.t('errors.404Title') : `Sayfa Bulunamadı — ${siteName}`,
     url: req.originalUrl,
   });
 }
@@ -109,6 +111,8 @@ function globalErrorHandler(err, req, res, next) {
       (req.headers && req.headers.accept && req.headers.accept.includes('application/json')))
   );
 
+  const siteName = brandConfig.getSiteName ? brandConfig.getSiteName() : 'Piyade';
+
   // Bot API'ye ulaşılamıyorsa 500 yerine özel "bot-offline" sayfasını veya JSON yanıtı göster
   if ((err instanceof BotApiError && err.isOffline) || (err && err.isOffline)) {
     if (wantsJson) {
@@ -120,7 +124,7 @@ function globalErrorHandler(err, req, res, next) {
       });
     }
     return res.status(503).render('errors/bot-offline', {
-      title: req.t ? req.t('errors.botOfflineTitle') : 'Bot API Servisine Ulaşılamıyor — Piyade Team | TSB',
+      title: req.t ? req.t('errors.botOfflineTitle') : `Bot API Servisine Ulaşılamıyor — ${siteName}`,
       errorMessage: safeMessage,
       errorCode,
       botApiUrl: appConfig.IS_PROD ? 'Railway Bot API' : appConfig.BOT_API_URL,
@@ -138,7 +142,7 @@ function globalErrorHandler(err, req, res, next) {
   }
 
   return res.status(statusCode).render('errors/500', {
-    title: req.t ? req.t('errors.500Title') : 'Sunucu Hatası — Piyade Team | TSB',
+    title: req.t ? req.t('errors.500Title') : `Sunucu Hatası — ${siteName}`,
     errorCode,
     message: appConfig.IS_PROD
       ? req.t

@@ -326,7 +326,7 @@ function verifyServerStartupWithFakeEnv() {
 (async () => {
   try {
     console.log('================================================================');
-    console.log('🚀 PIYADE TEAM | RAILWAY TEMİZ KURULUM DOĞRULAMA TESTİ (verify:clean)');
+    console.log('🚀 PIYADE | RAILWAY TEMİZ KURULUM DOĞRULAMA TESTİ (verify:clean)');
     console.log('================================================================');
     verifyDependenciesInPackageJson();
     runCleanInstall();

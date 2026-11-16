@@ -1,7 +1,7 @@
 {
   "name": "piyade-team-web",
   "version": "1.0.0",
-  "description": "Piyade Team | TSB Discord Sunucusu İnce Ön Yüz (Thin Client) Web Sitesi",
+  "description": "Piyade Discord Sunucusu İnce Ön Yüz (Thin Client) Web Sitesi",
   "main": "server.js",
   "packageManager": "npm@10.8.2",
   "engines": {
@@ -15,12 +15,14 @@
   "keywords": [
     "discord",
     "roblox",
-    "tsb",
-    "piyade-team",
+    "zula",
+    "minecraft",
+    "cs2",
+    "piyade",
     "express",
     "ejs"
   ],
-  "author": "Piyade Team",
+  "author": "Piyade",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.21.0",

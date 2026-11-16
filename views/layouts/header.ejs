@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <%
-  const fallbackBrand = (typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade Clan | TSB';
+  const fallbackBrand = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getSiteName === 'function')
+    ? brandConfig.getSiteName()
+    : ((typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade');
   const activeLang = (typeof seo !== 'undefined' && seo.htmlLang) ? seo.htmlLang : (typeof lang !== 'undefined' ? lang : 'tr');
   const pageSeo = (typeof seo !== 'undefined' && seo) ? seo : {
     brandName: fallbackBrand,
-    shortBrandName: 'Piyade Clan',
-    alternateName: 'Piyade Team',
-    assetVersion: '1.2.0',
+    shortBrandName: fallbackBrand,
+    alternateName: fallbackBrand,
+    assetVersion: '2.0.0',
     baseUrl: 'http://localhost:3001',
     htmlLang: activeLang,
     title: typeof title !== 'undefined' ? title : t('meta.defaultTitle'),
@@ -48,8 +50,13 @@
   };
   const activeBrandCfg = (typeof brandConfig !== 'undefined' && brandConfig) ? brandConfig : fallbackBrandCfg;
   const brandAssets = activeBrandCfg.ASSETS || fallbackBrandCfg.ASSETS;
-  const brandDisplayName = (typeof t === 'function' && t('brand.name') !== 'brand.name') ? t('brand.name') : pageSeo.brandName;
+  const brandDisplayName = (typeof activeBrandCfg.getSiteName === 'function')
+    ? activeBrandCfg.getSiteName()
+    : ((typeof t === 'function' && t('brand.name') !== 'brand.name') ? t('brand.name') : pageSeo.brandName);
   const effectiveTitle = (!pageSeo.noindex && pageSeo.title) ? pageSeo.title : (typeof title !== 'undefined' && title ? title : pageSeo.title);
+  const langList = (typeof supportedLangs !== 'undefined' && Array.isArray(supportedLangs) && supportedLangs.length > 0)
+    ? supportedLangs
+    : ['tr', 'en'];
 %>
 <html lang="<%= pageSeo.htmlLang %>" data-sidebar="open">
 <head>
@@ -423,7 +430,7 @@
          ====================================================================== -->
     <header class="site-header">
       <div class="container navbar">
-        <!-- Logo ve Klan İsmi -->
+        <!-- Logo ve Marka İsmi -->
         <a href="/" class="brand">
           <span class="brand-logo-frame">
             <img src="<%= brandAssets.icon192 %>" alt="<%= t('brand.iconAlt') %>" width="40" height="40" loading="lazy" decoding="async" class="brand-logo-img" />

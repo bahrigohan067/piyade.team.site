@@ -1,17 +1,52 @@
+const fs = require('fs');
+const path = require('path');
 const appConfig = require('../config/app.config');
 const siteConfig = require('../config/site.config');
 const nexusConfig = require('../config/nexus.config');
 const feedbackConfig = require('../config/feedback.config');
 const brandConfig = require('../config/brand.config');
 const { generateIdempotencyKey } = require('./idempotency');
-const trLocale = require('../locales/tr.json');
-const enLocale = require('../locales/en.json');
 
-const SUPPORTED_LANGS = ['tr', 'en'];
-const LOCALES = {
-  tr: trLocale,
-  en: enLocale,
-};
+const LOCALES_DIR = path.join(__dirname, '..', 'locales');
+
+/**
+ * locales/ klasöründeki JSON dosyalarından desteklenen dil listesini ve sözlükleri tek kaynaktan yükler.
+ * Yeni bir dil eklemek için locales/<dilKodu>.json dosyası eklemek yeterlidir.
+ */
+function loadLocalesFromDisk(dirPath = LOCALES_DIR) {
+  const discovered = {};
+  if (fs.existsSync(dirPath)) {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.toLowerCase().endsWith('.json')) {
+        const code = path.basename(entry.name, '.json').toLowerCase();
+        try {
+          const parsed = JSON.parse(fs.readFileSync(path.join(dirPath, entry.name), 'utf8'));
+          if (parsed && typeof parsed === 'object') {
+            discovered[code] = parsed;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  const orderedCodes = [];
+  if (discovered.tr) orderedCodes.push('tr');
+  if (discovered.en) orderedCodes.push('en');
+  for (const code of Object.keys(discovered).sort()) {
+    if (!orderedCodes.includes(code)) {
+      orderedCodes.push(code);
+    }
+  }
+
+  return {
+    supportedLangs: orderedCodes.length > 0 ? orderedCodes : ['tr', 'en'],
+    localesMap: discovered,
+  };
+}
+
+const { supportedLangs: SUPPORTED_LANGS, localesMap: LOCALES } = loadLocalesFromDisk();
+const LANG_PREFIX_REGEX = new RegExp(`^\\/(${SUPPORTED_LANGS.join('|')})(?:(\\/.*))?$`, 'i');
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -35,11 +70,11 @@ function parseCookieHeader(cookieHeader, name) {
 }
 
 /**
- * Accept-Language başlığından varsayılan dili algılar ('tr' veya 'en').
+ * Accept-Language başlığından varsayılan dili algılar.
  */
 function detectFromAcceptLanguage(acceptLanguageHeader) {
   if (!acceptLanguageHeader || typeof acceptLanguageHeader !== 'string') {
-    return 'tr';
+    return SUPPORTED_LANGS[0] || 'tr';
   }
 
   const tokens = acceptLanguageHeader
@@ -61,15 +96,15 @@ function detectFromAcceptLanguage(acceptLanguageHeader) {
     return tokens[0].code;
   }
 
-  return 'tr';
+  return SUPPORTED_LANGS[0] || 'tr';
 }
 
 /**
- * Nokta notasyonlu anahtarı (Örn: "home.heroTitleLine1") ilgili dil sözlüğünden çözümler.
+ * Nokta notasyonlu anahtarı ilgili dil sözlüğünden çözümler.
  */
 function translate(lang, key, fallback = '') {
-  const dict = LOCALES[lang] || LOCALES.tr;
-  const fallbackDict = LOCALES.tr;
+  const dict = LOCALES[lang] || LOCALES.tr || {};
+  const fallbackDict = LOCALES.tr || {};
 
   const segments = String(key || '').split('.');
   let current = dict;
@@ -102,7 +137,7 @@ function translate(lang, key, fallback = '') {
  * Dil tercihini 1 yıl geçerli çereze kaydeder.
  */
 function setLanguageCookie(res, lang) {
-  const validLang = SUPPORTED_LANGS.includes(lang) ? lang : 'tr';
+  const validLang = SUPPORTED_LANGS.includes(lang) ? lang : SUPPORTED_LANGS[0] || 'tr';
   res.cookie('lang', validLang, {
     maxAge: ONE_YEAR_MS,
     httpOnly: false,
@@ -114,14 +149,14 @@ function setLanguageCookie(res, lang) {
 
 /**
  * Çok Dilli (i18n) ve SEO Meta Middleware
- * - /tr, /en URL öneklerini ve ?lang=tr|en sorgu parametrelerini doğrudan destekler.
+ * - Desteklenen dil URL öneklerini ve ?lang=... sorgu parametrelerini doğrudan destekler.
  * - Çerez ve Accept-Language yalnızca URL'de dil belirtilmediğinde varsayılan dil için kullanılır.
- * - Her istek için res.locals.seo ve res.locals.siteConfig nesnelerini hazırlar.
+ * - Her istek için res.locals.seo, res.locals.supportedLangs ve res.locals.siteConfig nesnelerini hazırlar.
  * - Girişli/özel sayfalarda otomatik olarak X-Robots-Tag: noindex, nofollow başlığı ekler.
  */
 function i18nMiddleware(req, res, next) {
   const originalPath = req.path || '/';
-  const prefixMatch = originalPath.match(/^\/(tr|en)(?:(\/.*))?$/i);
+  const prefixMatch = originalPath.match(LANG_PREFIX_REGEX);
   const queryLang = req.query && req.query.lang ? String(req.query.lang).toLowerCase() : null;
 
   let activeLang = null;
@@ -156,6 +191,7 @@ function i18nMiddleware(req, res, next) {
   req.canonicalRoutePath = siteConfig.normalizeRoutePath(strippedPath);
 
   res.locals.lang = activeLang;
+  res.locals.supportedLangs = SUPPORTED_LANGS;
   res.locals.siteConfig = siteConfig;
   res.locals.nexusConfig = nexusConfig;
   res.locals.feedbackConfig = feedbackConfig;
@@ -196,7 +232,7 @@ function i18nMiddleware(req, res, next) {
  */
 function handleLanguageSwitch(req, res) {
   const requested = String(req.params.code || '').toLowerCase();
-  const targetLang = SUPPORTED_LANGS.includes(requested) ? requested : 'tr';
+  const targetLang = SUPPORTED_LANGS.includes(requested) ? requested : SUPPORTED_LANGS[0] || 'tr';
 
   // /lang/* yolu arama motorları tarafından indekslenmemelidir
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
@@ -227,6 +263,8 @@ function handleLanguageSwitch(req, res) {
 
 module.exports = {
   SUPPORTED_LANGS,
+  LOCALES,
+  loadLocalesFromDisk,
   i18nMiddleware,
   handleLanguageSwitch,
   setLanguageCookie,

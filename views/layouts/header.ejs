@@ -220,8 +220,9 @@
 
       <div class="mobile-topbar-actions">
         <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
-          <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
-          <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+          <% langList.forEach(function (code) { %>
+            <a href="/lang/<%= code %>" class="lang-switch-link <%= ((typeof lang === 'undefined' ? 'tr' : lang) === code) ? 'active' : '' %>"><%= code.toUpperCase() %></a>
+          <% }); %>
         </div>
       </div>
     </header>
@@ -286,8 +287,9 @@
         </div>
 
         <div class="lang-switch-pill sidebar-lang-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
-          <a href="/lang/tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
-          <a href="/lang/en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+          <% langList.forEach(function (code) { %>
+            <a href="/lang/<%= code %>" class="lang-switch-link <%= ((typeof lang === 'undefined' ? 'tr' : lang) === code) ? 'active' : '' %>"><%= code.toUpperCase() %></a>
+          <% }); %>
         </div>
       </div>
 
@@ -469,8 +471,9 @@
         <!-- Sağ Aksiyon Alanı: Dil Seçici, Canlı Durum ve Giriş Butonu -->
         <div class="nav-actions">
           <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
-            <a href="<%= !pageSeo.noindex && pageSeo.alternateUrls ? pageSeo.alternateUrls.tr : '/lang/tr' %>" hreflang="tr" class="lang-switch-link <%= (typeof lang === 'undefined' || lang === 'tr') ? 'active' : '' %>">TR</a>
-            <a href="<%= !pageSeo.noindex && pageSeo.alternateUrls ? pageSeo.alternateUrls.en : '/lang/en' %>" hreflang="en" class="lang-switch-link <%= (typeof lang !== 'undefined' && lang === 'en') ? 'active' : '' %>">EN</a>
+            <% langList.forEach(function (code) { %>
+              <a href="<%= (!pageSeo.noindex && pageSeo.alternateUrls && pageSeo.alternateUrls[code]) ? pageSeo.alternateUrls[code] : ('/lang/' + code) %>" hreflang="<%= code %>" class="lang-switch-link <%= ((typeof lang === 'undefined' ? 'tr' : lang) === code) ? 'active' : '' %>"><%= code.toUpperCase() %></a>
+            <% }); %>
           </div>
 
           <div class="nav-status-pill hidden-sm">

@@ -1,5 +1,5 @@
 /**
- * Piyade Team İstemci Tarafı JavaScript Etkileşimleri
+ * Piyade İstemci Tarafı JavaScript Etkileşimleri
  */
 
 function escapeHtmlClient(str) {
@@ -189,46 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3. Acil Takviye Geri Sayım Sayacı (Cooldown)
-  const cooldownElem = document.getElementById('cooldownTimer');
-  if (cooldownElem) {
-    let secondsLeft = parseInt(cooldownElem.getAttribute('data-seconds'), 10) || 0;
-    const callButton = document.getElementById('btnTakviyeCall');
-    const readyText =
-      cooldownElem.getAttribute('data-ready-text') ||
-      (isEn ? 'Ready to Use' : 'Kullanıma Hazır');
-    const btnReadyText =
-      cooldownElem.getAttribute('data-btn-text') ||
-      (isEn ? '🚨 Dispatch Emergency Backup Call' : '🚨 Acil Takviye Çağrısı Başlat');
-
-    if (secondsLeft > 0) {
-      if (callButton) callButton.disabled = true;
-
-      const timer = setInterval(() => {
-        secondsLeft--;
-        if (secondsLeft <= 0) {
-          clearInterval(timer);
-          cooldownElem.textContent = readyText;
-          cooldownElem.classList.remove('badge-warning');
-          cooldownElem.classList.add('badge-success');
-          if (callButton) {
-            callButton.disabled = false;
-            callButton.style.opacity = '1';
-            callButton.style.cursor = 'pointer';
-            callButton.textContent = btnReadyText;
-          }
-        } else {
-          const m = Math.floor(secondsLeft / 60);
-          const s = secondsLeft % 60;
-          cooldownElem.textContent = isEn
-            ? `${m}m ${s < 10 ? '0' : ''}${s}s`
-            : `${m} dk ${s < 10 ? '0' : ''}${s} sn`;
-        }
-      }, 1000);
-    }
-  }
-
-  // 4. Yönetim Paneli: Uyarı Formu Canlı Üye Arama
+  // 3. Yönetim Paneli: Uyarı Formu Canlı Üye Arama
   const memberSearchInput = document.getElementById('warnMemberSearch');
   const memberResultsList = document.getElementById('warnMemberResults');
   const targetUserIdHidden = document.getElementById('targetUserId');

@@ -461,14 +461,8 @@ async function submitRegistration({
 }
 
 // ============================================================================
-// 4. TRYOUT VE ACİL TAKVİYE (YARDIM) SİSTEMİ
+// 4. AKTİF ÜYE İSTATİSTİĞİ VE GERİ BİLDİRİM
 // ============================================================================
-
-async function getTryoutLeaderboard() {
-  return requestBotApi('/api/tryout/leaderboard', {
-    method: 'GET',
-  });
-}
 
 async function getHelpStatus(discordId) {
   const query = discordId ? `?userId=${encodeURIComponent(discordId)}` : '';
@@ -479,14 +473,6 @@ async function getHelpStatus(discordId) {
     updateActiveStatsCache(data.activeRegisteredCount, true);
   }
   return data;
-}
-
-async function triggerHelpCall(discordId) {
-  return requestBotApi('/api/help/call', {
-    method: 'POST',
-    body: { userId: discordId },
-    retries: 0,
-  });
 }
 
 /**
@@ -643,9 +629,7 @@ module.exports = {
   getMemberProfile,
   getRegistrationStatus,
   submitRegistration,
-  getTryoutLeaderboard,
   getHelpStatus,
-  triggerHelpCall,
   searchAdminMembers,
   getAdminMemberDetail,
   applyWarning,

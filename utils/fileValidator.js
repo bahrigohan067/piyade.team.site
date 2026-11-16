@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 
 const MAX_EVIDENCE_BYTES = 5 * 1024 * 1024; // 5 MB
-const MAX_WARRIOR_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 /**
  * Dosya içeriğinin gerçek formatını magic-byte (ilk bayt imzaları) ile doğrular.
@@ -132,7 +131,6 @@ function validateEvidenceImageBuffer(buffer, originalMimetype = '', originalName
 
 module.exports = {
   MAX_EVIDENCE_BYTES,
-  MAX_WARRIOR_IMAGE_BYTES,
   validateImageBuffer,
   validateEvidenceImageBuffer,
 };

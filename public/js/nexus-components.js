@@ -1567,7 +1567,7 @@
   }
 
   // ============================================================================
-  // 5) ORBITAL LOADER: DOSYA YÜKLENİRKEN (admin-warn & admin-warriors)
+  // 5) ORBITAL LOADER: DOSYA YÜKLENİRKEN (admin-warn)
   // ============================================================================
   function initAdminWarnOrbitalLoader() {
     const form =

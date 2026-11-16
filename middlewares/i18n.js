@@ -2,7 +2,6 @@ const appConfig = require('../config/app.config');
 const siteConfig = require('../config/site.config');
 const nexusConfig = require('../config/nexus.config');
 const feedbackConfig = require('../config/feedback.config');
-const warriorsConfig = require('../config/warriors.config');
 const brandConfig = require('../config/brand.config');
 const { generateIdempotencyKey } = require('./idempotency');
 const trLocale = require('../locales/tr.json');
@@ -160,7 +159,6 @@ function i18nMiddleware(req, res, next) {
   res.locals.siteConfig = siteConfig;
   res.locals.nexusConfig = nexusConfig;
   res.locals.feedbackConfig = feedbackConfig;
-  res.locals.warriorsConfig = warriorsConfig;
   res.locals.brandConfig = brandConfig;
   if (req.session && req.session.user && req.session.user.inGuild) {
     if (!req.session.feedbackPendingIdemKey) {

@@ -29,7 +29,7 @@ const authLimiter = rateLimit({
 });
 
 /**
- * Form Gönderim Limiter'ı (Kayıt / Uyarı / Takviye çağrısı) (1 dakikada max 15 işlem)
+ * Form Gönderim Limiter'ı (Kayıt / Uyarı çağrısı) (1 dakikada max 15 işlem)
  */
 const formLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -42,27 +42,10 @@ const formLimiter = rateLimit({
   },
 });
 
-const warriorsConfig = require('../config/warriors.config');
-
-/**
- * Savaşçılar Yönetim Paneli Kayıt Limiter'ı (1 dakikada max 10 işlem)
- */
-const warriorSaveLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: warriorsConfig.LIMITS.maxSavePerMinute,
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false },
-  message: {
-    error: 'Çok sık değişiklik kaydedildi. Lütfen 1 dakika sonra tekrar deneyiniz.',
-  },
-});
-
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
   authLimiter,
   formLimiter,
   formActionLimiter: formLimiter,
-  warriorSaveLimiter,
 };

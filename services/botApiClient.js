@@ -350,26 +350,24 @@ async function runStartupConnectivityTest() {
 // ============================================================================
 
 /**
- * Bot yanıtındaki kayıt nesnesini (type / registrationType ve clan / clanName) normalize eder.
- * Eski bot sürümlerinde type alanı yoksa uydurmaz (undefined bırakır).
+ * Bot yanıtındaki kayıt nesnesini güvenli varsayılanlarla normalize eder.
+ * Eski klan alanlarını (type, registrationType, clan, clanName) sessizce yok sayar.
  */
-function normalizeRegistrationObject(reg, parentObj = null) {
-  const base = reg && typeof reg === 'object' ? { ...reg } : { registered: false };
-  const rawType = base.type || base.registrationType || (parentObj && parentObj.registrationType) || null;
-  if (rawType === 'own' || rawType === 'other') {
-    base.type = rawType;
-    base.registrationType = rawType;
+function sanitizeRegistrationRecord(reg) {
+  if (!reg || typeof reg !== 'object') {
+    return { registered: false };
   }
-  const rawClan =
-    base.clan ||
-    base.clanName ||
-    (parentObj && (parentObj.clan || parentObj.clanName)) ||
-    null;
-  if (typeof rawClan === 'string' && rawClan.trim()) {
-    base.clan = rawClan.trim();
-    base.clanName = rawClan.trim();
-  }
-  return base;
+  const hasAnyInfo = Boolean(reg.realName || reg.robloxUsername || reg.robloxId);
+  return {
+    registered: typeof reg.registered === 'boolean' ? reg.registered : hasAnyInfo,
+    realName: reg.realName || null,
+    gender: reg.gender || null,
+    robloxUsername: reg.robloxUsername || null,
+    robloxDisplayName: reg.robloxDisplayName || null,
+    robloxId: reg.robloxId || null,
+    robloxProfileUrl: reg.robloxProfileUrl || null,
+    registeredAt: reg.registeredAt || null,
+  };
 }
 
 async function getMemberRoles(discordId) {
@@ -385,28 +383,42 @@ async function getMemberRoles(discordId) {
     if (typeof data.registered !== 'boolean') {
       data.registered = undefined;
     }
-    data.registrationType =
-      data.registrationType === 'own' || data.registrationType === 'other'
-        ? data.registrationType
-        : null;
-    data.clan = typeof data.clan === 'string' && data.clan.trim() ? data.clan.trim() : null;
+    delete data.registrationType;
+    delete data.clan;
   }
 
   return data;
 }
 
 async function getMemberProfile(discordId) {
-  const data = await requestBotApi(`/api/member/${encodeURIComponent(discordId)}/profile`, {
+  const raw = await requestBotApi(`/api/member/${encodeURIComponent(discordId)}/profile`, {
     method: 'GET',
   });
 
-  if (data) {
-    data.discord = data.discord || {};
-    data.registration = normalizeRegistrationObject(data.registration, data);
-    data.tryout = data.tryout || { level: 0, formCount: 0 };
-    data.vs = data.vs || { points: 0, wins: 0, losses: 0, kills: 0 };
-    data.warnings = data.warnings || { points: 0, tier: 0, staffWarnings: 0, totalWarnings: 0 };
-  }
+  const data = raw && typeof raw === 'object' ? { ...raw } : {};
+  const discordObj = data.discord && typeof data.discord === 'object' ? data.discord : {};
+  data.discord = {
+    id: discordObj.id || String(discordId),
+    username: discordObj.username || '-',
+    displayName: discordObj.displayName || discordObj.username || String(discordId),
+    avatarUrl: discordObj.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png',
+    level: discordObj.level || 'registered',
+  };
+  data.registration = sanitizeRegistrationRecord(data.registration);
+  const warningsObj = data.warnings && typeof data.warnings === 'object' ? data.warnings : {};
+  data.warnings = {
+    points: Number(warningsObj.points) || 0,
+    tier: Number(warningsObj.tier) || 0,
+    staffWarnings: Number(warningsObj.staffWarnings) || 0,
+    totalWarnings: Number(warningsObj.totalWarnings) || 0,
+    suspendedUntil: warningsObj.suspendedUntil || null,
+  };
+
+  // Eski bot sürümlerinden gelebilecek klan/tryout/VS alanlarını sessizce yok say
+  delete data.tryout;
+  delete data.vs;
+  delete data.registrationType;
+  delete data.clan;
 
   return data;
 }
@@ -422,30 +434,30 @@ async function getRegistrationStatus(discordId) {
 
   if (data && typeof data === 'object') {
     if (data.registration) {
-      data.registration = normalizeRegistrationObject(data.registration, data);
+      data.registration = sanitizeRegistrationRecord(data.registration);
     }
-    if (data.application) {
-      data.application = normalizeRegistrationObject(data.application, data);
+    if (data.application && typeof data.application === 'object') {
+      const appCopy = { ...data.application };
+      delete appCopy.type;
+      delete appCopy.registrationType;
+      delete appCopy.clan;
+      delete appCopy.clanName;
+      data.application = appCopy;
     }
+    delete data.registrationType;
+    delete data.clan;
   }
 
   return data;
 }
 
+// TODO(oyun-bazlı-kayıt): Temel kayıt gönderimi geçici olarak mevcut haliyle korunmaktadır; ileride oyun bazlı kayıt alanlarına geçilecektir.
 async function submitRegistration({
   discordId,
   realName,
   gender,
   robloxInput,
-  registrationType = 'own',
-  clanName = null,
 }) {
-  const normalizedType = registrationType === 'other' ? 'other' : 'own';
-  const cleanedClan =
-    normalizedType === 'other' && typeof clanName === 'string' && clanName.trim()
-      ? clanName.trim()
-      : null;
-
   return requestBotApi('/api/register', {
     method: 'POST',
     body: {
@@ -453,8 +465,6 @@ async function submitRegistration({
       realName,
       gender,
       robloxInput,
-      registrationType: normalizedType,
-      clanName: cleanedClan,
     },
     retries: 0, // Kayıt oluşturmada çift tetiklemeyi önlemek için POST retry kapalı
   });
@@ -510,12 +520,11 @@ async function searchAdminMembers(actorId, query = '') {
     data.members = data.members.map((m) => {
       if (!m || typeof m !== 'object') return m;
       const copy = { ...m };
-      if (copy.registration || copy.registrationType || copy.clan) {
-        copy.registration = normalizeRegistrationObject(
-          copy.registration || { registered: Boolean(copy.registered) },
-          copy
-        );
-      }
+      copy.registration = sanitizeRegistrationRecord(copy.registration);
+      delete copy.tryout;
+      delete copy.vs;
+      delete copy.registrationType;
+      delete copy.clan;
       return copy;
     });
   }
@@ -525,25 +534,45 @@ async function searchAdminMembers(actorId, query = '') {
 
 async function getAdminMemberDetail(actorId, targetId, options = { audit: true }) {
   const auditQuery = options && options.audit ? '?audit=1' : '';
-  const data = await requestBotApi(`/api/admin/members/${encodeURIComponent(targetId)}${auditQuery}`, {
+  const raw = await requestBotApi(`/api/admin/members/${encodeURIComponent(targetId)}${auditQuery}`, {
     method: 'GET',
     headers: {
       'X-Actor-Id': String(actorId),
     },
   });
 
-  if (data) {
-    data.discord = data.discord || { roles: [] };
-    data.registration = normalizeRegistrationObject(data.registration, data);
-    data.tryout = data.tryout || { current: { level: 0, formCount: 0 }, forms: [] };
-    data.tryout.current = data.tryout.current || { level: 0, formCount: 0 };
-    data.tryout.forms = data.tryout.forms || [];
-    data.vs = data.vs || { points: 0, wins: 0, losses: 0, kills: 0 };
-    data.warnings = data.warnings || { stats: { points: 0, tier: 0 }, history: [] };
-    data.warnings.stats = data.warnings.stats || { points: 0, tier: 0 };
-    data.warnings.history = data.warnings.history || [];
-    data.moderation = data.moderation || { profanityViolationCount: 0 };
-  }
+  const data = raw && typeof raw === 'object' ? { ...raw } : {};
+  const discordObj = data.discord && typeof data.discord === 'object' ? data.discord : {};
+  data.discord = {
+    id: discordObj.id || String(targetId),
+    username: discordObj.username || '-',
+    displayName: discordObj.displayName || discordObj.username || String(targetId),
+    avatarUrl: discordObj.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png',
+    level: discordObj.level || 'registered',
+    joinedAt: discordObj.joinedAt || null,
+    roles: Array.isArray(discordObj.roles) ? discordObj.roles : [],
+  };
+  data.registration = sanitizeRegistrationRecord(data.registration);
+
+  const warningsObj = data.warnings && typeof data.warnings === 'object' ? data.warnings : {};
+  const statsObj = warningsObj.stats && typeof warningsObj.stats === 'object' ? warningsObj.stats : {};
+  data.warnings = {
+    stats: {
+      points: Number(statsObj.points ?? warningsObj.points) || 0,
+      tier: Number(statsObj.tier ?? warningsObj.tier) || 0,
+    },
+    history: Array.isArray(warningsObj.history) ? warningsObj.history : [],
+  };
+  const modObj = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+  data.moderation = {
+    profanityViolationCount: Number(modObj.profanityViolationCount) || 0,
+  };
+
+  // Eski bot sürümlerinden gelebilecek klan/tryout/VS alanlarını sessizce yok say
+  delete data.tryout;
+  delete data.vs;
+  delete data.registrationType;
+  delete data.clan;
 
   return data;
 }

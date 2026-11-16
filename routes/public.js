@@ -24,7 +24,7 @@ router.get('/favicon.ico', (req, res) => {
 /**
  * GET /robots.txt
  * Arama motoru botları için tarama izinleri ve dinamik Sitemap adresi.
- * Yalnızca herkese açık sayfalar taranabilir; yönetim, profil, tryout, takviye ve auth kapalıdır.
+ * Yalnızca herkese açık sayfalar taranabilir; yönetim, profil ve auth kapalıdır.
  */
 router.get('/robots.txt', (req, res) => {
   res.removeHeader('X-Robots-Tag');
@@ -42,12 +42,10 @@ router.get('/robots.txt', (req, res) => {
     'Allow: /etkilesim',
     'Disallow: /yonetim',
     'Disallow: /profil',
-    'Disallow: /tryout',
-    'Disallow: /takviye',
-    'Disallow: /yardim',
     'Disallow: /auth',
     'Disallow: /lang',
     'Disallow: /health',
+    'Disallow: /geri-bildirim',
     '',
     `Sitemap: ${baseUrl}/sitemap.xml`,
     '',
@@ -115,7 +113,7 @@ router.get('/sitemap.xml', (req, res) => {
 
 /**
  * GET /
- * Anasayfa: Klan tanıtımı ve canlı aktif üye istatistikleri.
+ * Anasayfa: Topluluk tanıtımı ve canlı aktif üye istatistikleri.
  */
 router.get('/', async (req, res) => {
   let activeStats = {
@@ -164,7 +162,7 @@ router.get('/kurallar', (req, res) => {
 
 /**
  * GET /etkilesim
- * Anasayfa dışı özel interaktif bileşenler sayfası (Dart Rating, Meteors, Scroll Reveal Text).
+ * Anasayfa dışı özel interaktif bileşenler sayfası (Dart Rating, Meteors).
  */
 router.get('/etkilesim', (req, res) => {
   return res.render('pages/interactive', {
@@ -172,63 +170,33 @@ router.get('/etkilesim', (req, res) => {
   });
 });
 
-/**
- * Bot API'den dönen kayıt hata kodlarını yerelleştirilmiş mesajlara dönüştürür.
- * Ham bot hata metnini asla kullanıcıya göstermez.
- */
-function mapBotRegistrationError(err, req) {
+function mapRegistrationBotError(err, req) {
   const details = err && err.details && typeof err.details === 'object' ? err.details : {};
-  const rawCode = String(details.code || details.errorCode || details.error || err?.message || '').trim();
-  const upper = rawCode.toUpperCase();
-
-  if (upper === 'CLAN_REQUIRED' || upper.includes('CLAN_REQUIRED')) {
-    return { message: req.t('register.errClanRequired'), clanOwnError: false };
+  const rawCode = String(details.code || details.errorCode || details.error || err?.message || '').trim().toUpperCase();
+  if (rawCode === 'ALREADY_REGISTERED' || rawCode.includes('ALREADY_REGISTERED')) {
+    return req.t('register.errAlreadyRegistered');
   }
-  if (upper === 'CLAN_INVALID' || upper.includes('CLAN_INVALID')) {
-    return { message: req.t('register.errClanInvalid'), clanOwnError: false };
-  }
-  if (upper === 'CLAN_BLOCKED' || upper.includes('CLAN_BLOCKED')) {
-    return { message: req.t('register.errClanBlocked'), clanOwnError: false };
-  }
-  if (upper === 'CLAN_IS_OWN' || upper.includes('CLAN_IS_OWN')) {
-    return { message: req.t('register.errClanIsOwn'), clanOwnError: true };
-  }
-  if (upper === 'ALREADY_REGISTERED' || upper.includes('ALREADY_REGISTERED')) {
-    return { message: req.t('register.errAlreadyRegistered'), clanOwnError: false };
-  }
-
-  return { message: req.t('register.errGenericRegistration'), clanOwnError: false };
+  return req.t('register.errGenericRegistration');
 }
 
 /**
  * GET /kayit
- * Site içi kayıt türü seçimi (Adım 1), başvuru formu (Adım 2) ve başvuru durumu ekranı.
+ * TODO(oyun-bazlı-kayıt): Temel kayıt formu geçici olarak mevcut haliyle (Roblox bilgili) korunmaktadır;
+ * ileride oyun bazlı kayıt akışı eklenecektir.
  */
 router.get('/kayit', async (req, res, next) => {
   const user = req.session?.user;
-  const hasTurQuery = Boolean(req.query && req.query.tur !== undefined);
-  const rawTur = hasTurQuery ? String(req.query.tur || '').trim().toLowerCase() : '';
-  const validTur = rawTur === 'piyade' || rawTur === 'baska' ? rawTur : null;
-
-  // ?tur=... varyantlarına noindex uygula; kanonik adres her zaman /kayit kalır
-  if (hasTurQuery && typeof req.applySeo === 'function') {
-    req.applySeo({ noindex: true, keepCanonical: true });
-  }
-
   const pageTitle = res.locals.seo ? res.locals.seo.title : req.t('register.pageTitle');
-  const emptyFormData = { realName: '', gender: '', robloxInput: '', clanName: '' };
+  const emptyFormData = { realName: '', gender: '', robloxInput: '' };
 
   // Kullanıcı henüz Discord ile giriş yapmamışsa
   if (!user || !user.id) {
     return res.render('pages/register', {
       title: pageTitle,
       state: 'login_required',
-      step: 'login',
-      tur: null,
       statusData: null,
       formData: emptyFormData,
       error: null,
-      clanOwnError: false,
       success: null,
       idempotencyKey: '',
     });
@@ -240,12 +208,9 @@ router.get('/kayit', async (req, res, next) => {
     return res.render('pages/register', {
       title: pageTitle,
       state: statusData.state || 'none',
-      step: validTur ? 'form' : 'select',
-      tur: validTur,
       statusData,
       formData: emptyFormData,
       error: null,
-      clanOwnError: false,
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });
@@ -256,24 +221,20 @@ router.get('/kayit', async (req, res, next) => {
 
 /**
  * POST /kayit
- * Kayıt başvurusunu Bot REST API'sine (POST /api/register) iletir.
+ * TODO(oyun-bazlı-kayıt): Kayıt başvurusunu Bot REST API'sine (POST /api/register) iletir.
  * Madde 6: Tekil idempotency anahtarı ile çift gönderimi engeller.
  */
 router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (req, res, next) => {
   const user = req.session.user;
-  const { realName, gender, robloxInput, tur, clanName } = req.body || {};
+  const { realName, gender, robloxInput } = req.body || {};
 
-  const rawTur = String(tur || '').trim().toLowerCase();
-  const validTur = rawTur === 'piyade' || rawTur === 'baska' ? rawTur : null;
   const cleanName = String(realName || '').trim();
   const cleanGender = String(gender || '').trim();
   const cleanRoblox = String(robloxInput || '').trim();
-  const cleanClan = String(clanName || '').trim();
   const formData = {
     realName: cleanName,
     gender: cleanGender,
     robloxInput: cleanRoblox,
-    clanName: cleanClan,
   };
 
   // Madde 6: Idempotency (Çift Gönderim) Kontrolü
@@ -283,29 +244,9 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
     return res.status(409).render('pages/register', {
       title: req.t('register.pageTitle'),
       state: currentStatus.state || 'none',
-      step: validTur ? 'form' : 'select',
-      tur: validTur,
       statusData: currentStatus,
       formData,
       error: req.t('errors.duplicateSubmission'),
-      clanOwnError: false,
-      success: null,
-      idempotencyKey: generateIdempotencyKey(req),
-    });
-  }
-
-  // tur doğrula ('piyade' -> 'own', 'baska' -> 'other'); geçersiz veya yoksa seçim ekranına dön
-  if (!validTur) {
-    const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
-    return res.status(400).render('pages/register', {
-      title: req.t('register.pageTitle'),
-      state: currentStatus.state || 'none',
-      step: 'select',
-      tur: null,
-      statusData: currentStatus,
-      formData,
-      error: null,
-      clanOwnError: false,
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });
@@ -316,12 +257,9 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
     return res.status(400).render('pages/register', {
       title: req.t('register.pageTitle'),
       state: currentStatus.state || 'none',
-      step: 'form',
-      tur: validTur,
       statusData: currentStatus,
       formData,
       error: req.t('register.errRealNameLength'),
-      clanOwnError: false,
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });
@@ -332,12 +270,9 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
     return res.status(400).render('pages/register', {
       title: req.t('register.pageTitle'),
       state: currentStatus.state || 'none',
-      step: 'form',
-      tur: validTur,
       statusData: currentStatus,
       formData,
       error: req.t('register.errSelectGender'),
-      clanOwnError: false,
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });
@@ -348,51 +283,13 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
     return res.status(400).render('pages/register', {
       title: req.t('register.pageTitle'),
       state: currentStatus.state || 'none',
-      step: 'form',
-      tur: validTur,
       statusData: currentStatus,
       formData,
       error: req.t('register.errRobloxRequired'),
-      clanOwnError: false,
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });
   }
-
-  if (validTur === 'baska') {
-    if (!cleanClan) {
-      const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
-      return res.status(400).render('pages/register', {
-        title: req.t('register.pageTitle'),
-        state: currentStatus.state || 'none',
-        step: 'form',
-        tur: 'baska',
-        statusData: currentStatus,
-        formData,
-        error: req.t('register.errClanRequired'),
-        clanOwnError: false,
-        success: null,
-        idempotencyKey: generateIdempotencyKey(req),
-      });
-    }
-    if (cleanClan.length < 2 || cleanClan.length > 32) {
-      const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
-      return res.status(400).render('pages/register', {
-        title: req.t('register.pageTitle'),
-        state: currentStatus.state || 'none',
-        step: 'form',
-        tur: 'baska',
-        statusData: currentStatus,
-        formData,
-        error: req.t('register.errClanInvalid'),
-        clanOwnError: false,
-        success: null,
-        idempotencyKey: generateIdempotencyKey(req),
-      });
-    }
-  }
-
-  const registrationType = validTur === 'baska' ? 'other' : 'own';
 
   try {
     const result = await botApiClient.submitRegistration({
@@ -400,8 +297,6 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
       realName: cleanName,
       gender: cleanGender,
       robloxInput: cleanRoblox,
-      registrationType,
-      clanName: registrationType === 'other' ? cleanClan : null,
     });
 
     const updatedStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({
@@ -409,54 +304,29 @@ router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (r
       application: result.application || {
         realName: cleanName,
         robloxUsername: cleanRoblox,
-        type: registrationType,
-        registrationType,
-        clan: registrationType === 'other' ? cleanClan : null,
-        clanName: registrationType === 'other' ? cleanClan : null,
       },
     }));
-
-    if (updatedStatus && updatedStatus.application && !updatedStatus.application.type) {
-      updatedStatus.application.type = registrationType;
-      updatedStatus.application.registrationType = registrationType;
-      if (registrationType === 'other' && cleanClan && !updatedStatus.application.clan) {
-        updatedStatus.application.clan = cleanClan;
-        updatedStatus.application.clanName = cleanClan;
-      }
-    }
-
-    const successMsg =
-      registrationType === 'other'
-        ? req.t('register.msgOtherClanSubmittedSuccess')
-        : result.message || req.t('register.msgSubmittedSuccess');
 
     return res.render('pages/register', {
       title: req.t('register.pageTitle'),
       state: updatedStatus.state || 'pending',
-      step: 'form',
-      tur: validTur,
       statusData: updatedStatus,
       formData,
       error: null,
-      clanOwnError: false,
-      success: successMsg,
+      success: req.t('register.msgSubmittedSuccess'),
       idempotencyKey: generateIdempotencyKey(req),
     });
   } catch (err) {
     if (err && err.isOffline) {
       return next(err);
     }
-    const mappedErr = mapBotRegistrationError(err, req);
     const currentStatus = await botApiClient.getRegistrationStatus(user.id).catch(() => ({ state: 'none' }));
     return res.status(err.statusCode || 400).render('pages/register', {
       title: req.t('register.pageTitle'),
       state: currentStatus.state || 'none',
-      step: 'form',
-      tur: validTur,
       statusData: currentStatus,
       formData,
-      error: mappedErr.message,
-      clanOwnError: mappedErr.clanOwnError,
+      error: mapRegistrationBotError(err, req),
       success: null,
       idempotencyKey: generateIdempotencyKey(req),
     });

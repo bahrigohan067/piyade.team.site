@@ -1,13 +1,12 @@
 <%- include('../layouts/header') %>
 
 <%
-  const activeStep = typeof step !== 'undefined' && step ? step : (typeof tur !== 'undefined' && (tur === 'piyade' || tur === 'baska') ? 'form' : 'select');
-  const activeTur = typeof tur !== 'undefined' && (tur === 'piyade' || tur === 'baska') ? tur : null;
-  const safeForm = typeof formData !== 'undefined' && formData ? formData : { realName: '', gender: '', robloxInput: '', clanName: '' };
+  const safeForm = typeof formData !== 'undefined' && formData ? formData : { realName: '', gender: '', robloxInput: '' };
 %>
 
 <div class="register-page-container">
-  
+  <!-- TODO(oyun-bazlı-kayıt): Temel kayıt formu geçici olarak mevcut haliyle (Roblox bilgili) korunmaktadır; ileride oyun bazlı kayıt akışına geçilecektir. -->
+
   <!-- Üst Başlık & İlerleme Adımları -->
   <div class="register-header-block">
     <span class="badge badge-primary register-top-badge"><%= t('register.badgeTop') %></span>
@@ -47,13 +46,6 @@
       <span class="register-alert-icon">🛑</span>
       <div class="register-alert-body">
         <div><%= error %></div>
-        <% if (typeof clanOwnError !== 'undefined' && clanOwnError) { %>
-          <div class="register-alert-action">
-            <a href="/kayit?tur=piyade" class="btn btn-primary btn-sm register-switch-own-link">
-              <span>🛡️ <%= t('register.btnSwitchToPiyade') %> →</span>
-            </a>
-          </div>
-        <% } %>
       </div>
     </div>
   <% } %>
@@ -90,14 +82,6 @@
         <div>
           <div class="register-badge-row">
             <span class="badge badge-success"><%= t('register.approvedBadge') %></span>
-            <% if (statusData && statusData.registration && statusData.registration.type === 'other') { %>
-              <span class="badge badge-purple"><%= t('register.badgeOtherClan') %></span>
-              <% if (statusData.registration.clan) { %>
-                <span class="badge badge-neutral"><%= t('register.clanPrefix') %> <%= statusData.registration.clan %></span>
-              <% } %>
-            <% } else if (statusData && statusData.registration && statusData.registration.type === 'own') { %>
-              <span class="badge badge-primary"><%= t('register.badgePiyadeClan') %></span>
-            <% } %>
           </div>
           <h2 class="register-status-title"><%= t('register.approvedTitle') %></h2>
         </div>
@@ -131,24 +115,14 @@
         <a href="/profil" class="btn btn-primary">
           <span><%= t('register.btnViewProfile') %></span>
         </a>
-        <a href="/tryout" class="btn btn-secondary">
-          <span><%= t('register.btnTryoutTable') %></span>
+        <a href="/kurallar" class="btn btn-secondary">
+          <span><%= t('nav.rules') %></span>
         </a>
       </div>
     </div>
 
   <!-- DURUM 3: BAŞVURU BEKLEMEDE -->
   <% } else if (state === 'pending') { %>
-    <%
-      const isPendingOther = Boolean(
-        (statusData && statusData.application && statusData.application.type === 'other') ||
-        activeTur === 'baska'
-      );
-      const pendingClanName =
-        (statusData && statusData.application && statusData.application.clan) ||
-        safeForm.clanName ||
-        null;
-    %>
     <div class="glass-card register-status-card register-status-card--pending">
       <div class="register-status-head">
         <div class="register-status-icon register-status-icon--pending">
@@ -157,17 +131,12 @@
         <div>
           <div class="register-badge-row">
             <span class="badge badge-warning"><%= t('register.pendingBadge') %></span>
-            <% if (isPendingOther) { %>
-              <span class="badge badge-purple">🏳️ <%= t('register.badgeTypeOther') %></span>
-            <% } else { %>
-              <span class="badge badge-primary">🛡️ <%= t('register.badgeTypePiyade') %></span>
-            <% } %>
           </div>
           <h2 class="register-status-title"><%= t('register.pendingTitle') %></h2>
         </div>
       </div>
       <p class="register-status-desc">
-        <%= isPendingOther ? t('register.pendingDescOther') : t('register.pendingDesc') %>
+        <%= t('register.pendingDesc') %>
       </p>
 
       <% if (statusData && statusData.application) { %>
@@ -181,12 +150,6 @@
               <span class="register-meta-label"><%= t('register.robloxAccountLabel') %></span>
               <div class="register-meta-value register-meta-value--accent">@<%= statusData.application.robloxUsername || t('register.reviewing') %></div>
             </div>
-            <% if (isPendingOther && pendingClanName) { %>
-              <div>
-                <span class="register-meta-label"><%= t('profile.labelClan') %></span>
-                <div class="register-meta-value"><%= pendingClanName %></div>
-              </div>
-            <% } %>
           </div>
         </div>
       <% } %>
@@ -199,7 +162,7 @@
       </div>
     </div>
 
-  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU (ADIM 1 SEÇİM / ADIM 2 FORM) -->
+  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU FORMU -->
   <% } else { %>
     <% if (state === 'rejected' && statusData && statusData.rejected) { %>
       <div class="glass-card register-rejected-card">
@@ -216,157 +179,65 @@
       </div>
     <% } %>
 
-    <% if (activeStep === 'select' || !activeTur) { %>
-      <!-- ADIM 1: KAYIT TÜRÜ SEÇİM EKRANI -->
-      <div class="glass-card register-select-wrapper">
-        <div class="register-select-header">
-          <h2 class="register-select-title"><%= t('register.selectTypeHeading') %></h2>
-          <p class="register-select-subtitle"><%= t('register.selectTypeSubheading') %></p>
+    <!-- TODO(oyun-bazlı-kayıt): Geçici temel kayıt başvuru formu -->
+    <div class="glass-card">
+      <form action="/kayit" method="POST" data-prevent-double-submit="true">
+        <!-- CSRF Güvenlik Anahtarı -->
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
+        <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
+
+        <div class="form-group">
+          <label class="form-label" for="realName"><%= t('register.labelRealName') %></label>
+          <input
+            type="text"
+            id="realName"
+            name="realName"
+            class="form-control"
+            placeholder="<%= t('register.placeholderRealName') %>"
+            value="<%= safeForm.realName || '' %>"
+            minlength="2"
+            maxlength="32"
+            required
+          />
+          <div class="form-text"><%= t('register.helpRealName') %></div>
         </div>
 
-        <div class="register-type-cards" role="list">
-          <!-- Seçenek 1: Piyade Klanına Katılmak İstiyorum -->
-          <a
-            href="/kayit?tur=piyade"
-            class="register-type-card register-type-card--piyade"
-            data-tur="piyade"
-            role="listitem"
-          >
-            <div class="register-type-card-top">
-              <span class="register-type-card-icon" aria-hidden="true">🛡️</span>
-              <span class="badge badge-primary"><%= t('register.badgePiyadeClan') %></span>
-            </div>
-            <h3 class="register-type-card-title"><%= t('register.typePiyadeTitle') %></h3>
-            <p class="register-type-card-desc"><%= t('register.typePiyadeDesc') %></p>
-            <div class="register-type-card-cta">
-              <span><%= t('register.typeSelectBtn') %></span>
-              <span aria-hidden="true">→</span>
-            </div>
-          </a>
-
-          <!-- Seçenek 2: Bir Klanım Bulunmakta -->
-          <a
-            href="/kayit?tur=baska"
-            class="register-type-card register-type-card--other"
-            data-tur="baska"
-            role="listitem"
-          >
-            <div class="register-type-card-top">
-              <span class="register-type-card-icon" aria-hidden="true">🏳️</span>
-              <span class="badge badge-purple"><%= t('register.badgeOtherClan') %></span>
-            </div>
-            <h3 class="register-type-card-title"><%= t('register.typeOtherTitle') %></h3>
-            <p class="register-type-card-desc"><%= t('register.typeOtherDesc') %></p>
-            <div class="register-type-card-cta">
-              <span><%= t('register.typeSelectBtn') %></span>
-              <span aria-hidden="true">→</span>
-            </div>
-          </a>
-        </div>
-      </div>
-
-    <% } else { %>
-      <!-- ADIM 2: KAYIT BAŞVURU FORMU (?tur=piyade veya ?tur=baska) -->
-      <div class="glass-card">
-        <!-- Seçilen Tür Rozeti ve Seçimi Değiştir Bağlantısı -->
-        <div class="register-form-topbar">
-          <div class="register-selected-type">
-            <% if (activeTur === 'baska') { %>
-              <span class="badge badge-purple register-type-badge">🏳️ <%= t('register.badgeTypeOther') %></span>
-            <% } else { %>
-              <span class="badge badge-primary register-type-badge">🛡️ <%= t('register.badgeTypePiyade') %></span>
-            <% } %>
-          </div>
-          <a href="/kayit" class="btn btn-secondary btn-sm register-change-type-link">
-            <span>← <%= t('register.btnChangeSelection') %></span>
-          </a>
+        <div class="form-group">
+          <label class="form-label" for="gender"><%= t('register.labelGender') %></label>
+          <select id="gender" name="gender" class="form-select" required>
+            <option value=""><%= t('register.selectGender') %></option>
+            <option value="Erkek" <%= safeForm.gender === 'Erkek' ? 'selected' : '' %>><%= t('register.genderMale') %></option>
+            <option value="Kız" <%= safeForm.gender === 'Kız' ? 'selected' : '' %>><%= t('register.genderFemale') %></option>
+          </select>
         </div>
 
-        <form action="/kayit" method="POST" data-prevent-double-submit="true">
-          <!-- CSRF Güvenlik Anahtarı -->
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-          <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
-          <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
-          <!-- Seçilen Kayıt Türü ('piyade' | 'baska') -->
-          <input type="hidden" name="tur" value="<%= activeTur %>" />
-
-          <% if (activeTur === 'baska') { %>
-            <div class="form-group clan-name-group">
-              <div class="clan-label-row">
-                <label class="form-label" for="clanName">
-                  <%= t('register.labelClanName') %>
-                </label>
-                <span id="clanNameCounter" class="char-counter" aria-live="polite">
-                  <%= (safeForm.clanName || '').length %> <%= t('register.charCounterSuffix') %>
-                </span>
-              </div>
-              <input
-                type="text"
-                id="clanName"
-                name="clanName"
-                class="form-control"
-                placeholder="<%= t('register.placeholderClanName') %>"
-                value="<%= safeForm.clanName || '' %>"
-                minlength="2"
-                maxlength="32"
-                required
-              />
-              <div class="form-text"><%= t('register.helpClanName') %></div>
-            </div>
-          <% } %>
-
-          <div class="form-group">
-            <label class="form-label" for="realName"><%= t('register.labelRealName') %></label>
-            <input
-              type="text"
-              id="realName"
-              name="realName"
-              class="form-control"
-              placeholder="<%= t('register.placeholderRealName') %>"
-              value="<%= safeForm.realName || '' %>"
-              minlength="2"
-              maxlength="32"
-              required
-            />
-            <div class="form-text"><%= t('register.helpRealName') %></div>
+        <div class="form-group">
+          <label class="form-label" for="robloxInput"><%= t('register.labelRoblox') %></label>
+          <input
+            type="text"
+            id="robloxInput"
+            name="robloxInput"
+            class="form-control"
+            placeholder="<%= t('register.placeholderRoblox') %>"
+            value="<%= safeForm.robloxInput || '' %>"
+            required
+          />
+          <div class="form-text">
+            ⚠️ <%= t('register.helpRoblox') %>
           </div>
+        </div>
 
-          <div class="form-group">
-            <label class="form-label" for="gender"><%= t('register.labelGender') %></label>
-            <select id="gender" name="gender" class="form-select" required>
-              <option value=""><%= t('register.selectGender') %></option>
-              <option value="Erkek" <%= safeForm.gender === 'Erkek' ? 'selected' : '' %>><%= t('register.genderMale') %></option>
-              <option value="Kız" <%= safeForm.gender === 'Kız' ? 'selected' : '' %>><%= t('register.genderFemale') %></option>
-            </select>
+        <div class="register-form-footer">
+          <div class="register-session-info">
+            <%= t('register.sessionLabel') %> <strong class="register-session-user"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
           </div>
-
-          <div class="form-group">
-            <label class="form-label" for="robloxInput"><%= t('register.labelRoblox') %></label>
-            <input
-              type="text"
-              id="robloxInput"
-              name="robloxInput"
-              class="form-control"
-              placeholder="<%= t('register.placeholderRoblox') %>"
-              value="<%= safeForm.robloxInput || '' %>"
-              required
-            />
-            <div class="form-text">
-              ⚠️ <%= t('register.helpRoblox') %>
-            </div>
-          </div>
-
-          <div class="register-form-footer">
-            <div class="register-session-info">
-              <%= t('register.sessionLabel') %> <strong class="register-session-user"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg" data-submitting-text="<%= t('register.btnSubmitting') %>">
-              <span><%= t('register.btnSubmit') %></span>
-            </button>
-          </div>
-        </form>
-      </div>
-    <% } %>
+          <button type="submit" class="btn btn-primary btn-lg" data-submitting-text="<%= t('register.btnSubmitting') %>">
+            <span><%= t('register.btnSubmit') %></span>
+          </button>
+        </div>
+      </form>
+    </div>
   <% } %>
 
 </div>

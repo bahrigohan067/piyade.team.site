@@ -49,14 +49,11 @@ router.get('/kanit-bellek/:fileName', (req, res) => {
   return res.send(item.buffer);
 });
 
-// Tüm yönetim rotaları sunucu tarafında Yönetmenlik veya Developer yetkisi gerektirir
-router.use(requireManagement);
-
 /**
  * GET /yonetim/uyeler
  * Üye Arama ve Listeleme Ekranı.
  */
-router.get('/uyeler', async (req, res, next) => {
+router.get('/uyeler', requireManagement, async (req, res, next) => {
   const query = String(req.query.query || '').trim();
   const actorId = req.session.user.id;
 
@@ -96,7 +93,7 @@ router.get('/uyeler', async (req, res, next) => {
  * Seçilen üyenin tüm detay kartlarını görüntüler.
  * Madde 12: Üye Bilgileri ekranına erişimi denetim loguna yazar (kim, kimin detayına, ne zaman).
  */
-router.get('/uyeler/:id', async (req, res, next) => {
+router.get('/uyeler/:id', requireManagement, async (req, res, next) => {
   const targetId = req.params.id;
   const actor = req.session.user;
   const actorId = actor.id;
@@ -144,7 +141,7 @@ router.get('/uyeler/:id', async (req, res, next) => {
  * GET /yonetim/api/search
  * Uyarı Ver ekranındaki üye seçici için JSON arama uç noktası.
  */
-router.get('/api/search', async (req, res) => {
+router.get('/api/search', requireManagement, async (req, res) => {
   const query = String(req.query.q || '').trim();
   try {
     const data = await botApiClient.searchAdminMembers(req.session.user.id, query);
@@ -158,7 +155,7 @@ router.get('/api/search', async (req, res) => {
  * GET /yonetim/api/idempotency-key
  * Başarısız XHR/kanıt yüklemeleri sonrası formun yeniden kullanılabilmesi için taze tek kullanımlık anahtar üretir.
  */
-router.get('/api/idempotency-key', (req, res) => {
+router.get('/api/idempotency-key', requireManagement, (req, res) => {
   return res.json({
     ok: true,
     idempotencyKey: generateIdempotencyKey(req),
@@ -169,7 +166,7 @@ router.get('/api/idempotency-key', (req, res) => {
  * GET /yonetim/uyari
  * Uyarı Verme Formu ve PRG (Post-Redirect-Get) Sonuç Kartı Ekranı.
  */
-router.get('/uyari', async (req, res) => {
+router.get('/uyari', requireManagement, async (req, res) => {
   const preselectedId = String(req.query.targetUserId || '').trim();
   let preselectedMember = null;
 
@@ -284,6 +281,7 @@ async function checkSiteRoleHierarchy(req, actorRolesData, targetUserId) {
  */
 router.post(
   '/uyari',
+  requireManagement,
   formActionLimiter,
   requireFreshManagement,
   handleEvidenceUpload,

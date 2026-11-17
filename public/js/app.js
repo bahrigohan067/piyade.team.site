@@ -345,4 +345,94 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // 6. Profilim Sayfası: Oyun Kullanıcı Adı Kopyalama (Clipboard API + Seçilebilir Metin Fallback)
+  const copyButtons = document.querySelectorAll('.profile-copy-btn');
+  if (copyButtons.length > 0) {
+    function markCopiedButton(btn) {
+      const labelEl = btn.querySelector('span');
+      const originalLabel = btn.getAttribute('data-copy-label') || (labelEl ? labelEl.textContent : '');
+      const copiedLabel = btn.getAttribute('data-copied-label') || 'Kopyalandı ✅';
+
+      if (btn._copyResetTimer) {
+        clearTimeout(btn._copyResetTimer);
+      }
+
+      btn.classList.add('is-copied');
+      if (labelEl) {
+        labelEl.textContent = copiedLabel;
+      } else {
+        btn.textContent = copiedLabel;
+      }
+
+      const card = btn.closest('.profile-game-card');
+      const hintEl = card ? card.querySelector('.profile-copy-hint') : null;
+      if (hintEl) {
+        hintEl.hidden = true;
+        hintEl.textContent = '';
+      }
+
+      btn._copyResetTimer = setTimeout(() => {
+        btn.classList.remove('is-copied');
+        if (labelEl) {
+          labelEl.textContent = originalLabel;
+        } else {
+          btn.textContent = originalLabel;
+        }
+      }, 2200);
+    }
+
+    function fallbackSelectCopyTarget(btn) {
+      const targetId = btn.getAttribute('data-copy-target');
+      const targetEl = targetId ? document.getElementById(targetId) : null;
+      if (targetEl && window.getSelection && document.createRange) {
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(targetEl);
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (_) {}
+      }
+
+      let execOk = false;
+      try {
+        execOk = Boolean(document.execCommand && document.execCommand('copy'));
+      } catch (_) {}
+
+      if (execOk) {
+        markCopiedButton(btn);
+        return;
+      }
+
+      const card = btn.closest('.profile-game-card');
+      const hintEl = card ? card.querySelector('.profile-copy-hint') : null;
+      const hintMsg = btn.getAttribute('data-fallback-hint') || '';
+      if (hintEl && hintMsg) {
+        hintEl.textContent = hintMsg;
+        hintEl.hidden = false;
+      }
+    }
+
+    copyButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const textToCopy = btn.getAttribute('data-copy-text') || '';
+        if (!textToCopy) return;
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            markCopiedButton(btn);
+            return;
+          } catch (_) {
+            // Güvenli olmayan bağlam veya izin reddi durumunda seçilebilir metne düş
+          }
+        }
+
+        fallbackSelectCopyTarget(btn);
+      });
+    });
+  }
 });

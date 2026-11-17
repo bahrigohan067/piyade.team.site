@@ -3674,3 +3674,294 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+
+/* ============================================================================
+ * PROFİLİM: OYUN KARTLARI, KOPYALA DÜĞMESİ VE YÖNETİM DETAY OYUN LİSTESİ
+ * ============================================================================ */
+
+.profile-banner-card {
+  margin-bottom: 1.5rem;
+  padding: 2rem;
+  border-color: var(--border-color);
+}
+
+.profile-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.profile-banner-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.profile-avatar-wrap {
+  position: relative;
+}
+
+.profile-avatar-img {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: 3px solid var(--color-primary);
+  box-shadow: var(--shadow-primary);
+  object-fit: cover;
+}
+
+.profile-avatar-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg-body);
+}
+
+.profile-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.profile-display-name {
+  font-size: 1.85rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.profile-discord-meta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.profile-discord-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.95rem 1.25rem;
+  background: var(--color-purple-badge-bg);
+  border-color: var(--color-purple-badge-border);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.profile-tip-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.profile-reg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile-meta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-meta-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.profile-meta-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.profile-meta-date {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.profile-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile-game-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--register-card-bg);
+  border: 1px solid var(--register-card-border);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.profile-game-card:hover {
+  background: var(--register-card-hover-bg);
+  border-color: var(--border-hover);
+}
+
+.profile-game-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.profile-game-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-game-emoji {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.profile-game-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--zirve-kicker-text);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.profile-game-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-game-code {
+  font-family: var(--font-mono);
+  font-size: 0.96rem;
+  color: var(--text-code);
+  background: var(--bg-code);
+  padding: 3px 9px;
+  border-radius: var(--radius-xs);
+  user-select: all;
+  word-break: break-all;
+}
+
+.profile-game-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-copy-btn.is-copied {
+  background: var(--color-success-light);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.profile-copy-hint {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--color-info-text);
+}
+
+.profile-legacy-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.profile-legacy-roblox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.profile-legacy-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.profile-unreg-desc {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.profile-amnesty-note {
+  padding: 0.85rem 1rem;
+  background: var(--bg-input);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.admin-games-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.4rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.admin-games-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-xs);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+}
+
+.admin-games-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.admin-games-user {
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  color: var(--text-code);
+  background: var(--bg-code);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.admin-games-link {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--color-info);
+  text-decoration: none;
+}
+
+.admin-games-link:hover {
+  text-decoration: underline;
+}

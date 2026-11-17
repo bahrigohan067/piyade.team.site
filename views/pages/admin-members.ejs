@@ -25,7 +25,12 @@
   <%
     const detailDiscord = selectedMember.discord || {};
     const detailReg = selectedMember.registration || null;
-    const isDetailRegActive = Boolean(detailReg && detailReg.registered && (detailReg.realName || detailReg.robloxUsername || detailReg.robloxId));
+    const detailRegGames = detailReg && Array.isArray(detailReg.games) ? detailReg.games : [];
+    const isDetailRegActive = Boolean(
+      detailReg &&
+      detailReg.registered &&
+      (detailRegGames.length > 0 || detailReg.name || detailReg.realName || detailReg.robloxUsername || detailReg.robloxId)
+    );
     const detailWarnStats = (selectedMember.warnings && selectedMember.warnings.stats) ? selectedMember.warnings.stats : { points: 0, tier: 0 };
     const detailWarnHistory = (selectedMember.warnings && Array.isArray(selectedMember.warnings.history)) ? selectedMember.warnings.history : [];
   %>
@@ -153,11 +158,31 @@
           <div style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
               <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelRealName') %></span>
-              <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= detailReg.realName || '-' %></div>
+              <div style="font-weight: 700; color: var(--text-primary); font-size: 1.05rem;"><%= detailReg.name || detailReg.realName || '-' %></div>
             </div>
             <div>
               <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('profile.labelGender') %></span>
               <div style="font-weight: 600; color: var(--text-primary);"><%= detailReg.gender || '-' %></div>
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;"><%= t('adminMembers.labelGames') %></span>
+              <% if (detailRegGames.length > 0) { %>
+                <ul class="admin-games-list">
+                  <% detailRegGames.forEach((g) => {
+                       const gTitle = g.name && typeof g.name === 'object' ? (lang === 'en' ? (g.name.en || g.name.tr || g.id) : (g.name.tr || g.name.en || g.id)) : (g.name || g.id);
+                  %>
+                    <li class="admin-games-item">
+                      <span class="admin-games-name"><span aria-hidden="true"><%= g.emoji || '🎮' %></span> <%= gTitle %></span>
+                      <code class="admin-games-user"><%= g.username %></code>
+                      <% if (g.profileUrl) { %>
+                        <a href="<%= g.profileUrl %>" target="_blank" rel="noopener noreferrer" class="admin-games-link">↗</a>
+                      <% } %>
+                    </li>
+                  <% }); %>
+                </ul>
+              <% } else { %>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;"><%= t('adminMembers.noGamesListed') %></div>
+              <% } %>
             </div>
             <% if (detailReg.robloxUsername) { %>
               <div>
@@ -341,12 +366,14 @@
                   </div>
                 </td>
                 <td>
-                  <% if (m.registration && m.registration.registered && (m.registration.robloxUsername || m.registration.realName)) { %>
+                  <% if (m.registration && m.registration.registered && (m.registration.robloxUsername || m.registration.realName || m.registration.name || (Array.isArray(m.registration.games) && m.registration.games.length > 0))) { %>
                     <% if (m.registration.robloxUsername) { %>
                       <strong style="color: var(--color-info); font-size: 0.9rem;">@<%= m.registration.robloxUsername %></strong>
+                    <% } else if (Array.isArray(m.registration.games) && m.registration.games.length > 0) { %>
+                      <strong style="color: var(--color-info); font-size: 0.9rem;"><%= m.registration.games.map((g) => (g.emoji || '🎮') + ' ' + g.username).join(' • ') %></strong>
                     <% } %>
-                    <% if (m.registration.realName) { %>
-                      <div style="font-size: 0.775rem; color: var(--text-muted);"><%= m.registration.realName %></div>
+                    <% if (m.registration.name || m.registration.realName) { %>
+                      <div style="font-size: 0.775rem; color: var(--text-muted);"><%= m.registration.name || m.registration.realName %></div>
                     <% } %>
                   <% } else { %>
                     <span style="color: var(--text-muted); font-size: 0.85rem;"><%= t('profile.badgeUnregistered') %></span>

@@ -3449,6 +3449,10 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   gap: 0.65rem;
 }
 
+.reg-game-username-input {
+  font-family: var(--font-family);
+}
+
 .reg-input-with-action .form-control {
   flex: 1 1 auto;
   min-width: 0;
@@ -3548,6 +3552,15 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   margin-top: 1rem;
 }
 
+.alert[hidden],
+.reg-lookup-card[hidden],
+.reg-presubmit-warning[hidden],
+.reg-step-panel[hidden],
+.reg-game-field[hidden],
+[data-js-only][hidden] {
+  display: none !important;
+}
+
 .register-form-footer {
   margin-top: 1.75rem;
   display: flex;
@@ -3582,6 +3595,11 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   gap: 0.55rem;
 }
 
+.reg-submit-label {
+  display: inline-flex;
+  align-items: center;
+}
+
 .reg-btn-spinner {
   width: 16px;
   height: 16px;
@@ -3599,8 +3617,26 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 
 @media (max-width: 720px) {
   .register-steps-bar {
-    flex-wrap: wrap;
-    gap: 0.45rem;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+
+  .register-step-item {
+    font-size: 0.76rem;
+    gap: 5px;
+    padding: 3px 4px;
+    white-space: nowrap;
+  }
+
+  .register-step-circle {
+    width: 22px;
+    height: 22px;
+    font-size: 0.74rem;
+  }
+
+  .register-step-divider {
+    min-width: 10px;
+    max-width: 24px;
   }
 
   .reg-form-shell {
@@ -3701,15 +3737,18 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 
 .profile-avatar-wrap {
   position: relative;
+  flex-shrink: 0;
 }
 
 .profile-avatar-img {
+  display: block;
   width: 86px;
   height: 86px;
   border-radius: 50%;
   border: 3px solid var(--color-primary);
   box-shadow: var(--shadow-primary);
   object-fit: cover;
+  overflow: hidden;
 }
 
 .profile-avatar-dot {

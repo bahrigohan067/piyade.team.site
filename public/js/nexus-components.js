@@ -1567,14 +1567,10 @@
   }
 
   // ============================================================================
-  // 5) ORBITAL LOADER: DOSYA YÜKLENİRKEN (admin-warn)
+  // 5) ORBITAL LOADER: ORTAK TAM EKRAN KATMANI (admin-warn & kayit)
   // ============================================================================
-  function initAdminWarnOrbitalLoader() {
-    const form =
-      document.getElementById('adminWarnForm') ||
-      document.querySelector('form[data-orbital-loader="true"]');
-    const overlay = document.getElementById('orbitalLoaderOverlay');
-    if (!form || !overlay) return;
+  function createOrbitalOverlayController(overlay) {
+    if (!overlay) return null;
 
     const progressArc = document.getElementById('orbitalProgressArc');
     const cometArc = document.getElementById('orbitalCometArc');
@@ -1582,31 +1578,6 @@
     const statusText = document.getElementById('orbitalStatusText');
     const subText = document.getElementById('orbitalSubText');
     const closeBtn = document.getElementById('orbitalCloseBtn');
-    const errorBanner = document.getElementById(
-      form.getAttribute('data-error-banner-id') || 'adminWarnErrorBanner'
-    );
-    const errorBannerText = document.getElementById(
-      form.getAttribute('data-error-text-id') || 'adminWarnErrorText'
-    );
-
-    const cfg = Object.assign(
-      {
-        enableSound: false,
-        requestTimeoutMs: 45000,
-        successRedirectDelayMs: 750,
-      },
-      parseJsonAttr(form, 'data-loader-config', {})
-    );
-
-    const i18n = parseJsonAttr(form, 'data-loader-i18n', {
-      uploading: 'Kanıt yükleniyor…',
-      forwarding: "Kanıt Discord'a iletiliyor…",
-      success: 'Kanıt ve uyarı başarıyla iletildi!',
-      errorTitle: 'Kanıt İletilemedi',
-      timeoutError: 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
-      networkError: 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
-      closeBtn: 'Kapat ve Düzenle',
-    });
 
     const CIRCUMFERENCE = 2 * Math.PI * 52; // 326.7256
     const CX = 70;
@@ -1657,7 +1628,6 @@
       }
 
       if (prefersReducedMotion()) {
-        // Reduced-motion'da dönme ve uzayıp kısalma durur
         updateCometGeometry(90, 45);
         cometRafId = null;
         return;
@@ -1670,13 +1640,11 @@
       cometPhase += dt * 3.4;
 
       if (mode === 'forwarding') {
-        // İlerleme olmadan sonsuz dönme: her turda hızlanıp yavaşlar, kuyruk hızla uzayıp kısalır
         const speedDegPerSec = 260 + 230 * Math.sin(cometPhase);
         cometHeadDeg = (cometHeadDeg + speedDegPerSec * dt) % 360;
         const tailDeg = 28 + 92 * Math.pow(0.5 + 0.5 * Math.sin(cometPhase - 0.55), 1.35);
         updateCometGeometry(cometHeadDeg, tailDeg);
       } else {
-        // Yükleme aşamasında ilerleme yayı kuyruklu yıldızın arkasında dolar
         const progDeg = (uploadPercent / 100) * 360;
         const whip = 0.5 + 0.5 * Math.sin(cometPhase * 1.4);
         const tailDeg = Math.min(progDeg + 28, 34 + 62 * whip);
@@ -1696,18 +1664,25 @@
       lastCometTs = 0;
     }
 
-    function openOverlayUploading() {
-      mode = 'uploading';
+    function openOverlay(initialMode, titleMsg, subMsg) {
+      mode = initialMode;
       if (document.body) document.body.classList.add('is-orbital-open');
       overlay.classList.remove('is-success', 'is-error', 'is-indeterminate');
+      if (initialMode === 'forwarding') {
+        overlay.classList.add('is-indeterminate');
+      }
       overlay.hidden = false;
       if (closeBtn) closeBtn.hidden = true;
-      if (statusText) statusText.textContent = i18n.uploading || 'Kanıt yükleniyor…';
-      setDeterminateProgress(0);
+      if (statusText) statusText.textContent = titleMsg || '';
+      if (initialMode === 'uploading') {
+        setDeterminateProgress(0);
+      } else {
+        setDeterminateProgress(100);
+        if (subText) subText.textContent = subMsg || '';
+      }
       cometPhase = 0;
       cometHeadDeg = 0;
 
-      // Tarayıcı görünüm geçişi için frame sonrası is-open
       global.requestAnimationFrame(() => {
         overlay.classList.add('is-open');
       });
@@ -1720,30 +1695,96 @@
       }
     }
 
-    function switchToForwarding() {
-      mode = 'forwarding';
-      setDeterminateProgress(100);
-      overlay.classList.add('is-indeterminate');
-      if (statusText) statusText.textContent = i18n.forwarding || "Kanıt Discord'a iletiliyor…";
-      if (subText) subText.textContent = '';
-    }
-
-    function switchToSuccess() {
-      mode = 'success';
-      stopCometLoop();
-      overlay.classList.remove('is-indeterminate', 'is-error');
-      overlay.classList.add('is-success');
-      if (statusText) statusText.textContent = i18n.success || 'Kanıt ve uyarı başarıyla iletildi!';
-      if (subText) subText.textContent = '100%';
-    }
-
-    function closeOverlay() {
+    function close() {
       mode = 'idle';
       stopCometLoop();
       if (document.body) document.body.classList.remove('is-orbital-open');
       overlay.classList.remove('is-open', 'is-success', 'is-error', 'is-indeterminate');
       overlay.hidden = true;
     }
+
+    return {
+      openUploading(titleMsg) {
+        openOverlay('uploading', titleMsg, '0%');
+      },
+      openIndeterminate(titleMsg, subMsg = '') {
+        openOverlay('forwarding', titleMsg, subMsg);
+      },
+      setProgress(pct) {
+        setDeterminateProgress(pct);
+      },
+      switchToForwarding(titleMsg) {
+        mode = 'forwarding';
+        setDeterminateProgress(100);
+        overlay.classList.add('is-indeterminate');
+        if (statusText && titleMsg) statusText.textContent = titleMsg;
+        if (subText) subText.textContent = '';
+      },
+      switchToSuccess(titleMsg) {
+        mode = 'success';
+        stopCometLoop();
+        overlay.classList.remove('is-indeterminate', 'is-error');
+        overlay.classList.add('is-success');
+        if (statusText && titleMsg) statusText.textContent = titleMsg;
+        if (subText) subText.textContent = '100%';
+      },
+      switchToError(titleMsg, errMsg) {
+        mode = 'error';
+        stopCometLoop();
+        overlay.classList.remove('is-indeterminate', 'is-success');
+        overlay.classList.add('is-error');
+        if (statusText && titleMsg) statusText.textContent = titleMsg;
+        if (subText) subText.textContent = errMsg || '';
+        if (closeBtn) {
+          closeBtn.hidden = false;
+          global.setTimeout(() => closeBtn.focus(), 60);
+        }
+      },
+      getMode() {
+        return mode;
+      },
+      close,
+      closeBtn,
+    };
+  }
+
+  function initAdminWarnOrbitalLoader() {
+    const overlay = document.getElementById('orbitalLoaderOverlay');
+    if (!overlay) return;
+
+    const controller = createOrbitalOverlayController(overlay);
+    global.NexusOrbitalOverlay = controller;
+
+    const form =
+      document.getElementById('adminWarnForm') ||
+      document.querySelector('form[data-orbital-loader="true"]');
+    if (!form) return;
+
+    const errorBanner = document.getElementById(
+      form.getAttribute('data-error-banner-id') || 'adminWarnErrorBanner'
+    );
+    const errorBannerText = document.getElementById(
+      form.getAttribute('data-error-text-id') || 'adminWarnErrorText'
+    );
+
+    const cfg = Object.assign(
+      {
+        enableSound: false,
+        requestTimeoutMs: 45000,
+        successRedirectDelayMs: 750,
+      },
+      parseJsonAttr(form, 'data-loader-config', {})
+    );
+
+    const i18n = parseJsonAttr(form, 'data-loader-i18n', {
+      uploading: 'Kanıt yükleniyor…',
+      forwarding: "Kanıt Discord'a iletiliyor…",
+      success: 'Kanıt ve uyarı başarıyla iletildi!',
+      errorTitle: 'Kanıt İletilemedi',
+      timeoutError: 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
+      networkError: 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
+      closeBtn: 'Kapat ve Düzenle',
+    });
 
     async function refreshIdempotencyKeyIfNeeded(providedKey) {
       let nextKey = providedKey;
@@ -1783,17 +1824,8 @@
       }
     }
 
-    function switchToError(errMsg, maybeFreshKey) {
-      mode = 'error';
-      stopCometLoop();
-      overlay.classList.remove('is-indeterminate', 'is-success');
-      overlay.classList.add('is-error');
-      if (statusText) statusText.textContent = i18n.errorTitle || 'Kanıt İletilemedi';
-      if (subText) subText.textContent = errMsg;
-      if (closeBtn) {
-        closeBtn.hidden = false;
-        global.setTimeout(() => closeBtn.focus(), 60);
-      }
+    function handleUploadError(errMsg, maybeFreshKey) {
+      controller.switchToError(i18n.errorTitle || 'Kanıt İletilemedi', errMsg);
 
       if (errorBanner && errorBannerText) {
         errorBannerText.textContent = errMsg;
@@ -1804,34 +1836,32 @@
       refreshIdempotencyKeyIfNeeded(maybeFreshKey);
     }
 
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        if (mode === 'error') {
-          closeOverlay();
+    if (controller.closeBtn) {
+      controller.closeBtn.addEventListener('click', () => {
+        if (controller.getMode() === 'error') {
+          controller.close();
         }
       });
     }
 
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay && mode === 'error') {
-        closeOverlay();
+      if (e.target === overlay && controller.getMode() === 'error') {
+        controller.close();
       }
     });
 
     global.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && mode === 'error') {
-        closeOverlay();
+      if (e.key === 'Escape' && controller.getMode() === 'error') {
+        controller.close();
       }
     });
 
-    // app.js ile koordine işaretleme: Dosya seçiliyse XHR + Orbital Loader devralır
     global.NexusOrbitalUploadReady = true;
 
     form.addEventListener('submit', (e) => {
       const fileInputs = Array.from(form.querySelectorAll('input[type="file"]'));
       const hasFile = fileInputs.some((inp) => inp && inp.files && inp.files.length > 0);
       if (!hasFile) {
-        // Dosya yoksa loader çıkmaz; app.js / normal form gönderimi devam eder
         return;
       }
 
@@ -1847,7 +1877,6 @@
         return;
       }
 
-      // Mevcut buton kilitleme mantığı
       form.dataset.submitted = 'true';
       const submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) {
@@ -1863,8 +1892,7 @@
 
       if (errorBanner) errorBanner.hidden = true;
 
-      // Ses KESİNLİKLE kapalıdır (enableSound: false)
-      openOverlayUploading();
+      controller.openUploading(i18n.uploading || 'Kanıt yükleniyor…');
 
       const formData = new FormData(form);
       const csrfInput = form.querySelector('input[name="_csrf"]');
@@ -1881,14 +1909,12 @@
 
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable && ev.total > 0) {
-          const pct = (ev.loaded / ev.total) * 100;
-          setDeterminateProgress(pct);
+          controller.setProgress((ev.loaded / ev.total) * 100);
         }
       };
 
       xhr.upload.onload = () => {
-        // Dosya %100 sunucuya çıktıktan sonra Bot / Discord iletimi boyunca sonsuz döner
-        switchToForwarding();
+        controller.switchToForwarding(i18n.forwarding || "Kanıt Discord'a iletiliyor…");
       };
 
       xhr.onload = () => {
@@ -1900,7 +1926,7 @@
         }
 
         if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
-          switchToSuccess();
+          controller.switchToSuccess(i18n.success || 'Kanıt ve uyarı başarıyla iletildi!');
           const waitMs = prefersReducedMotion() ? 220 : cfg.successRedirectDelayMs || 750;
           global.setTimeout(() => {
             global.location.assign(
@@ -1915,25 +1941,25 @@
           (xhr.status === 413 ? i18n.fileTooLarge : null) ||
           i18n.networkError ||
           'İşlem sırasında bir hata oluştu.';
-        switchToError(msg, data && data.nextIdempotencyKey);
+        handleUploadError(msg, data && data.nextIdempotencyKey);
       };
 
       xhr.ontimeout = () => {
-        switchToError(
+        handleUploadError(
           i18n.timeoutError || 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
           null
         );
       };
 
       xhr.onerror = () => {
-        switchToError(
+        handleUploadError(
           i18n.networkError || 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
           null
         );
       };
 
       xhr.onabort = () => {
-        switchToError(
+        handleUploadError(
           i18n.networkError || 'Yükleme iptal edildi. Lütfen tekrar deneyin.',
           null
         );

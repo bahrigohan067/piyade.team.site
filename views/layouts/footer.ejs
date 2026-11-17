@@ -81,5 +81,9 @@
 
   <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>
+
+  <% if (typeof isRegisterPage !== 'undefined' && isRegisterPage) { %>
+    <script src="/js/register.js?v=<%= assetVer %>" defer></script>
+  <% } %>
 </body>
 </html>

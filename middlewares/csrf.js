@@ -59,7 +59,48 @@ function csrfProtection(req, res, next) {
   return next();
 }
 
+function timingSafeTokenMatch(expected, provided) {
+  if (typeof expected !== 'string' || typeof provided !== 'string' || !expected || !provided) {
+    return false;
+  }
+  const expectedBuf = Buffer.from(expected, 'utf8');
+  const providedBuf = Buffer.from(provided, 'utf8');
+  if (expectedBuf.length !== providedBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(expectedBuf, providedBuf);
+}
+
+/**
+ * GET tabanlı hassas proxy rotalarında (örn. /kayit/roblox-kontrol) CSRF belirtecini açıkça doğrular.
+ */
+function verifyCsrfRequest(req, res, next) {
+  if (!req.session || !req.session.csrfToken) {
+    return res.status(403).json({
+      code: 'CSRF_INVALID',
+      error: req.t ? req.t('errors.csrfInvalid') : 'CSRF güvenlik doğrulaması başarısız.',
+    });
+  }
+
+  const token =
+    req.headers['x-csrf-token'] ||
+    req.headers['csrf-token'] ||
+    (req.query && req.query._csrf) ||
+    (req.body && req.body._csrf);
+
+  if (!timingSafeTokenMatch(req.session.csrfToken, typeof token === 'string' ? token : '')) {
+    console.warn(`[CSRF UYARISI] Geçersiz proxy CSRF belirteci. IP: ${req.ip}, URL: ${req.originalUrl}`);
+    return res.status(403).json({
+      code: 'CSRF_INVALID',
+      error: req.t ? req.t('errors.csrfInvalid') : 'Geçersiz veya süresi dolmuş CSRF güvenlik doğrulaması.',
+    });
+  }
+
+  return next();
+}
+
 csrfProtection.csrfProtection = csrfProtection;
 csrfProtection.verifyCsrfToken = csrfProtection;
+csrfProtection.verifyCsrfRequest = verifyCsrfRequest;
 
 module.exports = csrfProtection;

@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 
 /**
  * Genel Site Rate Limiter (1 dakikada max 150 istek)
@@ -42,10 +43,38 @@ const formLimiter = rateLimit({
   },
 });
 
+/**
+ * Roblox Hesap Kontrol Proxy Limiter'ı (Kullanıcı başına 1 dakikada max 10 istek)
+ */
+const robloxLookupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `roblox_lookup_user:${String(uid)}`;
+    return `roblox_lookup_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg =
+      req.t
+        ? req.t('register.robloxLookupRateLimited')
+        : 'Çok fazla Roblox sorgusu yaptınız. Lütfen 1 dakika bekleyiniz.';
+    return res.status(429).json({
+      code: 'RATE_LIMITED',
+      status: 'TEMPORARY_ERROR',
+      error: msg,
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
   authLimiter,
   formLimiter,
   formActionLimiter: formLimiter,
+  robloxLookupLimiter,
 };

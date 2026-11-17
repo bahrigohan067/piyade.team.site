@@ -1,84 +1,238 @@
 <%- include('../layouts/header') %>
 
 <%
-  const safeForm = typeof formData !== 'undefined' && formData ? formData : { realName: '', gender: '', robloxInput: '' };
+  const safeForm = typeof formData !== 'undefined' && formData
+    ? formData
+    : { games: [], gender: '', name: '', usernames: {} };
+  const safeErrors = typeof fieldErrors !== 'undefined' && fieldErrors ? fieldErrors : {};
+  const activeGames = typeof gamesList !== 'undefined' && Array.isArray(gamesList) ? gamesList : [];
+  const selectedSet = new Set(Array.isArray(safeForm.games) ? safeForm.games : []);
+  const activeLang = lang === 'en' ? 'en' : 'tr';
+  const resolvedSiteName =
+    typeof siteName === 'string' && siteName
+      ? siteName
+      : (brandConfig && brandConfig.SITE_NAME) || 'Piyade';
+  const headingText = t('register.heading').replace(/\{siteName\}/g, resolvedSiteName);
+  const subheadingText = t('register.subheading').replace(/\{siteName\}/g, resolvedSiteName);
+  const safeDiscordInvite =
+    typeof discordInviteUrl === 'string' && discordInviteUrl
+      ? discordInviteUrl
+      : (brandConfig && brandConfig.DISCORD_INVITE_URL) || '';
+
+  function pickGameText(obj, fallback) {
+    if (typeof obj === 'string') return obj;
+    if (!obj || typeof obj !== 'object') return fallback || '';
+    return activeLang === 'en'
+      ? obj.en || obj.tr || fallback || ''
+      : obj.tr || obj.en || fallback || '';
+  }
+
+  let initialStep = 1;
+  if (safeErrors.name || Object.keys(safeErrors).some((k) => k.startsWith('game_'))) {
+    initialStep = 3;
+  } else if (safeErrors.gender) {
+    initialStep = 2;
+  } else if (
+    !safeErrors.games &&
+    selectedSet.size > 0 &&
+    (safeForm.gender === 'male' || safeForm.gender === 'female')
+  ) {
+    initialStep = 3;
+  } else if (!safeErrors.games && selectedSet.size > 0) {
+    initialStep = 2;
+  }
+
+  const clientConfig = {
+    lang: activeLang,
+    initialStep,
+    focusFieldId: typeof focusFieldId !== 'undefined' && focusFieldId ? focusFieldId : '',
+    maxGames: 4,
+    robloxLookupUrl: '/kayit/roblox-kontrol',
+    csrfToken: typeof csrfToken === 'string' ? csrfToken : '',
+    games: activeGames.map((g) => ({
+      id: g.id,
+      emoji: g.emoji,
+      name: pickGameText(g.name, g.id),
+      validate: g.validate || { min: 2, max: 32, regex: null },
+      verifier: g.verifier || null,
+    })),
+    i18n: {
+      selectedCountPrefix: t('register.selectedCountPrefix'),
+      robloxCheckBtn: t('register.robloxCheckBtn'),
+      robloxCheckingBtn: t('register.robloxCheckingBtn'),
+      robloxProfileOpen: t('register.robloxProfileOpen'),
+      robloxLookupInvalidQuery: t('register.robloxLookupInvalidQuery'),
+      robloxLookupTempError: t('register.robloxLookupTempError'),
+      robloxLookupWarningBeforeSubmit: t('register.robloxLookupWarningBeforeSubmit'),
+      errNoGameSelected: t('register.errNoGameSelected'),
+      errSelectGender: t('register.errSelectGender'),
+      errNameLength: t('register.errNameLength'),
+      errGameUsernameRequired: t('register.errGameUsernameRequired'),
+      errGameUsernameLength: t('register.errGameUsernameLength'),
+      errMinecraftUsername: t('register.errMinecraftUsername'),
+      errGameUsernamePattern: t('register.errGameUsernamePattern'),
+      loaderVerifying: t('register.loaderVerifying'),
+      loaderDesc: t('register.loaderDesc'),
+    },
+  };
 %>
 
-<div class="register-page-container">
-  <!-- TODO(oyun-bazlı-kayıt): Temel kayıt formu geçici olarak mevcut haliyle (Roblox bilgili) korunmaktadır; ileride oyun bazlı kayıt akışına geçilecektir. -->
+<div
+  class="register-page-container"
+  id="gameRegisterRoot"
+  data-initial-step="<%= initialStep %>"
+>
+  <div id="gameRegisterConfig" data-config="<%= JSON.stringify(clientConfig) %>" hidden></div>
 
-  <!-- Üst Başlık & İlerleme Adımları -->
+  <!-- Üst Başlık ve Statik SEO Tanıtımı -->
   <div class="register-header-block">
     <span class="badge badge-primary register-top-badge"><%= t('register.badgeTop') %></span>
-    <h1 class="register-main-heading"><%= t('register.heading') %></h1>
-    <p class="register-main-subheading">
-      <%= t('register.subheading') %>
-    </p>
+    <h1 class="register-main-heading"><%= headingText %></h1>
+    <p class="register-main-subheading"><%= subheadingText %></p>
 
-    <!-- 3 Aşamalı İlerleme Çubuğu -->
-    <div class="register-steps-bar">
-      <div class="register-step-item <%= currentUser ? 'is-done' : 'is-active' %>">
-        <span class="register-step-circle">
-          <%= currentUser ? '✓' : '1' %>
-        </span>
-        <span><%= t('register.step1') %></span>
+    <% if (state === 'form' || state === 'rejected') { %>
+      <div class="register-steps-bar" id="registerStepperBar" role="tablist" aria-label="<%= headingText %>">
+        <button
+          type="button"
+          class="register-step-item <%= initialStep === 1 ? 'is-active' : 'is-done' %>"
+          data-step-nav="1"
+          aria-selected="<%= initialStep === 1 ? 'true' : 'false' %>"
+        >
+          <span class="register-step-circle"><%= initialStep > 1 ? '✓' : '1' %></span>
+          <span><%= t('register.step1') %></span>
+        </button>
+        <div class="register-step-divider" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="register-step-item <%= initialStep === 2 ? 'is-active' : (initialStep > 2 ? 'is-done' : 'is-idle') %>"
+          data-step-nav="2"
+          aria-selected="<%= initialStep === 2 ? 'true' : 'false' %>"
+        >
+          <span class="register-step-circle"><%= initialStep > 2 ? '✓' : '2' %></span>
+          <span><%= t('register.step2') %></span>
+        </button>
+        <div class="register-step-divider" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="register-step-item <%= initialStep === 3 ? 'is-active' : 'is-idle' %>"
+          data-step-nav="3"
+          aria-selected="<%= initialStep === 3 ? 'true' : 'false' %>"
+        >
+          <span class="register-step-circle">3</span>
+          <span><%= t('register.step3') %></span>
+        </button>
       </div>
-      <div class="register-step-divider"></div>
-      <div class="register-step-item <%= state === 'pending' || state === 'approved' ? 'is-done' : (currentUser ? 'is-active' : 'is-idle') %>">
-        <span class="register-step-circle">
-          <%= state === 'pending' || state === 'approved' ? '✓' : '2' %>
-        </span>
-        <span><%= t('register.step2') %></span>
-      </div>
-      <div class="register-step-divider"></div>
-      <div class="register-step-item <%= state === 'approved' ? 'is-done' : (state === 'pending' ? 'is-warning' : 'is-idle') %>">
-        <span class="register-step-circle">
-          <%= state === 'approved' ? '✓' : '3' %>
-        </span>
-        <span><%= t('register.step3') %></span>
-      </div>
-    </div>
+    <% } %>
   </div>
 
-  <!-- Hata ve Başarı Bildirimleri -->
-  <% if (typeof error !== 'undefined' && error) { %>
+  <!-- Genel Sunucu Hatası -->
+  <% if (typeof globalError !== 'undefined' && globalError) { %>
     <div class="alert alert-danger" role="alert">
       <span class="register-alert-icon">🛑</span>
       <div class="register-alert-body">
-        <div><%= error %></div>
+        <div><%= globalError %></div>
       </div>
-    </div>
-  <% } %>
-
-  <% if (typeof success !== 'undefined' && success) { %>
-    <div class="alert alert-success" role="status">
-      <span class="register-alert-icon">✅</span>
-      <div><%= success %></div>
     </div>
   <% } %>
 
   <!-- DURUM 1: DİSCORD İLE GİRİŞ GEREKLİ -->
   <% if (state === 'login_required') { %>
     <div class="glass-card register-login-card">
-      <div class="register-login-icon">
-        🔐
-      </div>
+      <div class="register-login-icon">🔐</div>
       <h2 class="register-login-title"><%= t('register.loginReqTitle') %></h2>
-      <p class="register-login-desc">
-        <%= t('register.loginReqDesc') %>
-      </p>
+      <p class="register-login-desc"><%= t('register.loginReqDesc') %></p>
       <a href="/auth/discord" class="btn btn-discord btn-lg">
         <span><%= t('register.loginReqBtn') %></span>
       </a>
     </div>
 
-  <!-- DURUM 2: ZATEN ONAYLANDI / KAYITLI ÜYE -->
+    <div class="reg-rules-note-box">
+      <span aria-hidden="true">ℹ️</span>
+      <span><%= t('register.rulesNote') %></span>
+    </div>
+
+  <!-- DURUM 2: ESKİ BOT / KAYIT ŞU AN KULLANILAMIYOR -->
+  <% } else if (state === 'unavailable') { %>
+    <div class="glass-card register-status-card register-status-card--pending">
+      <div class="register-status-head">
+        <div class="register-status-icon register-status-icon--pending">🛠️</div>
+        <div>
+          <div class="register-badge-row">
+            <span class="badge badge-warning"><%= t('register.unavailableBadge') %></span>
+          </div>
+          <h2 class="register-status-title"><%= t('register.unavailableTitle') %></h2>
+        </div>
+      </div>
+      <p class="register-status-desc"><%= t('register.unavailableDesc') %></p>
+      <div class="register-status-actions">
+        <a href="<%= formActionUrl %>" class="btn btn-primary">
+          <span><%= t('register.btnRetryStatus') %></span>
+        </a>
+        <a href="/" class="btn btn-secondary">
+          <span><%= t('nav.home') %></span>
+        </a>
+      </div>
+    </div>
+
+  <!-- DURUM 3: PRG BAŞVURU BAŞARI SAYFASI -->
+  <% } else if (state === 'submitted_success' && flashSuccess) { %>
+    <div class="glass-card register-status-card register-status-card--approved" role="status">
+      <div class="register-status-head">
+        <div class="register-status-icon register-status-icon--approved">🎉</div>
+        <div>
+          <div class="register-badge-row">
+            <span class="badge badge-success"><%= t('register.successBadge') %></span>
+          </div>
+          <h2 class="register-status-title"><%= t('register.successTitle') %></h2>
+        </div>
+      </div>
+
+      <p class="register-status-desc"><%= t('register.successDesc') %></p>
+
+      <div class="glass-card register-summary-box">
+        <div class="reg-summary-head">
+          <span class="register-meta-label"><%= t('register.applicantLabel') %></span>
+          <div class="register-meta-value"><%= flashSuccess.name || currentUser.displayName %></div>
+        </div>
+
+        <% if (Array.isArray(flashSuccess.games) && flashSuccess.games.length > 0) { %>
+          <div class="reg-summary-games-block">
+            <span class="register-meta-label"><%= t('register.successGamesTitle') %></span>
+            <ul class="reg-games-summary-list">
+              <% flashSuccess.games.forEach((item) => { %>
+                <li class="reg-games-summary-item">
+                  <span class="reg-summary-game-label">
+                    <span aria-hidden="true"><%= item.emoji || '🎮' %></span>
+                    <strong><%= pickGameText(item.name, item.id) %></strong>
+                  </span>
+                  <code class="reg-summary-game-user"><%= item.username %></code>
+                </li>
+              <% }); %>
+            </ul>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="register-status-actions">
+        <% if (safeDiscordInvite) { %>
+          <a href="<%= safeDiscordInvite %>" target="_blank" rel="noopener noreferrer" class="btn btn-discord">
+            <span><%= t('register.btnJoinDiscord') %></span>
+          </a>
+        <% } %>
+        <a href="<%= formActionUrl %>" class="btn btn-secondary">
+          <span><%= t('register.btnRefresh') %></span>
+        </a>
+        <a href="/kurallar" class="btn btn-secondary">
+          <span><%= t('nav.rules') %></span>
+        </a>
+      </div>
+    </div>
+
+  <!-- DURUM 4: ZATEN KAYITLI (registered: true) -->
   <% } else if (state === 'approved') { %>
     <div class="glass-card register-status-card register-status-card--approved">
       <div class="register-status-head">
-        <div class="register-status-icon register-status-icon--approved">
-          🎉
-        </div>
+        <div class="register-status-icon register-status-icon--approved">✅</div>
         <div>
           <div class="register-badge-row">
             <span class="badge badge-success"><%= t('register.approvedBadge') %></span>
@@ -86,28 +240,33 @@
           <h2 class="register-status-title"><%= t('register.approvedTitle') %></h2>
         </div>
       </div>
-      <p class="register-status-desc">
-        <%= t('register.approvedDesc') %>
-      </p>
+      <p class="register-status-desc"><%= t('register.approvedDesc') %></p>
 
       <% if (statusData && statusData.registration) { %>
         <div class="glass-card register-summary-box">
-          <div class="grid grid-2">
-            <div>
+          <% if (statusData.registration.name || statusData.registration.realName) { %>
+            <div class="reg-summary-head">
               <span class="register-meta-label"><%= t('register.registeredNameLabel') %></span>
-              <div class="register-meta-value"><%= statusData.registration.realName || t('register.notSpecified') %></div>
+              <div class="register-meta-value"><%= statusData.registration.name || statusData.registration.realName %></div>
             </div>
-            <div>
-              <span class="register-meta-label"><%= t('register.robloxUsernameLabel') %></span>
-              <div class="register-meta-value register-meta-value--accent">
-                <% if (statusData.registration.robloxUsername) { %>
-                  @<%= statusData.registration.robloxUsername %>
-                <% } else { %>
-                  <%= t('register.registeredStatus') %>
-                <% } %>
-              </div>
+          <% } %>
+
+          <% if (Array.isArray(statusData.registration.games) && statusData.registration.games.length > 0) { %>
+            <div class="reg-summary-games-block">
+              <span class="register-meta-label"><%= t('register.registeredGamesLabel') %></span>
+              <ul class="reg-games-summary-list">
+                <% statusData.registration.games.forEach((item) => { %>
+                  <li class="reg-games-summary-item">
+                    <span class="reg-summary-game-label">
+                      <span aria-hidden="true"><%= item.emoji || '🎮' %></span>
+                      <strong><%= pickGameText(item.name, item.id) %></strong>
+                    </span>
+                    <code class="reg-summary-game-user"><%= item.username %></code>
+                  </li>
+                <% }); %>
+              </ul>
             </div>
-          </div>
+          <% } %>
         </div>
       <% } %>
 
@@ -121,13 +280,11 @@
       </div>
     </div>
 
-  <!-- DURUM 3: BAŞVURU BEKLEMEDE -->
+  <!-- DURUM 5: BAŞVURU BEKLEMEDE (Yeni form gösterilmez) -->
   <% } else if (state === 'pending') { %>
     <div class="glass-card register-status-card register-status-card--pending">
       <div class="register-status-head">
-        <div class="register-status-icon register-status-icon--pending">
-          ⏳
-        </div>
+        <div class="register-status-icon register-status-icon--pending">⏳</div>
         <div>
           <div class="register-badge-row">
             <span class="badge badge-warning"><%= t('register.pendingBadge') %></span>
@@ -135,34 +292,45 @@
           <h2 class="register-status-title"><%= t('register.pendingTitle') %></h2>
         </div>
       </div>
-      <p class="register-status-desc">
-        <%= t('register.pendingDesc') %>
-      </p>
+      <p class="register-status-desc"><%= t('register.pendingDesc') %></p>
 
       <% if (statusData && statusData.application) { %>
         <div class="glass-card register-summary-box">
-          <div class="grid grid-2">
-            <div>
-              <span class="register-meta-label"><%= t('register.applicantLabel') %></span>
-              <div class="register-meta-value"><%= statusData.application.realName || currentUser.displayName %></div>
-            </div>
-            <div>
-              <span class="register-meta-label"><%= t('register.robloxAccountLabel') %></span>
-              <div class="register-meta-value register-meta-value--accent">@<%= statusData.application.robloxUsername || t('register.reviewing') %></div>
+          <div class="reg-summary-head">
+            <span class="register-meta-label"><%= t('register.applicantLabel') %></span>
+            <div class="register-meta-value">
+              <%= statusData.application.name || statusData.application.realName || currentUser.displayName %>
             </div>
           </div>
+
+          <% if (Array.isArray(statusData.application.games) && statusData.application.games.length > 0) { %>
+            <div class="reg-summary-games-block">
+              <span class="register-meta-label"><%= t('register.appliedGamesLabel') %></span>
+              <ul class="reg-games-summary-list">
+                <% statusData.application.games.forEach((item) => { %>
+                  <li class="reg-games-summary-item">
+                    <span class="reg-summary-game-label">
+                      <span aria-hidden="true"><%= item.emoji || '🎮' %></span>
+                      <strong><%= pickGameText(item.name, item.id) %></strong>
+                    </span>
+                    <code class="reg-summary-game-user"><%= item.username %></code>
+                  </li>
+                <% }); %>
+              </ul>
+            </div>
+          <% } %>
         </div>
       <% } %>
 
       <div class="register-status-actions">
-        <button type="button" onclick="window.location.reload();" class="btn btn-secondary btn-sm">
+        <button type="button" id="btnPendingRefresh" class="btn btn-secondary btn-sm">
           <span><%= t('register.btnRefresh') %></span>
         </button>
         <span class="register-pending-note"><%= t('register.pendingNote') %></span>
       </div>
     </div>
 
-  <!-- DURUM 4 VE 5: REDDEDİLDİ VEYA YENİ BAŞVURU FORMU -->
+  <!-- DURUM 6: YENİ KAYIT FORMU (VEYA REDDEDİLEN SONRASI TEKRAR BAŞVURU) -->
   <% } else { %>
     <% if (state === 'rejected' && statusData && statusData.rejected) { %>
       <div class="glass-card register-rejected-card">
@@ -173,73 +341,311 @@
         <p class="register-rejected-reason">
           <strong><%= t('register.rejectedReasonLabel') %></strong> <%= statusData.rejected.reason %>
         </p>
-        <div class="register-rejected-hint">
-          <%= t('register.rejectedHint') %>
-        </div>
+        <div class="register-rejected-hint"><%= t('register.rejectedHint') %></div>
       </div>
     <% } %>
 
-    <!-- TODO(oyun-bazlı-kayıt): Geçici temel kayıt başvuru formu -->
-    <div class="glass-card">
-      <form action="/kayit" method="POST" data-prevent-double-submit="true">
-        <!-- CSRF Güvenlik Anahtarı -->
+    <div class="glass-card reg-form-shell">
+      <form
+        id="gameRegisterForm"
+        action="<%= formActionUrl %>"
+        method="POST"
+      >
         <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-        <!-- Tekil Idempotency Anahtarı (Çift Gönderimi Engeller) -->
         <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
 
-        <div class="form-group">
-          <label class="form-label" for="realName"><%= t('register.labelRealName') %></label>
-          <input
-            type="text"
-            id="realName"
-            name="realName"
-            class="form-control"
-            placeholder="<%= t('register.placeholderRealName') %>"
-            value="<%= safeForm.realName || '' %>"
-            minlength="2"
-            maxlength="32"
-            required
-          />
-          <div class="form-text"><%= t('register.helpRealName') %></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="gender"><%= t('register.labelGender') %></label>
-          <select id="gender" name="gender" class="form-select" required>
-            <option value=""><%= t('register.selectGender') %></option>
-            <option value="Erkek" <%= safeForm.gender === 'Erkek' ? 'selected' : '' %>><%= t('register.genderMale') %></option>
-            <option value="Kız" <%= safeForm.gender === 'Kız' ? 'selected' : '' %>><%= t('register.genderFemale') %></option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="robloxInput"><%= t('register.labelRoblox') %></label>
-          <input
-            type="text"
-            id="robloxInput"
-            name="robloxInput"
-            class="form-control"
-            placeholder="<%= t('register.placeholderRoblox') %>"
-            value="<%= safeForm.robloxInput || '' %>"
-            required
-          />
-          <div class="form-text">
-            ⚠️ <%= t('register.helpRoblox') %>
+        <!-- ADIM 1: OYUN SEÇİMİ -->
+        <section
+          class="reg-step-panel"
+          id="step1-games"
+          data-step-panel="1"
+          aria-labelledby="step1Heading"
+        >
+          <div class="reg-step-head">
+            <h2 id="step1Heading" class="reg-step-title"><%= t('register.step1Title') %></h2>
+            <p class="reg-step-desc"><%= t('register.step1Desc') %></p>
           </div>
-        </div>
 
-        <div class="register-form-footer">
-          <div class="register-session-info">
-            <%= t('register.sessionLabel') %> <strong class="register-session-user"><%= currentUser.displayName %></strong> (<code><%= currentUser.id %></code>)
+          <div class="reg-games-grid" role="group" aria-labelledby="step1Heading">
+            <% activeGames.forEach((game) => {
+                 const isChecked = selectedSet.has(game.id);
+                 const gameTitle = pickGameText(game.name, game.id);
+            %>
+              <label
+                class="reg-game-card <%= isChecked ? 'is-selected' : '' %>"
+                data-game-card="<%= game.id %>"
+              >
+                <input
+                  type="checkbox"
+                  class="reg-game-checkbox"
+                  id="game-check-<%= game.id %>"
+                  name="games"
+                  value="<%= game.id %>"
+                  <%= isChecked ? 'checked' : '' %>
+                />
+                <span class="reg-card-surface">
+                  <span class="reg-game-selected-badge" aria-hidden="true">
+                    <span>✅</span>
+                    <span><%= t('register.selectedBadge') %></span>
+                  </span>
+                  <span class="reg-game-emoji" aria-hidden="true"><%= game.emoji || '🎮' %></span>
+                  <span class="reg-game-title"><%= gameTitle %></span>
+                </span>
+              </label>
+            <% }); %>
           </div>
-          <button type="submit" class="btn btn-primary btn-lg" data-submitting-text="<%= t('register.btnSubmitting') %>">
-            <span><%= t('register.btnSubmit') %></span>
-          </button>
-        </div>
+
+          <div class="reg-step-status-row">
+            <span id="regSelectedGamesCount" class="reg-selected-counter">
+              <%= t('register.selectedCountPrefix') %> <strong><%= selectedSet.size %></strong> / 4
+            </span>
+          </div>
+
+          <div
+            class="reg-field-error"
+            id="error-games"
+            role="alert"
+            aria-live="polite"
+          ><%= safeErrors.games || '' %></div>
+
+          <div class="reg-step-nav reg-step-nav--end" data-js-only hidden>
+            <button type="button" id="btnStep1Next" class="btn btn-primary btn-lg">
+              <span><%= t('register.btnNext') %></span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ADIM 2: CİNSİYET SEÇİMİ -->
+        <section
+          class="reg-step-panel"
+          id="step2-gender"
+          data-step-panel="2"
+          aria-labelledby="step2Heading"
+        >
+          <div class="reg-step-head">
+            <h2 id="step2Heading" class="reg-step-title"><%= t('register.step2Title') %></h2>
+            <p class="reg-step-desc"><%= t('register.step2Desc') %></p>
+          </div>
+
+          <div class="reg-gender-grid" role="radiogroup" aria-labelledby="step2Heading">
+            <label class="reg-gender-card <%= safeForm.gender === 'male' ? 'is-selected' : '' %>">
+              <input
+                type="radio"
+                class="reg-gender-radio"
+                id="gender-male"
+                name="gender"
+                value="male"
+                <%= safeForm.gender === 'male' ? 'checked' : '' %>
+              />
+              <span class="reg-card-surface reg-gender-surface">
+                <span class="reg-game-selected-badge" aria-hidden="true">
+                  <span>✅</span>
+                  <span><%= t('register.selectedBadge') %></span>
+                </span>
+                <span class="reg-gender-label"><%= t('register.genderMale') %></span>
+              </span>
+            </label>
+
+            <label class="reg-gender-card <%= safeForm.gender === 'female' ? 'is-selected' : '' %>">
+              <input
+                type="radio"
+                class="reg-gender-radio"
+                id="gender-female"
+                name="gender"
+                value="female"
+                <%= safeForm.gender === 'female' ? 'checked' : '' %>
+              />
+              <span class="reg-card-surface reg-gender-surface">
+                <span class="reg-game-selected-badge" aria-hidden="true">
+                  <span>✅</span>
+                  <span><%= t('register.selectedBadge') %></span>
+                </span>
+                <span class="reg-gender-label"><%= t('register.genderFemale') %></span>
+              </span>
+            </label>
+          </div>
+
+          <div
+            class="reg-field-error"
+            id="error-gender"
+            role="alert"
+            aria-live="polite"
+          ><%= safeErrors.gender || '' %></div>
+
+          <div class="reg-step-nav" data-js-only hidden>
+            <button type="button" id="btnStep2Prev" class="btn btn-secondary">
+              <span><%= t('register.btnPrev') %></span>
+            </button>
+            <button type="button" id="btnStep2Next" class="btn btn-primary btn-lg">
+              <span><%= t('register.btnNext') %></span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ADIM 3: ANKET VE OYUN KULLANICI ADLARI -->
+        <section
+          class="reg-step-panel"
+          id="step3-survey"
+          data-step-panel="3"
+          aria-labelledby="step3Heading"
+        >
+          <div class="reg-step-head">
+            <h2 id="step3Heading" class="reg-step-title"><%= t('register.step3Title') %></h2>
+            <p class="reg-step-desc"><%= t('register.step3Desc') %></p>
+          </div>
+
+          <noscript>
+            <div class="alert alert-info reg-nojs-note">
+              <span>ℹ️</span>
+              <span><%= t('register.noJsNotice') %></span>
+            </div>
+          </noscript>
+
+          <!-- Alan 1: Adın -->
+          <div class="form-group reg-survey-group <%= safeErrors.name ? 'has-error' : '' %>">
+            <div class="reg-label-row">
+              <label class="form-label" for="regName"><%= t('register.labelName') %></label>
+              <span class="reg-char-counter" id="regNameCounter"><%= (safeForm.name || '').length %>/32</span>
+            </div>
+            <input
+              type="text"
+              id="regName"
+              name="name"
+              class="form-control"
+              placeholder="<%= t('register.placeholderName') %>"
+              value="<%= safeForm.name || '' %>"
+              minlength="2"
+              maxlength="32"
+              autocomplete="nickname"
+            />
+            <div class="form-text"><%= t('register.helpName') %></div>
+            <div
+              class="reg-field-error"
+              id="error-name"
+              role="alert"
+              aria-live="polite"
+            ><%= safeErrors.name || '' %></div>
+          </div>
+
+          <!-- Seçilen Oyunların Kullanıcı Adı Alanları (Oyun sırasıyla) -->
+          <div class="reg-game-fields-wrap" id="regGameFieldsContainer">
+            <h3 class="reg-game-fields-heading"><%= t('register.gamesUsernamesHeading') %></h3>
+
+            <% activeGames.forEach((game) => {
+                 const minLen = (game.validate && game.validate.min) || 2;
+                 const maxLen = (game.validate && game.validate.max) || 32;
+                 const regexRule = (game.validate && game.validate.regex) || '';
+                 const fieldVal = (safeForm.usernames && safeForm.usernames[game.id]) || '';
+                 const errKey = 'game_' + game.id;
+                 const fieldErr = safeErrors[errKey] || '';
+                 const labelText = pickGameText(game.usernameLabel, pickGameText(game.name, game.id));
+                 const placeholderText = pickGameText(game.usernamePlaceholder, '');
+                 const isRoblox = game.verifier === 'roblox';
+            %>
+              <div
+                class="form-group reg-game-field <%= fieldErr ? 'has-error' : '' %>"
+                id="game-field-<%= game.id %>"
+                data-game-field="<%= game.id %>"
+                data-min="<%= minLen %>"
+                data-max="<%= maxLen %>"
+                data-regex="<%= regexRule %>"
+                data-verifier="<%= game.verifier || '' %>"
+              >
+                <div class="reg-label-row">
+                  <label class="form-label" for="username-<%= game.id %>">
+                    <span aria-hidden="true"><%= game.emoji || '🎮' %></span>
+                    <span><%= labelText %></span>
+                  </label>
+                  <span class="reg-char-counter" id="counter-<%= game.id %>">
+                    <%= fieldVal.length %>/<%= maxLen %>
+                  </span>
+                </div>
+
+                <div class="<%= isRoblox ? 'reg-input-with-action' : '' %>">
+                  <input
+                    type="text"
+                    id="username-<%= game.id %>"
+                    name="usernames[<%= game.id %>]"
+                    class="form-control reg-game-username-input"
+                    value="<%= fieldVal %>"
+                    placeholder="<%= placeholderText %>"
+                    data-game-id="<%= game.id %>"
+                    maxlength="<%= maxLen %>"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <% if (isRoblox) { %>
+                    <button
+                      type="button"
+                      id="btnRobloxLookup"
+                      class="btn btn-secondary reg-lookup-btn"
+                      data-js-only
+                      hidden
+                    >
+                      <span><%= t('register.robloxCheckBtn') %></span>
+                    </button>
+                  <% } %>
+                </div>
+
+                <div
+                  class="reg-field-error"
+                  id="error-game-<%= game.id %>"
+                  role="alert"
+                  aria-live="polite"
+                ><%= fieldErr %></div>
+
+                <% if (isRoblox) { %>
+                  <div
+                    id="robloxLookupCard"
+                    class="reg-lookup-card"
+                    hidden
+                    aria-live="polite"
+                  ></div>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+
+          <div class="reg-rules-note-box">
+            <span aria-hidden="true">ℹ️</span>
+            <span><%= t('register.rulesNote') %></span>
+          </div>
+
+          <div
+            id="robloxPreSubmitWarning"
+            class="alert alert-warning reg-presubmit-warning"
+            role="alert"
+            hidden
+          ></div>
+
+          <div class="register-form-footer">
+            <div class="register-footer-left">
+              <button type="button" id="btnStep3Prev" class="btn btn-secondary btn-sm" data-js-only hidden>
+                <span><%= t('register.btnPrev') %></span>
+              </button>
+              <div class="register-session-info">
+                <%= t('register.sessionLabel') %>
+                <strong class="register-session-user"><%= currentUser.displayName %></strong>
+                (<code><%= currentUser.id %></code>)
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              id="btnRegisterSubmit"
+              class="btn btn-primary btn-lg reg-submit-btn"
+              data-submitting-text="<%= t('register.btnSubmitting') %>"
+            >
+              <span class="reg-btn-spinner" aria-hidden="true" hidden></span>
+              <span class="reg-submit-label"><%= t('register.btnSubmit') %></span>
+            </button>
+          </div>
+        </section>
       </form>
     </div>
-  <% } %>
 
+    <%- include('../partials/orbital-loader') %>
+  <% } %>
 </div>
 
 <%- include('../layouts/footer') %>

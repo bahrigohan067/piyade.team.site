@@ -1,4 +1,22 @@
 const appConfig = require('../config/app.config');
+const gamesConfig = require('../config/games.config');
+
+const BOT_GAMES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 dakika
+let gamesCache = {
+  games: null,
+  source: null,
+  expiresAt: 0,
+  fetchedAt: 0,
+};
+
+function clearGamesCache() {
+  gamesCache = {
+    games: null,
+    source: null,
+    expiresAt: 0,
+    fetchedAt: 0,
+  };
+}
 
 /**
  * Geçici Bellek İçi (RAM) Kanıt Deposu (Disk / public/uploads kesinlikle kullanılmaz).
@@ -150,6 +168,11 @@ async function executeSingleRequest(endpoint, options = {}) {
       const isRailwayAppNotFound = /application not found|failed to respond|bad gateway|service unavailable/i.test(rawErrorMsg);
       const isMemberLookupEndpoint =
         endpoint.startsWith('/api/member/') || /^\/api\/admin\/members\/[^/?]+/.test(endpoint);
+      const isVersionedFeatureEndpoint =
+        endpoint === '/api/games' ||
+        endpoint.startsWith('/api/roblox/lookup') ||
+        endpoint === '/api/register' ||
+        endpoint.startsWith('/api/register/status/');
 
       // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
       if (response.status === 401) {
@@ -160,6 +183,17 @@ async function executeSingleRequest(endpoint, options = {}) {
           true,
           'AUTH_SECRET_MISMATCH',
           { status: 401 }
+        );
+      }
+
+      // 1.5) Yeni kayıt/oyun uç noktalarında bot henüz güncellenmemişse JSON 404'ü çevrimdışı sayma
+      if (response.status === 404 && isJson && !isRailwayAppNotFound && isVersionedFeatureEndpoint) {
+        throw new BotApiError(
+          rawErrorMsg,
+          404,
+          false,
+          'ENDPOINT_MISSING',
+          data
         );
       }
 
@@ -349,23 +383,116 @@ async function runStartupConnectivityTest() {
 // 2. ÜYE VE ROL SORGULARI
 // ============================================================================
 
+function sanitizeHttpUrl(rawUrl) {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed || trimmed.length > 500) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getKnownGamesLookupMap() {
+  const activeList =
+    gamesCache && Array.isArray(gamesCache.games) && gamesCache.games.length > 0
+      ? gamesCache.games
+      : gamesConfig.getGamesConfig();
+  const map = new Map();
+  for (const g of activeList) {
+    if (g && g.id) map.set(String(g.id).toLowerCase(), g);
+  }
+  return map;
+}
+
+function sanitizeRegistrationGames(rawGames) {
+  if (!Array.isArray(rawGames)) return [];
+  const lookupMap = getKnownGamesLookupMap();
+  const seen = new Set();
+  const list = [];
+
+  for (const entry of rawGames) {
+    if (!entry || typeof entry !== 'object') continue;
+    const id = typeof entry.id === 'string' ? entry.id.trim().toLowerCase() : '';
+    const username = typeof entry.username === 'string' ? entry.username.trim() : '';
+    if (!id || !username || seen.has(id)) continue;
+    seen.add(id);
+
+    const catalogItem = lookupMap.get(id) || gamesConfig.getFallbackGameById(id);
+    const emoji =
+      typeof entry.emoji === 'string' && entry.emoji.trim()
+        ? entry.emoji.trim()
+        : (catalogItem && catalogItem.emoji) || '🎮';
+
+    let nameObj;
+    if (entry.name && typeof entry.name === 'object') {
+      nameObj = {
+        tr: String(entry.name.tr || entry.name.en || (catalogItem && catalogItem.name.tr) || id).trim(),
+        en: String(entry.name.en || entry.name.tr || (catalogItem && catalogItem.name.en) || id).trim(),
+      };
+    } else if (typeof entry.name === 'string' && entry.name.trim()) {
+      const cleanName = entry.name.trim();
+      nameObj = { tr: cleanName, en: cleanName };
+    } else if (catalogItem && catalogItem.name) {
+      nameObj = { ...catalogItem.name };
+    } else {
+      nameObj = { tr: id.toUpperCase(), en: id.toUpperCase() };
+    }
+
+    const profileUrl = sanitizeHttpUrl(entry.profileUrl);
+
+    list.push({
+      id,
+      emoji,
+      name: nameObj,
+      username,
+      profileUrl,
+    });
+  }
+
+  return list;
+}
+
 /**
  * Bot yanıtındaki kayıt nesnesini güvenli varsayılanlarla normalize eder.
  * Eski klan alanlarını (type, registrationType, clan, clanName) sessizce yok sayar.
  */
 function sanitizeRegistrationRecord(reg) {
   if (!reg || typeof reg !== 'object') {
-    return { registered: false };
+    return { registered: false, games: [], hasGames: false };
   }
-  const hasAnyInfo = Boolean(reg.realName || reg.robloxUsername || reg.robloxId);
+  const games = sanitizeRegistrationGames(reg.games);
+  const robloxGame = games.find((g) => g.id === 'roblox') || null;
+  const displayRealName = reg.name || reg.realName || null;
+  const robloxProfileUrl =
+    sanitizeHttpUrl(reg.robloxProfileUrl) ||
+    (robloxGame && robloxGame.profileUrl) ||
+    null;
+
+  const hasAnyInfo = Boolean(
+    games.length > 0 ||
+    displayRealName ||
+    reg.robloxUsername ||
+    reg.robloxId
+  );
+
   return {
     registered: typeof reg.registered === 'boolean' ? reg.registered : hasAnyInfo,
-    realName: reg.realName || null,
+    name: displayRealName,
+    realName: reg.realName || reg.name || null,
+    displayName: reg.displayName || null,
     gender: reg.gender || null,
-    robloxUsername: reg.robloxUsername || null,
+    games,
+    hasGames: games.length > 0,
+    robloxUsername: reg.robloxUsername || (robloxGame ? robloxGame.username : null),
     robloxDisplayName: reg.robloxDisplayName || null,
     robloxId: reg.robloxId || null,
-    robloxProfileUrl: reg.robloxProfileUrl || null,
+    robloxProfileUrl,
     registeredAt: reg.registeredAt || null,
   };
 }
@@ -397,11 +524,15 @@ async function getMemberProfile(discordId) {
 
   const data = raw && typeof raw === 'object' ? { ...raw } : {};
   const discordObj = data.discord && typeof data.discord === 'object' ? data.discord : {};
+  const resolvedDisplayName =
+    data.displayName || discordObj.displayName || discordObj.username || String(discordId);
+
+  data.displayName = resolvedDisplayName;
   data.discord = {
     id: discordObj.id || String(discordId),
     username: discordObj.username || '-',
-    displayName: discordObj.displayName || discordObj.username || String(discordId),
-    avatarUrl: discordObj.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png',
+    displayName: discordObj.displayName || resolvedDisplayName,
+    avatarUrl: sanitizeHttpUrl(discordObj.avatarUrl) || 'https://cdn.discordapp.com/embed/avatars/0.png',
     level: discordObj.level || 'registered',
   };
   data.registration = sanitizeRegistrationRecord(data.registration);
@@ -424,47 +555,200 @@ async function getMemberProfile(discordId) {
 }
 
 // ============================================================================
-// 3. KAYIT SİSTEMİ
+// 3. KAYIT VE OYUN SİSTEMİ
 // ============================================================================
 
-async function getRegistrationStatus(discordId) {
-  const data = await requestBotApi(`/api/register/status/${encodeURIComponent(discordId)}`, {
-    method: 'GET',
-  });
+async function getGames(options = {}) {
+  const forceRefresh = Boolean(options && options.forceRefresh);
+  const now = Date.now();
 
-  if (data && typeof data === 'object') {
-    if (data.registration) {
-      data.registration = sanitizeRegistrationRecord(data.registration);
-    }
-    if (data.application && typeof data.application === 'object') {
-      const appCopy = { ...data.application };
-      delete appCopy.type;
-      delete appCopy.registrationType;
-      delete appCopy.clan;
-      delete appCopy.clanName;
-      data.application = appCopy;
-    }
-    delete data.registrationType;
-    delete data.clan;
+  if (!forceRefresh && gamesCache.games && gamesCache.expiresAt > now) {
+    return {
+      games: gamesCache.games,
+      source: gamesCache.source || 'bot',
+      cached: true,
+    };
   }
 
-  return data;
+  try {
+    const data = await requestBotApi('/api/games', {
+      method: 'GET',
+      retries: 0,
+    });
+
+    if (
+      data &&
+      Array.isArray(data.games) &&
+      data.games.length > 0 &&
+      data.games.some((item) => item && typeof item.id === 'string' && item.name)
+    ) {
+      const normalized = gamesConfig.normalizeGamesList(data.games);
+      gamesCache = {
+        games: normalized,
+        source: 'bot',
+        expiresAt: Date.now() + BOT_GAMES_CACHE_TTL_MS,
+        fetchedAt: Date.now(),
+      };
+      return {
+        games: normalized,
+        source: 'bot',
+        cached: false,
+      };
+    }
+  } catch {
+    // Bot erişilemez veya eski sürümdeyse sessizce yedek oyun listesine düş
+  }
+
+  return {
+    games: gamesConfig.getGamesConfig(),
+    source: 'fallback',
+    cached: false,
+  };
 }
 
-// TODO(oyun-bazlı-kayıt): Temel kayıt gönderimi geçici olarak mevcut haliyle korunmaktadır; ileride oyun bazlı kayıt alanlarına geçilecektir.
+async function lookupRobloxAccount(query) {
+  const cleanQuery = typeof query === 'string' ? query.trim() : '';
+  if (!cleanQuery) {
+    return {
+      status: 'NOT_FOUND',
+      user: null,
+      alreadyRegistered: false,
+    };
+  }
+
+  try {
+    const data = await requestBotApi(`/api/roblox/lookup?query=${encodeURIComponent(cleanQuery)}`, {
+      method: 'GET',
+      retries: 0,
+    });
+
+    const rawStatus = data && typeof data.status === 'string' ? data.status.trim().toUpperCase() : '';
+    const allowedStatuses = new Set(['FOUND', 'NOT_FOUND', 'BANNED', 'TEMPORARY_ERROR']);
+    const status = allowedStatuses.has(rawStatus) ? rawStatus : 'TEMPORARY_ERROR';
+
+    let user = null;
+    if (status === 'FOUND' && data.user && typeof data.user === 'object') {
+      const uname = typeof data.user.name === 'string' ? data.user.name.trim() : '';
+      user = {
+        id: data.user.id !== undefined && data.user.id !== null ? String(data.user.id) : null,
+        name: uname || cleanQuery,
+        displayName:
+          typeof data.user.displayName === 'string' && data.user.displayName.trim()
+            ? data.user.displayName.trim()
+            : uname || cleanQuery,
+        profileUrl: sanitizeHttpUrl(data.user.profileUrl),
+        avatarUrl: sanitizeHttpUrl(data.user.avatarUrl),
+      };
+    }
+
+    return {
+      status,
+      user,
+      alreadyRegistered: Boolean(data && data.alreadyRegistered),
+    };
+  } catch (err) {
+    if (err instanceof BotApiError && err.errorCategory === 'ENDPOINT_MISSING') {
+      return {
+        status: 'TEMPORARY_ERROR',
+        user: null,
+        alreadyRegistered: false,
+        incompatibleBot: true,
+      };
+    }
+    return {
+      status: 'TEMPORARY_ERROR',
+      user: null,
+      alreadyRegistered: false,
+    };
+  }
+}
+
+async function getRegistrationStatus(discordId) {
+  let data;
+  try {
+    data = await requestBotApi(`/api/register/status/${encodeURIComponent(discordId)}`, {
+      method: 'GET',
+    });
+  } catch (err) {
+    if (err instanceof BotApiError && (err.errorCategory === 'ENDPOINT_MISSING' || err.statusCode === 501)) {
+      return {
+        registered: false,
+        state: 'unavailable',
+        incompatibleBot: true,
+      };
+    }
+    throw err;
+  }
+
+  if (!data || typeof data !== 'object') {
+    return {
+      registered: false,
+      state: 'unavailable',
+      incompatibleBot: true,
+    };
+  }
+
+  // Eski klan/legacy bot yanıt yapısı geldiyse çökmeden güncelleme uyarısı göster
+  if (
+    data.options !== undefined ||
+    (typeof data.registered !== 'boolean' && typeof data.state !== 'string')
+  ) {
+    return {
+      registered: false,
+      state: 'unavailable',
+      incompatibleBot: true,
+    };
+  }
+
+  const normalized = { ...data };
+  if (normalized.registration) {
+    normalized.registration = sanitizeRegistrationRecord(normalized.registration);
+  } else {
+    normalized.registration = { registered: false, games: [], hasGames: false };
+  }
+
+  if (normalized.application && typeof normalized.application === 'object') {
+    const appCopy = { ...normalized.application };
+    appCopy.name = appCopy.name || appCopy.realName || null;
+    appCopy.games = sanitizeRegistrationGames(appCopy.games);
+    delete appCopy.type;
+    delete appCopy.registrationType;
+    delete appCopy.clan;
+    delete appCopy.clanName;
+    normalized.application = appCopy;
+  }
+
+  normalized.registered = Boolean(normalized.registered || normalized.registration.registered);
+  if (typeof normalized.state === 'string') {
+    normalized.state = normalized.state.trim().toLowerCase();
+  } else {
+    normalized.state = normalized.registered ? 'approved' : 'none';
+  }
+
+  delete normalized.registrationType;
+  delete normalized.clan;
+
+  return normalized;
+}
+
 async function submitRegistration({
   discordId,
-  realName,
+  name,
   gender,
-  robloxInput,
+  games,
+  lang,
 }) {
   return requestBotApi('/api/register', {
     method: 'POST',
+    headers: {
+      'X-Actor-Id': String(discordId),
+    },
     body: {
-      discordId,
-      realName,
+      discordId: String(discordId),
+      name,
       gender,
-      robloxInput,
+      games,
+      lang: lang === 'en' ? 'en' : 'tr',
     },
     retries: 0, // Kayıt oluşturmada çift tetiklemeyi önlemek için POST retry kapalı
   });
@@ -654,6 +938,9 @@ module.exports = {
   runStartupConnectivityTest,
   getLastKnownActiveStats,
   updateActiveStatsCache,
+  clearGamesCache,
+  getGames,
+  lookupRobloxAccount,
   getMemberRoles,
   getMemberProfile,
   getRegistrationStatus,

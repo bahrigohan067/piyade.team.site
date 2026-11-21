@@ -8,29 +8,61 @@
         logo768: '/img/brand/logo-768.webp?v=1',
         logo1024: '/img/brand/logo-1024.webp?v=1',
       };
-  const heroSiteName = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getSiteName === 'function')
-    ? brandConfig.getSiteName()
-    : ((typeof brandConfig !== 'undefined' && brandConfig && brandConfig.SITE_NAME) ? brandConfig.SITE_NAME : t('brand.name'));
   const discordInviteUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function')
     ? brandConfig.getDiscordInviteUrl()
     : ((typeof brandConfig !== 'undefined' && brandConfig && brandConfig.DISCORD_INVITE_URL) ? brandConfig.DISCORD_INVITE_URL : '');
+  const hasLiveMemberCount = Boolean(
+    typeof activeStats !== 'undefined' &&
+    activeStats &&
+    typeof activeStats.activeRegisteredCount === 'number'
+  );
+  const homeGames = [
+    { emoji: '🧱', titleKey: 'home.gameRobloxTitle', descKey: 'home.gameRobloxDesc' },
+    { emoji: '🔫', titleKey: 'home.gameCs2Title', descKey: 'home.gameCs2Desc' },
+    { emoji: '🪖', titleKey: 'home.gameZulaTitle', descKey: 'home.gameZulaDesc' },
+    { emoji: '⛏️', titleKey: 'home.gameMinecraftTitle', descKey: 'home.gameMinecraftDesc' },
+  ];
+  const homeFeatures = [
+    { titleKey: 'home.why1Title', descKey: 'home.why1Desc' },
+    { titleKey: 'home.why2Title', descKey: 'home.why2Desc' },
+    { titleKey: 'home.why3Title', descKey: 'home.why3Desc' },
+    { titleKey: 'home.why4Title', descKey: 'home.why4Desc' },
+  ];
+  const homeFaqs = [
+    { qKey: 'home.faq1Q', aKey: 'home.faq1A', open: true },
+    { qKey: 'home.faq2Q', aKey: 'home.faq2A', open: false },
+    { qKey: 'home.faq3Q', aKey: 'home.faq3A', open: false },
+    { qKey: 'home.faq4Q', aKey: 'home.faq4A', open: false },
+  ];
 %>
 
 <!-- ==============================================================================
- * TODO(yeni-tasarım): GEÇİCİ SADE ANASAYFA HERO ALANI
+ * ANASAYFA HERO ALANI (Piyade World | Piyade Dünyası)
  * ============================================================================== -->
 <section class="hero-section">
   <div class="hero-split">
-    <!-- Sol Sütun (Mobilde Altta): Marka Adı, Geçici Slogan ve Aksiyon Butonları -->
+    <!-- Sol Sütun (Mobilde Altta): Marka Adı, Slogan ve Aksiyon Butonları -->
     <div class="hero-copy-col">
-      <!-- TODO(yeni-tasarım): Geçici başlık ve slogan -->
-      <div style="margin-bottom: 1.75rem;">
-        <h1 style="font-size: clamp(2.4rem, 5.4vw, 4rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 1.15rem;">
-          <span class="gradient-text text-glow-blue"><%= heroSiteName %></span>
+      <div class="hero-pill-wrap">
+        <span class="badge badge-primary"><%= t('home.heroBadge') %></span>
+      </div>
+
+      <div class="home-hero-copy-block">
+        <h1 class="home-hero-h1">
+          <span class="gradient-text text-glow-blue"><%= t('home.heroTitleMain') %></span>
+          <span class="home-hero-h1-sub"><%= t('home.heroTitleSub') %></span>
         </h1>
-        <p style="font-size: clamp(1.05rem, 1.8vw, 1.2rem); color: var(--text-secondary); max-width: 640px; margin-bottom: 2rem; line-height: 1.7;">
+        <p class="home-hero-lead">
           <%= t('home.heroSubtitle') %>
         </p>
+
+        <% if (hasLiveMemberCount) { %>
+          <div class="home-active-stat-pill">
+            <span class="status-dot-success"></span>
+            <strong><%= activeStats.activeRegisteredCount %></strong>
+            <span><%= t('home.activeMembersLabel') %></span>
+          </div>
+        <% } %>
       </div>
 
       <!-- Ana Aksiyon Butonları -->
@@ -50,7 +82,7 @@
         </a>
 
         <% if (discordInviteUrl) { %>
-          <a href="<%= discordInviteUrl %>" target="_blank" rel="noopener" class="btn btn-discord btn-lg">
+          <a href="<%= discordInviteUrl %>" target="_blank" rel="noopener noreferrer" class="btn btn-discord btn-lg">
             <span><%= t('home.btnDiscordServer') %></span>
           </a>
         <% } %>
@@ -83,6 +115,76 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ==============================================================================
+ * BÖLÜM 1: PİYADE DÜNYASI'NDAKİ OYUNLARIMIZ (Roblox, CS2, Zula, Minecraft)
+ * ============================================================================== -->
+<section class="home-seo-section" aria-labelledby="homeGamesHeading">
+  <div class="home-section-header">
+    <span class="badge badge-purple home-section-badge"><%= t('home.gamesBadge') %></span>
+    <h2 id="homeGamesHeading" class="home-section-title"><%= t('home.gamesHeading') %></h2>
+    <p class="home-section-desc"><%= t('home.gamesSubheading') %></p>
+  </div>
+
+  <div class="home-games-grid">
+    <% homeGames.forEach(function (g) { %>
+      <article class="glass-card glass-card-hover home-game-card">
+        <div class="home-game-card-top">
+          <span class="home-game-icon" aria-hidden="true"><%= g.emoji %></span>
+          <h3 class="home-game-title"><%= t(g.titleKey) %></h3>
+        </div>
+        <p class="home-game-desc"><%= t(g.descKey) %></p>
+        <a href="/kayit" class="home-game-link">
+          <span><%= t('home.gameCardCta') %></span>
+        </a>
+      </article>
+    <% }); %>
+  </div>
+</section>
+
+<!-- ==============================================================================
+ * BÖLÜM 2: NEDEN PİYADE WORLD (PİYADE DÜNYASI)?
+ * ============================================================================== -->
+<section class="home-seo-section" aria-labelledby="homeWhyHeading">
+  <div class="home-section-header">
+    <span class="badge badge-primary home-section-badge"><%= t('home.whyBadge') %></span>
+    <h2 id="homeWhyHeading" class="home-section-title"><%= t('home.whyHeading') %></h2>
+    <p class="home-section-desc"><%= t('home.whySubheading') %></p>
+  </div>
+
+  <div class="home-why-grid">
+    <% homeFeatures.forEach(function (f) { %>
+      <article class="glass-card home-why-card">
+        <h3 class="home-why-title"><%= t(f.titleKey) %></h3>
+        <p class="home-why-desc"><%= t(f.descKey) %></p>
+      </article>
+    <% }); %>
+  </div>
+</section>
+
+<!-- ==============================================================================
+ * BÖLÜM 3: PİYADE WORLD / PİYADE DÜNYASI SIKÇA SORULAN SORULAR (SSS / FAQ)
+ * ============================================================================== -->
+<section class="home-seo-section home-faq-section" aria-labelledby="homeFaqHeading">
+  <div class="home-section-header">
+    <span class="badge badge-purple home-section-badge"><%= t('home.faqBadge') %></span>
+    <h2 id="homeFaqHeading" class="home-section-title"><%= t('home.faqHeading') %></h2>
+    <p class="home-section-desc"><%= t('home.faqSubheading') %></p>
+  </div>
+
+  <div class="home-faq-list">
+    <% homeFaqs.forEach(function (faq) { %>
+      <details class="glass-card home-faq-item" <%= faq.open ? 'open' : '' %>>
+        <summary class="home-faq-question">
+          <h3 class="home-faq-q-title"><%= t(faq.qKey) %></h3>
+        </summary>
+        <div class="home-faq-answer">
+          <p><%= t(faq.aKey) %></p>
+        </div>
+      </details>
+    <% }); %>
   </div>
 </section>
 

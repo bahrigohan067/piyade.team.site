@@ -4004,3 +4004,263 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 .admin-games-link:hover {
   text-decoration: underline;
 }
+
+/* ============================================================================
+ * ANASAYFA: PİYADE WORLD / PİYADE DÜNYASI HERO, OYUN KARTLARI, NEDEN BİZ & SSS
+ * ============================================================================ */
+
+.home-hero-copy-block {
+  margin-bottom: 1.75rem;
+}
+
+.home-hero-h1 {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: clamp(2.4rem, 5.2vw, 3.85rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 0 0 1.15rem;
+}
+
+.home-hero-h1-sub {
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+  font-weight: 700;
+  color: var(--zirve-kicker-text);
+  letter-spacing: -0.01em;
+}
+
+.home-hero-lead {
+  font-size: clamp(1.02rem, 1.7vw, 1.16rem);
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 0 1.35rem;
+  line-height: 1.7;
+}
+
+.home-active-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-full);
+  background: var(--register-card-bg);
+  border: 1px solid var(--register-card-border);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.home-active-stat-pill strong {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.home-seo-section {
+  padding: 2.5rem 0 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.home-section-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 2.25rem;
+}
+
+.home-section-badge {
+  margin-bottom: 0.65rem;
+}
+
+.home-section-title {
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.65rem;
+  letter-spacing: -0.02em;
+}
+
+.home-section-desc {
+  color: var(--text-secondary);
+  font-size: 0.98rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.home-games-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.home-game-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.6rem;
+  border-color: var(--register-card-border);
+}
+
+.home-game-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.home-game-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--register-card-icon-bg);
+  border: 1px solid var(--register-card-icon-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.55rem;
+  flex-shrink: 0;
+}
+
+.home-game-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.home-game-desc {
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.65;
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.home-game-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--zirve-kicker-text);
+  text-decoration: none;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.home-game-link:hover {
+  color: var(--text-primary);
+  transform: translateX(3px);
+}
+
+.home-why-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.home-why-card {
+  padding: 1.5rem;
+}
+
+.home-why-title {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.55rem;
+}
+
+.home-why-desc {
+  color: var(--text-secondary);
+  font-size: 0.93rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.home-faq-section {
+  padding-bottom: 2.5rem;
+}
+
+.home-faq-list {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.home-faq-item {
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--register-card-border);
+}
+
+.home-faq-question {
+  list-style: none;
+  cursor: pointer;
+  padding: 1.15rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  user-select: none;
+}
+
+.home-faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.home-faq-question::after {
+  content: '+';
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--zirve-kicker-text);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.home-faq-item[open] .home-faq-question::after {
+  content: '−';
+}
+
+.home-faq-q-title {
+  font-size: 1.04rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.home-faq-answer {
+  padding: 0 1.4rem 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.68;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.9rem;
+}
+
+.home-faq-answer p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .home-games-grid,
+  .home-why-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-seo-section {
+    padding: 1.75rem 0 0.75rem;
+  }
+
+  .home-game-card,
+  .home-why-card {
+    padding: 1.25rem;
+  }
+
+  .home-faq-question {
+    padding: 1rem 1.1rem;
+  }
+
+  .home-faq-answer {
+    padding: 0.85rem 1.1rem 1.1rem;
+  }
+}

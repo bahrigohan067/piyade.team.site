@@ -2,17 +2,22 @@
 <%
   const fallbackBrand = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getSiteName === 'function')
     ? brandConfig.getSiteName()
-    : ((typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade');
+    : ((typeof siteConfig !== 'undefined' && siteConfig.BRAND_NAME) ? siteConfig.BRAND_NAME : 'Piyade World');
   const activeLang = (typeof seo !== 'undefined' && seo.htmlLang) ? seo.htmlLang : (typeof lang !== 'undefined' ? lang : 'tr');
+  const defaultAliases = ['Piyade World', 'Piyade Dünyası', 'Piyade', 'Piyade Oyuncu Topluluğu', 'Piyade Gaming Community', 'Piyade Discord'];
   const pageSeo = (typeof seo !== 'undefined' && seo) ? seo : {
-    brandName: fallbackBrand,
-    shortBrandName: fallbackBrand,
-    alternateName: fallbackBrand,
-    assetVersion: '2.0.0',
+    brandName: 'Piyade World | Piyade Dünyası',
+    primaryBrandName: fallbackBrand,
+    turkishBrandName: 'Piyade Dünyası',
+    shortBrandName: 'Piyade',
+    alternateName: 'Piyade Dünyası',
+    alternateNames: defaultAliases,
+    assetVersion: '2.1.0',
     baseUrl: 'http://localhost:3001',
     htmlLang: activeLang,
     title: typeof title !== 'undefined' ? title : t('meta.defaultTitle'),
     description: fallbackBrand,
+    keywords: 'Piyade World, Piyade Dünyası, Piyade, Piyade Oyuncu Topluluğu, Piyade Discord',
     canonicalUrl: 'http://localhost:3001/',
     alternateUrls: {
       tr: 'http://localhost:3001/tr',
@@ -23,11 +28,13 @@
     ogLocale: activeLang === 'en' ? 'en_US' : 'tr_TR',
     ogLocaleAlternate: activeLang === 'en' ? 'tr_TR' : 'en_US',
     ogImageUrl: 'http://localhost:3001/img/brand/og-image.jpg?v=1',
+    ogImageAlt: t('brand.heroLogoAlt'),
     logoUrl: 'http://localhost:3001/img/brand/icon-512.png?v=1',
     noindex: true,
     isPublic: false,
     googleSiteVerification: '',
     sameAs: [],
+    jsonLdString: '',
   };
   const fallbackBrandCfg = {
     VERSION: 1,
@@ -64,6 +71,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= effectiveTitle %></title>
   <meta name="description" content="<%= pageSeo.description %>">
+  <% if (!pageSeo.noindex && pageSeo.keywords) { %>
+    <meta name="keywords" content="<%= pageSeo.keywords %>">
+  <% } %>
+  <meta name="application-name" content="Piyade World - Piyade Dünyası">
+  <meta name="apple-mobile-web-app-title" content="Piyade World">
+  <meta name="author" content="Piyade World (Piyade Dünyası)">
   <meta name="robots" content="<%= pageSeo.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' %>">
 
   <% if ((!pageSeo.noindex || pageSeo.keepCanonical) && pageSeo.canonicalUrl) { %>
@@ -77,14 +90,14 @@
 
     <!-- Open Graph (Discord, Facebook, WhatsApp) -->
     <meta property="og:type" content="<%= pageSeo.ogType %>">
-    <meta property="og:site_name" content="<%= pageSeo.brandName %>">
+    <meta property="og:site_name" content="Piyade World | Piyade Dünyası">
     <meta property="og:title" content="<%= effectiveTitle %>">
     <meta property="og:description" content="<%= pageSeo.description %>">
     <meta property="og:url" content="<%= pageSeo.canonicalUrl %>">
     <meta property="og:image" content="<%= pageSeo.ogImageUrl %>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="<%= pageSeo.brandName %>">
+    <meta property="og:image:alt" content="<%= pageSeo.ogImageAlt || t('brand.heroLogoAlt') %>">
     <meta property="og:locale" content="<%= pageSeo.ogLocale %>">
     <meta property="og:locale:alternate" content="<%= pageSeo.ogLocaleAlternate %>">
 
@@ -93,53 +106,15 @@
     <meta name="twitter:title" content="<%= effectiveTitle %>">
     <meta name="twitter:description" content="<%= pageSeo.description %>">
     <meta name="twitter:image" content="<%= pageSeo.ogImageUrl %>">
+    <meta name="twitter:image:alt" content="<%= pageSeo.ogImageAlt || t('brand.heroLogoAlt') %>">
 
     <% if (pageSeo.googleSiteVerification) { %>
       <!-- Google Search Console Doğrulama Etiketi -->
       <meta name="google-site-verification" content="<%= pageSeo.googleSiteVerification %>">
     <% } %>
 
-    <!-- JSON-LD Yapılandırılmış Veri (Organization & WebSite) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "Organization",
-          "@id": "<%= pageSeo.baseUrl %>/#organization",
-          "name": "<%= pageSeo.brandName %>",
-          "alternateName": "<%= pageSeo.alternateName %>",
-          "url": "<%= pageSeo.baseUrl %>",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "<%= pageSeo.logoUrl %>",
-            "width": 512,
-            "height": 512
-          },
-          "image": "<%= pageSeo.ogImageUrl %>",
-          "description": "<%= pageSeo.description %>",
-          "sameAs": [<% if (Array.isArray(pageSeo.sameAs)) { pageSeo.sameAs.forEach(function (link, idx) { %>"<%= link %>"<%= idx < pageSeo.sameAs.length - 1 ? ', ' : '' %><% }); } %>]
-        },
-        {
-          "@type": "WebSite",
-          "@id": "<%= pageSeo.baseUrl %>/#website",
-          "name": "<%= pageSeo.brandName %>",
-          "alternateName": "<%= pageSeo.alternateName %>",
-          "url": "<%= pageSeo.baseUrl %>",
-          "inLanguage": ["tr", "en"],
-          "logo": {
-            "@type": "ImageObject",
-            "url": "<%= pageSeo.logoUrl %>",
-            "width": 512,
-            "height": 512
-          },
-          "publisher": {
-            "@id": "<%= pageSeo.baseUrl %>/#organization"
-          }
-        }
-      ]
-    }
-    </script>
+    <!-- JSON-LD Yapılandırılmış Veri (Organization, WebSite, WebPage, BreadcrumbList, FAQPage) -->
+    <script type="application/ld+json"><%- pageSeo.jsonLdString %></script>
   <% } %>
 
   <!-- Boyamadan Önce (Zero-Flicker) Sol Menü Açık/Kapalı Tercihini Uygula -->

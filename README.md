@@ -1,6 +1,6 @@
-# 🌐 Piyade — Oyuncu Topluluğu Web Portalı
+# 🌐 Piyade World | Piyade Dünyası — Oyuncu Topluluğu Web Portalı
 
-Bu proje, **Piyade** Discord sunucusu için geliştirilmiş, iki dilli (**TR / EN**), **Roblox**, **CS2**, **Zula** ve **TLauncher (Minecraft)** oyuncularını bir araya getiren ince ön yüz (**Thin Client**) web sitesidir.
+Bu proje, **Piyade World (Piyade Dünyası)** Discord sunucusu için geliştirilmiş, iki dilli (**TR / EN**), **Roblox**, **CS2**, **Zula** ve **TLauncher (Minecraft)** oyuncularını bir araya getiren ince ön yüz (**Thin Client**) web sitesidir.
 
 Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı işlemleri doğrudan Discord botunun sunduğu **REST API** servisi üzerinden gerçek zamanlı olarak yönetilir.
 
@@ -9,7 +9,7 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 ## 🏗️ Mimari ve Temel Özellikler
 
 - **İnce Ön Yüz (Thin Client):** Web sitesi kendi veritabanını tutmaz; Bot REST API (`services/botApiClient.js`) ile `Authorization: Bearer <API_SECRET>` üzerinden haberleşir.
-- **Merkezi Marka Yapılandırması (`config/brand.config.js`):** Marka adı (`SITE_NAME`, varsayılan `"Piyade"`), Discord davet bağlantısı (`DISCORD_INVITE_URL`) ve tüm marka görselleri/ikonları tek kaynaktan yönetilir.
+- **Merkezi Marka ve SEO Yapılandırması (`config/brand.config.js` & `config/site.config.js`):** Marka kimliği (**Piyade World**, **Piyade Dünyası**, **Piyade** ve marka takma adları), Discord davet bağlantısı (`DISCORD_INVITE_URL`), çok dilli `hreflang` / `canonical` bağlantıları, Open Graph / Twitter kartları ve yapılandırılmış JSON-LD (`Organization`, `WebSite`, `WebPage`, `BreadcrumbList`, `FAQPage`) şemaları tek kaynaktan yönetilir.
 - **İki Dilli Altyapı (`middlewares/i18n.js` & `locales/`):** `locales/` klasöründeki JSON dosyaları otomatik algılanır (`tr.json`, `en.json`). Dil seçici bu listeden dinamik olarak üretilir. Başvurular yalnızca gönderildiği andaki site diliyle (`lang`) bota iletilir.
 - **Oyun Bazlı Kayıt ve Yedek Liste (`config/games.config.js`):** Oyun listesi birincil olarak Bot API `GET /api/games` yanıtından alınıp 5 dakika bellekte önbelleklenir; bot erişilemezse veya yanıt uyumlu değilse 4 oyunlu yedek yapılandırma (`roblox`, `cs2`, `zula`, `minecraft`) devreye girer.
 - **Roblox Hesap Doğrulama Proxy'si (`GET /kayit/roblox-kontrol`):** Girişli oturum + CSRF doğrulaması + kullanıcı başına dakikada 10 istek sınırı ile Bot API üzerinden Roblox kullanıcı adı/ID kontrolü yapar; `FOUND`, `NOT_FOUND`, `BANNED`, `TEMPORARY_ERROR` ve `alreadyRegistered` durumlarını kart içinde gösterir.
@@ -25,7 +25,7 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 
 | Rota | Erişim Seviyesi | Açıklama |
 | :--- | :--- | :--- |
-| `GET /` | Herkese Açık | Anasayfa (Hero alanı ve topluluk bağlantıları) |
+| `GET /` | Herkese Açık | Anasayfa (Piyade World / Piyade Dünyası Hero, oyun evreni kartları, özellikler ve SSS) |
 | `GET /kurallar` | Herkese Açık | Genel Kurallar ve Disiplin Yönetmeliği (`M1–M13`, `D1–D3`, `Y1–Y5`) |
 | `GET /etkilesim` | Herkese Açık | 🎯 Atış & Gökyüzü (Nexus UI Dart Rating ve Meteors) |
 | `GET /kayit` / `POST /kayit` | Herkese Açık / Girişli | 3 adımlı oyun bazlı kayıt başvurusu (oyunlar, cinsiyet, anket, Orbital Loader & PRG) |
@@ -58,7 +58,7 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 PORT=3001
 NODE_ENV=development
 BASE_URL=http://localhost:3001
-SITE_NAME=Piyade
+SITE_NAME=Piyade World
 
 BOT_API_URL=http://localhost:3000
 API_SECRET=super_secret_piyade_bot_api_key_2026

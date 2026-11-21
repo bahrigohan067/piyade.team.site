@@ -1,24 +1,29 @@
 {
   "meta": {
-    "defaultTitle": "Piyade – Oyuncu Topluluğu",
-    "brandSubtitle": "Oyuncu Topluluğu"
+    "defaultTitle": "Piyade World | Piyade Dünyası – Oyuncu Topluluğu",
+    "brandSubtitle": "Piyade Dünyası • Oyuncu Topluluğu"
   },
   "seo": {
-    "homeTitle": "{siteName} – Oyuncu Topluluğu",
-    "homeDescription": "{siteName}; Roblox, Zula, TLauncher (Minecraft) ve CS2 oyuncularını bir araya getiren iki dilli oyuncu topluluğudur.",
-    "rulesTitle": "Genel Kurallar ve Disiplin Yönetmeliği | {siteName}",
-    "rulesDescription": "{siteName} resmi sunucu ve topluluk kuralları. Katılımcı (M1-M13), düzen (D1-D3) ve yetkili (Y1-Y5) disiplin maddelerini hemen inceleyin.",
-    "registerTitle": "Topluluğa Kayıt Ol | {siteName}",
-    "registerDescription": "{siteName} oyuncu topluluğuna katılmak için Discord hesabınızla giriş yapın ve üyelik başvurunuzu anında iletin.",
-    "interactiveTitle": "Atış Poligonu ve İnteraktif Deneyim | {siteName}",
-    "interactiveDescription": "{siteName} üyeleri için özel tasarlanan interaktif Dart Rating nişan poligonu ve dilek gökyüzü meteor yağmuru sayfasıdır."
+    "homeTitle": "Piyade World | Piyade Dünyası – Resmi Oyuncu Topluluğu (Roblox, CS2, Zula, Minecraft)",
+    "homeDescription": "Piyade World (Piyade Dünyası); Roblox, CS2, Zula ve TLauncher (Minecraft) oyuncularını bir araya getiren resmi Türk ve global Discord oyuncu topluluğudur. Hemen kayıt ol ve yerini al!",
+    "homeKeywords": "Piyade World, Piyade Dünyası, Piyade, Piyade Oyuncu Topluluğu, Piyade Discord, Roblox topluluğu, CS2 Türkiye, Zula Discord, TLauncher Minecraft topluluğu",
+    "rulesTitle": "Genel Kurallar ve Disiplin Yönetmeliği | Piyade World (Piyade Dünyası)",
+    "rulesDescription": "Piyade World (Piyade Dünyası) oyuncu topluluğu resmi sunucu kuralları. Katılımcı (M1-M13), düzen (D1-D3) ve yetkili (Y1-Y5) kurallarını inceleyin.",
+    "rulesKeywords": "Piyade World kurallar, Piyade Dünyası kurallar, Piyade Discord kuralları, disiplin yönetmeliği",
+    "registerTitle": "Topluluğa Kayıt Ol | Piyade World – Piyade Dünyası Oyuncu Topluluğu",
+    "registerDescription": "Piyade World (Piyade Dünyası) Discord sunucusuna kayıt ol. Oynadığın oyunları (Roblox, CS2, Zula, Minecraft) seç, başvurunu gönder ve onaylı topluluk rollerini al.",
+    "registerKeywords": "Piyade World kayıt, Piyade Dünyası kayıt ol, Piyade Discord başvuru, Roblox CS2 Zula Minecraft kayıt",
+    "interactiveTitle": "Atış Poligonu & Dilek Gökyüzü | Piyade World – Piyade Dünyası",
+    "interactiveDescription": "Piyade World (Piyade Dünyası) topluluğuna özel interaktif Dart Rating nişan poligonu ve etkileşimli meteor yağmuru deneyimi.",
+    "interactiveKeywords": "Piyade World atış poligonu, Piyade Dünyası interaktif, Dart Rating, Meteor gökyüzü"
   },
   "brand": {
-    "name": "Piyade",
+    "name": "Piyade World",
+    "turkishName": "Piyade Dünyası",
     "shortName": "Piyade",
-    "heroLogoAlt": "Piyade logosu",
-    "iconAlt": "Piyade simgesi",
-    "footerLogoAlt": "Piyade logosu"
+    "heroLogoAlt": "Piyade World – Piyade Dünyası Resmi Logosu",
+    "iconAlt": "Piyade World (Piyade Dünyası) Simgesi",
+    "footerLogoAlt": "Piyade World (Piyade Dünyası) Logosu"
   },
   "nav": {
     "home": "Anasayfa",
@@ -41,17 +46,55 @@
     "langSwitchLabel": "Dil Seçimi"
   },
   "footer": {
-    "description": "Roblox, Zula, TLauncher (Minecraft) ve CS2 oyuncularının buluşma noktası. Güvenli Discord botu REST API senkronu ile 7/24 aktif.",
+    "description": "Piyade World (Piyade Dünyası); Roblox, CS2, Zula ve TLauncher (Minecraft) oyuncularının resmi buluşma noktasıdır. Güvenli Discord botu REST API senkronu ile 7/24 aktif.",
     "discordServer": "Discord Sunucusu",
     "copyright": "Tüm hakları saklıdır."
   },
   "home": {
-    "pageTitle": "Piyade – Oyuncu Topluluğu",
-    "heroSubtitle": "Roblox, Zula, TLauncher (Minecraft) ve CS2 oyuncularının buluşma noktası.",
+    "pageTitle": "Piyade World | Piyade Dünyası – Resmi Oyuncu Topluluğu",
+    "heroBadge": "🌐 Piyade World • Piyade Dünyası",
+    "heroTitleMain": "Piyade World",
+    "heroTitleSub": "Piyade Dünyası Oyuncu Topluluğu",
+    "heroSubtitle": "Piyade World (Piyade Dünyası); Roblox, CS2, Zula ve TLauncher (Minecraft) oyuncularını tek çatı altında buluşturan, Discord bot senkronlu resmi Türk ve global oyuncu topluluğudur.",
+    "activeMembersLabel": "Aktif Kayıtlı Oyuncu",
     "btnMyProfile": "👤 Profilim",
     "btnRegisterNow": "📝 Kayıt Ol",
     "btnRules": "📜 Genel Kurallar",
-    "btnDiscordServer": "💬 Discord Sunucusu"
+    "btnDiscordServer": "💬 Discord Sunucusu",
+    "gamesBadge": "🎮 Oyun Evrenimiz",
+    "gamesHeading": "Piyade Dünyası'ndaki Oyunlarımız",
+    "gamesSubheading": "Piyade World (Piyade Dünyası) Discord sunucusunda oynadığın oyunlara özel roller, ses odaları ve takım arkadaşları seni bekliyor.",
+    "gameRobloxTitle": "Roblox",
+    "gameRobloxDesc": "Piyade World Roblox topluluğunda doğrulanmış hesap sistemiyle güvenli takımlar kurun, etkinliklere ve özel sunucu odalarına katılın.",
+    "gameCs2Title": "Counter-Strike 2 (CS2)",
+    "gameCs2Desc": "Piyade Dünyası CS2 oyuncularıyla rekabetçi maçlar, 5v5 lobi kurulumları ve taktiksel ses kanallarında yerinizi alın.",
+    "gameZulaTitle": "Zula",
+    "gameZulaDesc": "Piyade World Zula ekibiyle hızlı takımlar oluşturun, turnuva ve dostluk maçlarında topluluk arkadaşlarıyla birlikte oynayın.",
+    "gameMinecraftTitle": "TLauncher (Minecraft)",
+    "gameMinecraftDesc": "Piyade Dünyası Minecraft (TLauncher) oyuncularıyla hayatta kalma, inşa ve mini oyun etkinliklerinde maceraya ortak olun.",
+    "gameCardCta": "Rolünü Al ve Katıl →",
+    "whyBadge": "⚡ Topluluk Altyapısı",
+    "whyHeading": "Neden Piyade World (Piyade Dünyası)?",
+    "whySubheading": "Piyade Oyuncu Topluluğu, klasik bir Discord sunucusunun ötesinde web portalı ve bot entegrasyonuyla modern bir deneyim sunar.",
+    "why1Title": "🎮 Çok Oyunlu Ekosistem",
+    "why1Desc": "Tek bir Piyade World üyeliğiyle Roblox, CS2, Zula ve Minecraft için ayrı oyun rollerine ve özel sohbet kanallarına erişirsiniz.",
+    "why2Title": "🤖 Anlık Discord & Web Senkronu",
+    "why2Desc": "Siteden yaptığınız kayıt başvurusu doğrudan Piyade Discord botuna iletilir; onaylandığında Cengaver, Hesabı Onaylı ve oyun rolleriniz otomatik verilir.",
+    "why3Title": "🛡️ Güvenli ve Adil Ortam",
+    "why3Desc": "Şeffaf topluluk kuralları, hiyerarşi korumalı denetim sistemi ve 30 günlük otomatik af mekanizmasıyla huzurlu bir oyun ortamı sağlanır.",
+    "why4Title": "🌍 İki Dilli (TR / EN) Topluluk",
+    "why4Desc": "Hem Türkiye'den (Piyade Dünyası) hem de dünyadan (Piyade World) oyuncular için Türkçe ve İngilizce tam dil desteği sunulur.",
+    "faqBadge": "❓ Merak Edilenler",
+    "faqHeading": "Piyade World / Piyade Dünyası Hakkında Sıkça Sorulan Sorular",
+    "faqSubheading": "Piyade World oyuncu topluluğu, kayıt süreci ve oyun rolleri hakkında en çok sorulan soruların yanıtları.",
+    "faq1Q": "Piyade World (Piyade Dünyası) nedir?",
+    "faq1A": "Piyade World (Türkçe adıyla Piyade Dünyası), Roblox, Counter-Strike 2 (CS2), Zula ve TLauncher (Minecraft) oyuncularını bir araya getiren, web portalı ve Discord botu entegrasyonlu resmi oyuncu topluluğudur.",
+    "faq2Q": "Piyade Dünyası topluluğunda hangi oyunlar yer alıyor?",
+    "faq2A": "Topluluğumuzda başlıca Roblox, CS2, Zula ve TLauncher (Minecraft) oyunları yer almaktadır. Kayıt olurken oynadığınız oyunları seçerek o oyunlara özel Discord rollerini alabilirsiniz.",
+    "faq3Q": "Piyade World Discord sunucusuna nasıl kayıt olunur ve hangi roller verilir?",
+    "faq3A": "Sitemizdeki Kayıt Ol (/kayit) sayfasından Discord hesabınızla giriş yapıp oynadığınız oyunları, cinsiyetinizi ve oyun kullanıcı adlarınızı göndererek başvurabilirsiniz. Yetkili onayının ardından Cengaver, Hesabı Onaylı ve seçtiğiniz oyunların rolleri otomatik tanımlanır.",
+    "faq4Q": "Piyade World (Piyade Dünyası) topluluğuna katılmak ücretsiz mi?",
+    "faq4A": "Evet, Piyade World (Piyade Dünyası) oyuncu topluluğuna katılmak, kayıt olmak ve tüm topluluk etkinliklerinde yer almak tamamen ücretsizdir."
   },
   "rules": {
     "pageTitle": "Genel Kurallar ve Disiplin Yönetmeliği | Piyade",

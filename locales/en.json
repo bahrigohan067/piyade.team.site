@@ -1,24 +1,29 @@
 {
   "meta": {
-    "defaultTitle": "Piyade – Gaming Community",
-    "brandSubtitle": "Gaming Community"
+    "defaultTitle": "Piyade World | Piyade Dünyası – Gaming Community",
+    "brandSubtitle": "Piyade World • Gaming Community"
   },
   "seo": {
-    "homeTitle": "{siteName} – Gaming Community",
-    "homeDescription": "{siteName} is a bilingual gaming community uniting Roblox, Zula, TLauncher (Minecraft), and CS2 players.",
-    "rulesTitle": "Official Community Rules & Code of Conduct | {siteName}",
-    "rulesDescription": "Official {siteName} community rules and disciplinary code. Review participant (M1-M13), order (D1-D3), and staff (Y1-Y5) regulations and penalty points.",
-    "registerTitle": "Join the Community | {siteName}",
-    "registerDescription": "Sign in with Discord and submit your registration application to join the {siteName} gaming community.",
-    "interactiveTitle": "Dart Range & Interactive Experience | {siteName}",
-    "interactiveDescription": "Explore the interactive {siteName} experience page featuring the physics-based Dart Rating target range and falling star night sky."
+    "homeTitle": "Piyade World (Piyade Dünyası) – Official Gaming Community | Roblox, CS2, Zula & Minecraft",
+    "homeDescription": "Welcome to Piyade World (Piyade Dünyası), the bilingual Discord gaming community uniting Roblox, CS2, Zula, and Minecraft players. Register now and join our active community!",
+    "homeKeywords": "Piyade World, Piyade Dünyası, Piyade, Piyade Gaming Community, Piyade Discord, Roblox community, CS2 Discord, Zula, Minecraft community",
+    "rulesTitle": "Community Rules & Code of Conduct | Piyade World (Piyade Dünyası)",
+    "rulesDescription": "Official community rules and disciplinary code of Piyade World (Piyade Dünyası). Review participant, order, and staff regulations.",
+    "rulesKeywords": "Piyade World rules, Piyade Dünyası rules, Piyade Discord rules, code of conduct",
+    "registerTitle": "Register & Join | Piyade World (Piyade Dünyası) Gaming Community",
+    "registerDescription": "Apply for membership in the Piyade World (Piyade Dünyası) Discord community. Select your games (Roblox, CS2, Zula, Minecraft) and get your verified member roles.",
+    "registerKeywords": "Piyade World register, Piyade Dünyası join, Piyade Discord registration, gaming community application",
+    "interactiveTitle": "Dart Range & Meteor Sky | Piyade World (Piyade Dünyası)",
+    "interactiveDescription": "Interactive Dart Rating target range and falling star meteor sky crafted for the Piyade World (Piyade Dünyası) gaming community.",
+    "interactiveKeywords": "Piyade World dart range, Piyade Dünyası interactive, Dart Rating, Meteor sky"
   },
   "brand": {
-    "name": "Piyade",
+    "name": "Piyade World",
+    "turkishName": "Piyade Dünyası",
     "shortName": "Piyade",
-    "heroLogoAlt": "Piyade logo",
-    "iconAlt": "Piyade icon",
-    "footerLogoAlt": "Piyade logo"
+    "heroLogoAlt": "Piyade World – Piyade Dünyası Official Logo",
+    "iconAlt": "Piyade World (Piyade Dünyası) Icon",
+    "footerLogoAlt": "Piyade World (Piyade Dünyası) Logo"
   },
   "nav": {
     "home": "Home",
@@ -41,17 +46,55 @@
     "langSwitchLabel": "Language Selection"
   },
   "footer": {
-    "description": "A meeting point for Roblox, Zula, TLauncher (Minecraft) and CS2 players. Active 24/7 with secure Discord bot REST API synchronization.",
+    "description": "Piyade World (Piyade Dünyası) is the official meeting point for Roblox, CS2, Zula, and TLauncher (Minecraft) players. Active 24/7 with secure Discord bot REST API synchronization.",
     "discordServer": "Discord Server",
     "copyright": "All rights reserved."
   },
   "home": {
-    "pageTitle": "Piyade – Gaming Community",
-    "heroSubtitle": "A meeting point for Roblox, Zula, TLauncher (Minecraft) and CS2 players.",
+    "pageTitle": "Piyade World (Piyade Dünyası) – Official Gaming Community",
+    "heroBadge": "🌐 Piyade World • Piyade Dünyası Official Community",
+    "heroTitleMain": "Piyade World",
+    "heroTitleSub": "Piyade Dünyası Gaming Community",
+    "heroSubtitle": "Piyade World (Piyade Dünyası) is the official bilingual Discord gaming community uniting Roblox, CS2, Zula, and TLauncher (Minecraft) players under one roof.",
+    "activeMembersLabel": "Active Verified Players",
     "btnMyProfile": "👤 My Profile",
     "btnRegisterNow": "📝 Register",
     "btnRules": "📜 Rules",
-    "btnDiscordServer": "💬 Discord Server"
+    "btnDiscordServer": "💬 Discord Server",
+    "gamesBadge": "🎮 Our Gaming Universe",
+    "gamesHeading": "Games in Piyade World (Piyade Dünyası)",
+    "gamesSubheading": "Get dedicated game roles, voice channels, and teammates for your favorite titles in the Piyade World (Piyade Dünyası) Discord community.",
+    "gameRobloxTitle": "Roblox",
+    "gameRobloxDesc": "Team up safely with verified Roblox accounts in Piyade World, join community events, and hang out in dedicated voice rooms.",
+    "gameCs2Title": "Counter-Strike 2 (CS2)",
+    "gameCs2Desc": "Join Piyade World CS2 players for competitive matches, 5v5 lobbies, and tactical team communication.",
+    "gameZulaTitle": "Zula",
+    "gameZulaDesc": "Squad up with Piyade World Zula players for custom matches, community tournaments, and daily team play.",
+    "gameMinecraftTitle": "TLauncher (Minecraft)",
+    "gameMinecraftDesc": "Explore survival worlds, creative builds, and mini-game nights with Piyade World Minecraft (TLauncher) players.",
+    "gameCardCta": "Claim Role & Join →",
+    "whyBadge": "⚡ Community Ecosystem",
+    "whyHeading": "Why Join Piyade World (Piyade Dünyası)?",
+    "whySubheading": "More than a standard Discord server, Piyade World offers a modern gaming portal synchronized with our custom Discord bot.",
+    "why1Title": "🎮 Multi-Game Ecosystem",
+    "why1Desc": "With a single Piyade World membership, unlock dedicated roles and channels for Roblox, CS2, Zula, and Minecraft.",
+    "why2Title": "🤖 Real-Time Discord & Web Sync",
+    "why2Desc": "Applications submitted on our site go straight to the Piyade Discord bot, automatically assigning Cengaver, Verified Account, and game roles upon approval.",
+    "why3Title": "🛡️ Safe & Fair Environment",
+    "why3Desc": "Clear community rules, fair moderation, and an automatic 30-day amnesty system ensure a respectful and toxic-free atmosphere.",
+    "why4Title": "🌍 Bilingual (TR / EN) Community",
+    "why4Desc": "Full Turkish (Piyade Dünyası) and English (Piyade World) support welcomes players from Turkey and around the world.",
+    "faqBadge": "❓ Frequently Asked Questions",
+    "faqHeading": "Frequently Asked Questions About Piyade World (Piyade Dünyası)",
+    "faqSubheading": "Answers to the most common questions about the Piyade World (Piyade Dünyası) gaming community, registration, and roles.",
+    "faq1Q": "What is Piyade World (Piyade Dünyası)?",
+    "faq1A": "Piyade World (also known in Turkish as Piyade Dünyası) is an official bilingual gaming community and web portal uniting Roblox, Counter-Strike 2 (CS2), Zula, and TLauncher (Minecraft) players on Discord.",
+    "faq2Q": "Which games are supported in Piyade World (Piyade Dünyası)?",
+    "faq2A": "Our community actively supports Roblox, CS2, Zula, and TLauncher (Minecraft). During registration, you can select one or all of these games to receive dedicated Discord roles.",
+    "faq3Q": "How do I register for the Piyade World Discord server and which roles do I get?",
+    "faq3A": "Sign in with Discord on our Register (/kayit) page, choose the games you play, and submit your game usernames. Once approved by staff, you automatically receive Cengaver, Verified Account, and your selected game roles.",
+    "faq4Q": "Is joining Piyade World (Piyade Dünyası) free?",
+    "faq4A": "Yes, joining the Piyade World (Piyade Dünyası) gaming community, registering your game accounts, and participating in community events is completely free."
   },
   "rules": {
     "pageTitle": "Official Community Rules & Code of Conduct | Piyade",

@@ -5,13 +5,29 @@ const enLocale = require('../locales/en.json');
 
 /**
  * Merkezi SEO ve Yapılandırılmış Veri (JSON-LD) Konfigürasyonu.
- * Marka adı ve Discord bağlantısı doğrudan config/brand.config.js üzerinden,
- * sayfa başlıkları ve açıklamaları ise locales sözlüklerinden okunur.
+ * Marka adı (Piyade World / Piyade Dünyası), takma adlar ve Discord bağlantısı
+ * doğrudan config/brand.config.js üzerinden, sayfa başlıkları, açıklamalar ve SSS
+ * verileri ise locales sözlüklerinden okunur.
  */
 const BRAND_NAME = brandConfig.getSiteName();
-const SHORT_BRAND_NAME = brandConfig.getSiteName();
-const ALTERNATE_NAME = brandConfig.getSiteName();
-const ASSET_VERSION = '2.0.0';
+const TURKISH_BRAND_NAME = brandConfig.getTurkishSiteName();
+const SHORT_BRAND_NAME = brandConfig.getShortSiteName();
+const BILINGUAL_BRAND_NAME = brandConfig.getBilingualSiteName();
+const ALTERNATE_NAME = TURKISH_BRAND_NAME;
+const ALTERNATE_NAMES = brandConfig.getBrandAliases();
+const ASSET_VERSION = '2.1.0';
+
+const KNOWS_ABOUT = Object.freeze([
+  'Roblox',
+  'Counter-Strike 2',
+  'CS2',
+  'Zula',
+  'Minecraft',
+  'TLauncher',
+  'Discord Gaming Community',
+  'Piyade World',
+  'Piyade Dünyası',
+]);
 
 const PUBLIC_ROUTE_PATHS = ['/', '/kurallar', '/kayit', '/etkilesim'];
 
@@ -19,18 +35,26 @@ const ROUTE_SEO_KEYS = {
   '/': {
     titleKey: 'seo.homeTitle',
     descKey: 'seo.homeDescription',
+    keywordsKey: 'seo.homeKeywords',
+    breadcrumbKey: 'nav.home',
   },
   '/kurallar': {
     titleKey: 'seo.rulesTitle',
     descKey: 'seo.rulesDescription',
+    keywordsKey: 'seo.rulesKeywords',
+    breadcrumbKey: 'nav.rules',
   },
   '/kayit': {
     titleKey: 'seo.registerTitle',
     descKey: 'seo.registerDescription',
+    keywordsKey: 'seo.registerKeywords',
+    breadcrumbKey: 'nav.register',
   },
   '/etkilesim': {
     titleKey: 'seo.interactiveTitle',
     descKey: 'seo.interactiveDescription',
+    keywordsKey: 'seo.interactiveKeywords',
+    breadcrumbKey: 'nav.interactive',
   },
 };
 
@@ -94,6 +118,150 @@ function buildAlternateUrls(baseUrl, normalizedPath) {
   };
 }
 
+function buildHomeFaqItems(lang) {
+  const items = [];
+  for (let i = 1; i <= 4; i += 1) {
+    const q = readLocaleKey(lang, `home.faq${i}Q`).trim();
+    const a = readLocaleKey(lang, `home.faq${i}A`).trim();
+    if (q && a) {
+      items.push({ question: q, answer: a });
+    }
+  }
+  return items;
+}
+
+function buildBreadcrumbList(baseUrl, normalizedPath, canonicalUrl, lang) {
+  const homeUrl = lang === 'en' ? `${baseUrl}/en` : `${baseUrl}/`;
+  const homeLabel =
+    lang === 'en'
+      ? 'Piyade World (Piyade Dünyası)'
+      : 'Piyade World | Piyade Dünyası';
+
+  const elements = [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: homeLabel,
+      item: homeUrl,
+    },
+  ];
+
+  if (normalizedPath !== '/') {
+    const keyCfg = ROUTE_SEO_KEYS[normalizedPath];
+    const subLabel =
+      (keyCfg && readLocaleKey(lang, keyCfg.breadcrumbKey)) ||
+      normalizedPath.replace(/^\/+/, '');
+    elements.push({
+      '@type': 'ListItem',
+      position: 2,
+      name: subLabel,
+      item: canonicalUrl,
+    });
+  }
+
+  return elements;
+}
+
+function buildJsonLdGraph({
+  baseUrl,
+  canonicalUrl,
+  normalizedPath,
+  lang,
+  title,
+  description,
+  logoUrl,
+  ogImageUrl,
+  sameAs,
+  alternateNames,
+  breadcrumbItems,
+  faqItems,
+}) {
+  const inLangCode = lang === 'en' ? 'en-US' : 'tr-TR';
+
+  const graph = [
+    {
+      '@type': 'Organization',
+      '@id': `${baseUrl}/#organization`,
+      name: PRIMARY_ORG_NAME(),
+      alternateName: alternateNames,
+      url: baseUrl,
+      logo: {
+        '@type': 'ImageObject',
+        url: logoUrl,
+        width: 512,
+        height: 512,
+      },
+      image: ogImageUrl,
+      description,
+      knowsAbout: [...KNOWS_ABOUT],
+      sameAs: Array.isArray(sameAs) ? sameAs : [],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${baseUrl}/#website`,
+      name: 'Piyade World | Piyade Dünyası',
+      alternateName: alternateNames,
+      url: baseUrl,
+      inLanguage: ['tr-TR', 'en-US'],
+      logo: {
+        '@type': 'ImageObject',
+        url: logoUrl,
+        width: 512,
+        height: 512,
+      },
+      publisher: {
+        '@id': `${baseUrl}/#organization`,
+      },
+    },
+    {
+      '@type': 'WebPage',
+      '@id': `${canonicalUrl}#webpage`,
+      url: canonicalUrl,
+      name: title,
+      description,
+      inLanguage: inLangCode,
+      isPartOf: {
+        '@id': `${baseUrl}/#website`,
+      },
+      about: {
+        '@id': `${baseUrl}/#organization`,
+      },
+      breadcrumb: {
+        '@id': `${canonicalUrl}#breadcrumb`,
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${canonicalUrl}#breadcrumb`,
+      itemListElement: breadcrumbItems,
+    },
+  ];
+
+  if (normalizedPath === '/' && Array.isArray(faqItems) && faqItems.length > 0) {
+    graph.push({
+      '@type': 'FAQPage',
+      '@id': `${canonicalUrl}#faq`,
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    });
+  }
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': graph,
+  };
+}
+
+function PRIMARY_ORG_NAME() {
+  return brandConfig.getSiteName();
+}
+
 /**
  * Her istek için sayfa başlığı, meta açıklama, canonical, hreflang, Open Graph ve
  * JSON-LD verilerini üretir.
@@ -101,17 +269,29 @@ function buildAlternateUrls(baseUrl, normalizedPath) {
 function buildPageSeo(req, overrides = {}) {
   const baseUrl = getBaseUrl();
   const siteName = brandConfig.getSiteName();
+  const trSiteName = brandConfig.getTurkishSiteName();
+  const shortSiteName = brandConfig.getShortSiteName();
+  const bilingualSiteName = brandConfig.getBilingualSiteName();
+  const alternateNames = brandConfig.getBrandAliases();
+
   const lang = (overrides.lang || (req && req.lang) || 'tr') === 'en' ? 'en' : 'tr';
-  const normalizedPath = normalizeRoutePath(overrides.routePath || (req && req.canonicalRoutePath) || (req && req.path) || '/');
-  const isPublic = overrides.isPublic !== undefined ? Boolean(overrides.isPublic) : isPublicIndexablePath(normalizedPath);
+  const normalizedPath = normalizeRoutePath(
+    overrides.routePath || (req && req.canonicalRoutePath) || (req && req.path) || '/'
+  );
+  const isPublic =
+    overrides.isPublic !== undefined ? Boolean(overrides.isPublic) : isPublicIndexablePath(normalizedPath);
   const noindex = overrides.noindex !== undefined ? Boolean(overrides.noindex) : !isPublic;
 
   const keyCfg = ROUTE_SEO_KEYS[normalizedPath] || ROUTE_SEO_KEYS['/'];
   const rawTitle = readLocaleKey(lang, keyCfg.titleKey).replace(/\{siteName\}/g, siteName);
   const rawDesc = readLocaleKey(lang, keyCfg.descKey).replace(/\{siteName\}/g, siteName);
+  const rawKeywords = keyCfg.keywordsKey
+    ? readLocaleKey(lang, keyCfg.keywordsKey).replace(/\{siteName\}/g, siteName)
+    : 'Piyade World, Piyade Dünyası, Piyade, Piyade Oyuncu Topluluğu, Piyade Discord, Roblox, CS2, Zula, Minecraft';
 
-  const title = overrides.title || rawTitle || siteName;
-  const description = overrides.description || rawDesc || siteName;
+  const title = overrides.title || rawTitle || bilingualSiteName;
+  const description = overrides.description || rawDesc || bilingualSiteName;
+  const keywords = overrides.keywords || rawKeywords;
 
   const alternateUrls = buildAlternateUrls(baseUrl, normalizedPath);
   const langPrefixUsed = req && req.langPrefix ? req.langPrefix : null;
@@ -123,35 +303,73 @@ function buildPageSeo(req, overrides = {}) {
     canonicalUrl = alternateUrls.tr;
   }
 
+  const ogImageUrl = `${baseUrl}${brandConfig.ASSETS.ogImage}`;
+  const logoUrl = `${baseUrl}${brandConfig.ASSETS.icon512}`;
+  const sameAs = getSocialLinks();
+  const breadcrumbItems = buildBreadcrumbList(baseUrl, normalizedPath, canonicalUrl, lang);
+  const faqItems = normalizedPath === '/' ? buildHomeFaqItems(lang) : [];
+
+  const jsonLdObj = buildJsonLdGraph({
+    baseUrl,
+    canonicalUrl,
+    normalizedPath,
+    lang,
+    title,
+    description,
+    logoUrl,
+    ogImageUrl,
+    sameAs,
+    alternateNames,
+    breadcrumbItems,
+    faqItems,
+  });
+
+  const jsonLdString = JSON.stringify(jsonLdObj).replace(/</g, '\\u003c');
+  const ogImageAlt =
+    readLocaleKey(lang, 'brand.heroLogoAlt') || 'Piyade World – Piyade Dünyası Resmi Logosu';
+
   return {
-    brandName: siteName,
-    shortBrandName: siteName,
-    alternateName: siteName,
+    brandName: bilingualSiteName,
+    primaryBrandName: siteName,
+    turkishBrandName: trSiteName,
+    shortBrandName: shortSiteName,
+    alternateName: trSiteName,
+    alternateNames,
     assetVersion: ASSET_VERSION,
     baseUrl,
     normalizedPath,
     htmlLang: lang,
     title,
     description,
+    keywords,
     canonicalUrl,
     alternateUrls,
     ogType: 'website',
     ogLocale: lang === 'en' ? 'en_US' : 'tr_TR',
     ogLocaleAlternate: lang === 'en' ? 'tr_TR' : 'en_US',
-    ogImageUrl: `${baseUrl}${brandConfig.ASSETS.ogImage}`,
-    logoUrl: `${baseUrl}${brandConfig.ASSETS.icon512}`,
+    ogImageUrl,
+    ogImageAlt,
+    logoUrl,
     noindex,
     keepCanonical: Boolean(overrides.keepCanonical),
     isPublic: isPublic && !noindex,
     googleSiteVerification: getGoogleSiteVerification(),
-    sameAs: getSocialLinks(),
+    sameAs,
+    breadcrumbItems,
+    faqItems,
+    jsonLd: jsonLdObj,
+    jsonLdString,
   };
 }
 
 module.exports = {
   BRAND_NAME,
+  TURKISH_BRAND_NAME,
   SHORT_BRAND_NAME,
+  BILINGUAL_BRAND_NAME,
   ALTERNATE_NAME,
+  ALTERNATE_NAMES,
+  KNOWS_ABOUT,
   ASSET_VERSION,
   PUBLIC_ROUTE_PATHS,
   getBaseUrl,
@@ -160,5 +378,6 @@ module.exports = {
   normalizeRoutePath,
   isPublicIndexablePath,
   buildAlternateUrls,
+  buildHomeFaqItems,
   buildPageSeo,
 };

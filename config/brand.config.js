@@ -1,7 +1,7 @@
 /**
  * Merkezi Marka Kimliği, Görsel Yolları ve Önbellek Sürüm Konfigürasyonu.
- * Marka adı (siteName), Discord davet bağlantısı (discordInviteUrl), tüm görsel yolları,
- * boyutlar ve sürüm numarası (?v=) tek kaynaktan yönetilir.
+ * Marka adı (Piyade World / Piyade Dünyası), takma adlar (aliases), Discord davet bağlantısı,
+ * tüm görsel yolları, boyutlar ve sürüm numarası (?v=) tek kaynaktan yönetilir.
  */
 
 const VERSION = 1;
@@ -9,9 +9,42 @@ const VERSION = 1;
 // public/css/theme.css içindeki --bg-body değerinin karşılığı (meta theme-color ve webmanifest için)
 const THEME_COLOR = '#07080c';
 
+const PRIMARY_BRAND_NAME = 'Piyade World';
+const TURKISH_BRAND_NAME = 'Piyade Dünyası';
+const SHORT_BRAND_NAME = 'Piyade';
+const BILINGUAL_BRAND_NAME = 'Piyade World | Piyade Dünyası';
+
+const BRAND_ALIASES = Object.freeze([
+  'Piyade World',
+  'Piyade Dünyası',
+  'Piyade',
+  'Piyade Oyuncu Topluluğu',
+  'Piyade Gaming Community',
+  'Piyade Discord',
+]);
+
 function getSiteName(envObj = process.env) {
   const raw = envObj && typeof envObj.SITE_NAME === 'string' ? envObj.SITE_NAME.trim() : '';
-  return raw || 'Piyade';
+  if (!raw || raw.toLowerCase() === 'piyade') {
+    return PRIMARY_BRAND_NAME;
+  }
+  return raw;
+}
+
+function getTurkishSiteName() {
+  return TURKISH_BRAND_NAME;
+}
+
+function getShortSiteName() {
+  return SHORT_BRAND_NAME;
+}
+
+function getBilingualSiteName() {
+  return BILINGUAL_BRAND_NAME;
+}
+
+function getBrandAliases() {
+  return [...BRAND_ALIASES];
 }
 
 function getDiscordInviteUrl(envObj = process.env) {
@@ -71,9 +104,19 @@ const ALT_KEYS = {
 module.exports = {
   VERSION,
   THEME_COLOR,
+  PRIMARY_BRAND_NAME,
+  TURKISH_BRAND_NAME,
+  SHORT_BRAND_NAME,
+  BILINGUAL_BRAND_NAME,
+  BRAND_ALIASES,
+  ALTERNATE_NAMES: BRAND_ALIASES,
   SITE_NAME,
   DISCORD_INVITE_URL,
   getSiteName,
+  getTurkishSiteName,
+  getShortSiteName,
+  getBilingualSiteName,
+  getBrandAliases,
   getDiscordInviteUrl,
   PATHS,
   ASSETS,

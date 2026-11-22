@@ -8,7 +8,7 @@ const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
 const { requireLogin } = require('../middlewares/auth');
 const { verifyCsrfToken, verifyCsrfRequest } = require('../middlewares/csrf');
-const { formActionLimiter, robloxLookupLimiter } = require('../middlewares/rateLimiter');
+const { formActionLimiter, robloxLookupLimiter, publicStatsLimiter } = require('../middlewares/rateLimiter');
 const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
 
 /**
@@ -48,6 +48,7 @@ router.get('/robots.txt', (req, res) => {
     'Disallow: /health',
     'Disallow: /geri-bildirim',
     'Disallow: /kayit/roblox-kontrol',
+    'Disallow: /api',
     '',
     `Sitemap: ${baseUrl}/sitemap.xml`,
     '',
@@ -115,18 +116,34 @@ router.get('/sitemap.xml', (req, res) => {
 
 /**
  * GET /
- * Anasayfa: Topluluk tanıtımı ve canlı aktif üye istatistikleri.
+ * Anasayfa: Topluluk tanıtımı, canlı aktif üye istatistikleri ve en çok oynanan oyunlar sıralaması.
  */
 router.get('/', async (req, res) => {
   let activeStats = {
     activeRegisteredCount: null,
     botOnline: false,
   };
+  const lang = req.lang === 'en' ? 'en' : 'tr';
+  let topGames = {
+    scope: 'month',
+    group: 'game',
+    month: '',
+    since: null,
+    updatedAt: Date.now(),
+    totalSeconds: 0,
+    games: [],
+    stale: false,
+    preparing: false,
+    offline: false,
+  };
 
   try {
-    const [helpData, healthData] = await Promise.all([
+    const [helpData, healthData, topGamesData] = await Promise.all([
       botApiClient.getHelpStatus(req.session?.user?.id || null).catch(() => null),
       botApiClient.checkHealth().catch(() => null),
+      botApiClient
+        .getTopGames({ scope: 'month', limit: 8, lang, group: 'game', timeoutMs: 2500 })
+        .catch(() => null),
     ]);
 
     if (helpData && typeof helpData.activeRegisteredCount === 'number') {
@@ -138,6 +155,9 @@ router.get('/', async (req, res) => {
     } else {
       activeStats.botOnline = true;
     }
+    if (topGamesData && typeof topGamesData === 'object') {
+      topGames = topGamesData;
+    }
   } catch (_) {
     activeStats.botOnline = false;
     activeStats.activeRegisteredCount = null;
@@ -146,7 +166,47 @@ router.get('/', async (req, res) => {
   return res.render('pages/home', {
     title: res.locals.seo ? res.locals.seo.title : req.t('home.pageTitle'),
     activeStats,
+    topGames,
   });
+});
+
+/**
+ * GET /api/stats/top-games
+ * Anasayfa "Sunucuda En Çok Oynanan Oyunlar" sekme geçişleri için herkese açık anonim JSON proxy.
+ */
+router.get('/api/stats/top-games', publicStatsLimiter, async (req, res) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.setHeader('Cache-Control', 'public, max-age=60');
+
+  const scope = req.query.scope === 'all' ? 'all' : 'month';
+  const group = req.query.group === 'family' ? 'family' : 'game';
+  const lang =
+    req.query.lang === 'en' ? 'en' : req.query.lang === 'tr' ? 'tr' : req.lang === 'en' ? 'en' : 'tr';
+  const rawLimit = Number.parseInt(String(req.query.limit ?? 8), 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(12, Math.max(1, rawLimit)) : 8;
+
+  try {
+    const data = await botApiClient.getTopGames({
+      scope,
+      group,
+      lang,
+      limit,
+    });
+    return res.json({
+      ok: true,
+      ...data,
+    });
+  } catch (_) {
+    return res.status(503).json({
+      ok: false,
+      scope,
+      group,
+      games: [],
+      totalSeconds: 0,
+      stale: true,
+      offline: true,
+    });
+  }
 });
 
 /**

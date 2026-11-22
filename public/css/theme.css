@@ -339,4 +339,33 @@
   --register-card-glow: 0 0 32px -4px rgba(168, 85, 247, 0.55);
   --register-card-icon-bg: rgba(139, 92, 246, 0.16);
   --register-card-icon-border: rgba(192, 132, 252, 0.36);
+
+  /* En Çok Oynanan Oyunlar — İki Renkli Degrade Çubuk Çiftleri */
+  --rank-grad-1-a: #f59e0b;
+  --rank-grad-1-b: #ec4899;
+  --rank-grad-2-a: #a855f7;
+  --rank-grad-2-b: #6366f1;
+  --rank-grad-3-a: #06b6d4;
+  --rank-grad-3-b: #3b82f6;
+  --rank-grad-4-a: #10b981;
+  --rank-grad-4-b: #14b8a6;
+  --rank-grad-5-a: #ec4899;
+  --rank-grad-5-b: #8b5cf6;
+  --rank-grad-6-a: #f97316;
+  --rank-grad-6-b: #ef4444;
+  --rank-grad-7-a: #38bdf8;
+  --rank-grad-7-b: #818cf8;
+  --rank-grad-8-a: #84cc16;
+  --rank-grad-8-b: #10b981;
+
+  /* Etkinliğim Paneli & En Çok Oynanan Oyunlar Yüzey Değişkenleri */
+  --activity-panel-bg: rgba(14, 17, 29, 0.86);
+  --activity-panel-border: rgba(168, 85, 247, 0.28);
+  --activity-drawer-bg: rgba(10, 12, 21, 0.96);
+  --activity-bar-track: rgba(255, 255, 255, 0.08);
+  --activity-live-bg: rgba(16, 185, 129, 0.14);
+  --activity-live-border: rgba(16, 185, 129, 0.38);
+  --topgames-row-bg: rgba(15, 19, 32, 0.72);
+  --topgames-row-hover-bg: rgba(23, 28, 46, 0.92);
+  --topgames-bar-track: rgba(255, 255, 255, 0.07);
 }

@@ -34,6 +34,24 @@
     { qKey: 'home.faq3Q', aKey: 'home.faq3A', open: false },
     { qKey: 'home.faq4Q', aKey: 'home.faq4A', open: false },
   ];
+  const initialTopGames = (typeof topGames !== 'undefined' && topGames && typeof topGames === 'object')
+    ? topGames
+    : { scope: 'month', games: [], totalSeconds: 0, since: null, stale: false, preparing: false, offline: false };
+  const initialGamesList = Array.isArray(initialTopGames.games) ? initialTopGames.games : [];
+  const leaderSeconds = initialGamesList.length > 0 ? Math.max(1, Number(initialGamesList[0].seconds) || 1) : 1;
+  const currentLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
+  const rankMedals = ['🥇', '🥈', '🥉'];
+  function formatHomeDuration(sec, lng) {
+    const isEn = lng === 'en';
+    const clean = Math.max(0, Math.floor(Number(sec) || 0));
+    if (clean < 60) return isEn ? '< 1 min' : '< 1 dk';
+    const totalMin = Math.floor(clean / 60);
+    const hrs = Math.floor(totalMin / 60);
+    const mins = totalMin % 60;
+    if (hrs === 0) return isEn ? (mins + ' min') : (mins + ' dk');
+    if (mins === 0) return isEn ? (hrs + ' hr') : (hrs + ' sa');
+    return isEn ? (hrs + ' hr ' + mins + ' min') : (hrs + ' sa ' + mins + ' dk');
+  }
 %>
 
 <!-- ==============================================================================
@@ -119,6 +137,152 @@
 </section>
 
 <!-- ==============================================================================
+ * BÖLÜM 0: SUNUCUDA EN ÇOK OYNANAN OYUNLAR (Canlı Anonim Sıralama Tablosu)
+ * ============================================================================== -->
+<section
+  class="home-seo-section home-topgames-section"
+  id="homeTopGamesSection"
+  aria-labelledby="homeTopGamesHeading"
+  data-lang="<%= currentLang %>"
+  data-t-since="<%= t('home.topGamesSinceNote') %>"
+  data-t-players="<%= t('home.topGamesPlayers') %>"
+  data-t-share="<%= t('home.topGamesShare') %>"
+  data-t-tooltip="<%= t('home.topGamesTooltip') %>"
+  data-t-empty="<%= t('home.topGamesEmpty') %>"
+  data-t-preparing="<%= t('home.topGamesPreparing') %>"
+  data-t-error="<%= t('home.topGamesError') %>"
+  data-t-stale="<%= t('home.topGamesStaleNote') %>"
+>
+  <script type="application/json" id="initialTopGamesJson"><%- JSON.stringify(initialTopGames).replace(/</g, '\\u003c') %></script>
+
+  <div class="glass-card topgames-card">
+    <div class="topgames-header">
+      <div class="topgames-heading-col">
+        <span class="badge badge-purple home-section-badge"><%= t('home.topGamesBadge') %></span>
+        <h2 id="homeTopGamesHeading" class="topgames-title"><%= t('home.topGamesTitle') %></h2>
+        <p class="topgames-subtitle"><%= t('home.topGamesSubtitle') %></p>
+      </div>
+
+      <!-- Sekme Seçici: Bu Ay | Tüm Zamanlar -->
+      <div class="topgames-tabs-col">
+        <div class="topgames-tablist" role="tablist" aria-label="<%= t('home.topGamesTitle') %>">
+          <button
+            type="button"
+            role="tab"
+            id="topGamesTabMonth"
+            class="topgames-tab is-active"
+            aria-selected="true"
+            aria-controls="topGamesListPanel"
+            data-scope="month"
+          >
+            <span><%= t('home.topGamesTabMonth') %></span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="topGamesTabAll"
+            class="topgames-tab"
+            aria-selected="false"
+            aria-controls="topGamesListPanel"
+            data-scope="all"
+            tabindex="-1"
+          >
+            <span><%= t('home.topGamesTabAll') %></span>
+          </button>
+        </div>
+        <div class="topgames-since-note" id="topGamesSinceNote" hidden></div>
+      </div>
+    </div>
+
+    <% if (initialTopGames.stale && initialGamesList.length > 0) { %>
+      <div class="topgames-stale-banner" id="topGamesStaleBanner"><%= t('home.topGamesStaleNote') %></div>
+    <% } else { %>
+      <div class="topgames-stale-banner" id="topGamesStaleBanner" hidden><%= t('home.topGamesStaleNote') %></div>
+    <% } %>
+
+    <div
+      class="topgames-panel"
+      id="topGamesListPanel"
+      role="tabpanel"
+      aria-labelledby="topGamesTabMonth"
+    >
+      <% if (initialGamesList.length > 0) { %>
+        <div class="topgames-list" id="topGamesRowsContainer">
+          <% initialGamesList.forEach(function (g, index) {
+            const rankNum = index + 1;
+            const gradIndex = (index % 8) + 1;
+            const relativeWidth = Math.max(6, Math.min(100, Math.round((Number(g.seconds) / leaderSeconds) * 100)));
+            const durText = g.formattedDuration || formatHomeDuration(g.seconds, currentLang);
+            const playersText = t('home.topGamesPlayers').replace('{count}', String(g.players || 0));
+            const shareText = t('home.topGamesShare').replace('{percent}', String(g.percent || 0));
+            const tooltipText = t('home.topGamesTooltip')
+              .replace('{duration}', durText)
+              .replace('{percent}', String(g.percent || 0))
+              .replace('{players}', String(g.players || 0));
+          %>
+            <div
+              class="topgames-row"
+              style="--row-index: <%= index %>;"
+              data-seconds="<%= g.seconds %>"
+              data-hours="<%= g.hours %>"
+              data-percent="<%= g.percent %>"
+              data-bar-width="<%= relativeWidth %>"
+              data-tooltip="<%= tooltipText %>"
+              tabindex="0"
+            >
+              <div class="topgames-row-top">
+                <div class="topgames-game-ident">
+                  <span class="topgames-rank-badge <%= rankNum <= 3 ? ('topgames-rank-badge--top' + rankNum) : '' %>">
+                    <%= rankNum <= 3 ? rankMedals[index] : ('#' + rankNum) %>
+                  </span>
+                  <span class="topgames-game-emoji" aria-hidden="true"><%= g.emoji %></span>
+                  <span class="topgames-game-name"><%= g.name %></span>
+                </div>
+
+                <div class="topgames-game-stats">
+                  <strong class="topgames-stat-duration" data-target-seconds="<%= g.seconds %>"><%= durText %></strong>
+                  <span class="topgames-stat-pill topgames-stat-pill--share"><%= shareText %></span>
+                  <% if (Number(g.players) > 0) { %>
+                    <span class="topgames-stat-pill topgames-stat-pill--players">👥 <%= playersText %></span>
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="topgames-bar-track" role="progressbar" aria-valuenow="<%= g.percent %>" aria-valuemin="0" aria-valuemax="100">
+                <div
+                  class="topgames-bar-fill rank-grad-<%= gradIndex %>"
+                  style="width: <%= relativeWidth %>%;"
+                  data-target-width="<%= relativeWidth %>"
+                ></div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } else if (initialTopGames.preparing) { %>
+        <div class="topgames-empty-state" id="topGamesRowsContainer">
+          <div class="topgames-empty-icon" aria-hidden="true">⏳</div>
+          <p class="topgames-empty-text"><%= t('home.topGamesPreparing') %></p>
+        </div>
+      <% } else if (initialTopGames.offline) { %>
+        <div class="topgames-empty-state" id="topGamesRowsContainer">
+          <div class="topgames-empty-icon" aria-hidden="true">📡</div>
+          <p class="topgames-empty-text"><%= t('home.topGamesError') %></p>
+        </div>
+      <% } else { %>
+        <div class="topgames-empty-state" id="topGamesRowsContainer">
+          <div class="topgames-empty-icon" aria-hidden="true">🎮</div>
+          <p class="topgames-empty-text"><%= t('home.topGamesEmpty') %></p>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="topgames-footer">
+      <span class="topgames-anon-note">🔒 <%= t('home.topGamesAnonNote') %></span>
+    </div>
+  </div>
+</section>
+
+<!-- ==============================================================================
  * BÖLÜM 1: PİYADE DÜNYASI'NDAKİ OYUNLARIMIZ (Roblox, CS2, Zula, Minecraft)
  * ============================================================================== -->
 <section class="home-seo-section" aria-labelledby="homeGamesHeading">
@@ -188,4 +352,4 @@
   </div>
 </section>
 
-<%- include('../layouts/footer') %>
+<%- include('../layouts/footer', { isHomePage: true }) %>

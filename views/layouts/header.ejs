@@ -194,6 +194,16 @@
       </a>
 
       <div class="mobile-topbar-actions">
+        <button
+          type="button"
+          class="mobile-activity-quick-btn"
+          id="mobileActivityQuickBtn"
+          aria-label="<%= t('activityPanel.title') %>"
+          title="<%= t('activityPanel.title') %>"
+        >
+          <span aria-hidden="true">🎮</span>
+          <span class="activity-live-dot" id="mobileActivityLiveDot" hidden></span>
+        </button>
         <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
           <% langList.forEach(function (code) { %>
             <a href="/lang/<%= code %>" class="lang-switch-link <%= ((typeof lang === 'undefined' ? 'tr' : lang) === code) ? 'active' : '' %>"><%= code.toUpperCase() %></a>
@@ -355,6 +365,117 @@
         <% } %>
       </nav>
 
+      <!-- Kişisel "🎮 Etkinliğim • Bu Ay" Paneli (Sol Kenar Çubuğuna Entegre) -->
+      <div
+        class="sidebar-activity-box"
+        id="sidebarActivityBox"
+        data-registered="<%= (typeof isRegistered !== 'undefined' && isRegistered) ? 'true' : 'false' %>"
+        data-lang="<%= (typeof lang === 'undefined' ? 'tr' : lang) %>"
+        data-t-title="<%= t('activityPanel.title') %>"
+        data-t-subtitle="<%= t('activityPanel.subtitleMonth') %>"
+        data-t-live-now="<%= t('activityPanel.liveNow') %>"
+        data-t-games-played="<%= t('activityPanel.gamesPlayed') %>"
+        data-t-total="<%= t('activityPanel.totalLabel') %>"
+        data-t-empty="<%= t('activityPanel.emptyMonth') %>"
+        data-t-empty-hint="<%= t('activityPanel.emptyHint') %>"
+        data-t-tracking-off="<%= t('activityPanel.trackingOff') %>"
+        data-t-reset-note="<%= t('activityPanel.resetNote') %>"
+        data-t-error="<%= t('activityPanel.errorLoad') %>"
+        data-t-retry="<%= t('activityPanel.retryBtn') %>"
+        data-t-refresh="<%= t('activityPanel.refreshBtn') %>"
+        data-t-refreshing="<%= t('activityPanel.refreshing') %>"
+        data-t-rate-limited="<%= t('activityPanel.rateLimited') %>"
+      >
+        <!-- Daraltılmış (72px) Dock Modu İçin Tek İkon Tetikleyici -->
+        <button
+          type="button"
+          class="sidebar-activity-dock-btn"
+          id="activityCollapsedTrigger"
+          data-tooltip="🎮 <%= t('activityPanel.title') %>"
+          aria-label="<%= t('activityPanel.title') %>"
+          title="<%= t('activityPanel.title') %>"
+        >
+          <span class="sidebar-activity-dock-icon" aria-hidden="true">🎮</span>
+          <span class="activity-live-dot" id="dockActivityLiveDot" hidden></span>
+        </button>
+
+        <% if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+          <!-- Kayıtlı Üye: Açılır/Kapanır "🎮 Etkinliğim" Kartı -->
+          <div class="sidebar-activity-card" id="sidebarActivityCard">
+            <div class="sidebar-activity-header">
+              <button
+                type="button"
+                class="sidebar-activity-toggle"
+                id="activityAccordionToggle"
+                aria-expanded="true"
+                aria-controls="activityAccordionBody"
+                aria-label="<%= t('activityPanel.toggleAria') %>"
+              >
+                <span class="sidebar-activity-title-wrap">
+                  <span class="sidebar-activity-emoji" aria-hidden="true">🎮</span>
+                  <span class="sidebar-activity-title"><%= t('activityPanel.title') %></span>
+                  <span class="sidebar-activity-sub">• <%= t('activityPanel.subtitleMonth') %></span>
+                  <span class="activity-live-dot" id="sidebarActivityLiveDot" hidden></span>
+                </span>
+                <svg class="sidebar-activity-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+
+              <div class="sidebar-activity-actions">
+                <button
+                  type="button"
+                  class="sidebar-activity-icon-btn"
+                  id="activityRefreshBtn"
+                  title="<%= t('activityPanel.refreshBtn') %>"
+                  aria-label="<%= t('activityPanel.refreshBtn') %>"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="sidebar-activity-icon-btn"
+                  id="activityDrawerOpenBtn"
+                  title="<%= t('activityPanel.openDetailBtn') %>"
+                  aria-label="<%= t('activityPanel.openDetailBtn') %>"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="sidebar-activity-body" id="activityAccordionBody">
+              <!-- İskelet (Skeleton) Yükleme Durumu -->
+              <div class="activity-skeleton" id="sidebarActivitySkeleton">
+                <div class="activity-skel-line activity-skel-line--lg"></div>
+                <div class="activity-skel-line"></div>
+                <div class="activity-skel-line activity-skel-line--sm"></div>
+              </div>
+              <!-- Dinamik İçerik Alanı -->
+              <div class="sidebar-activity-content" id="sidebarActivityContent" hidden></div>
+            </div>
+          </div>
+        <% } else { %>
+          <!-- Giriş Yapmış Ama Kayıtsız Üye: Kayıt Ol Yönlendirme Kartı -->
+          <div class="sidebar-activity-card sidebar-activity-card--unregistered">
+            <div class="sidebar-activity-unreg-head">
+              <span aria-hidden="true">🎮</span>
+              <strong><%= t('activityPanel.title') %></strong>
+            </div>
+            <p class="sidebar-activity-unreg-desc"><%= t('activityPanel.notRegisteredDesc') %></p>
+            <a href="/kayit" class="btn btn-primary btn-xs sidebar-activity-reg-btn"><%= t('activityPanel.notRegisteredCta') %></a>
+          </div>
+        <% } %>
+      </div>
+
       <!-- En Altta Kullanıcı Kartı (Discord Avatarı, Kullanıcı Adı, Rol Rozeti ve Çıkış Yap) -->
       <div class="sidebar-footer">
         <div class="sidebar-user-card">
@@ -399,6 +520,65 @@
 
       <!-- Daraltılmış Dock Modu İçin Kırpılmayan Sağ Etiket (Tooltip) -->
       <div id="sidebarDockTooltip" class="sidebar-dock-tooltip" role="tooltip" aria-hidden="true"></div>
+    </aside>
+
+    <!-- Kişisel "🎮 Etkinliğim • Bu Ay" Yandan Kayarak Açılan Detay Çekmecesi (Slide-Out Drawer) -->
+    <div class="activity-drawer-backdrop" id="activityDrawerBackdrop" hidden aria-hidden="true"></div>
+    <aside
+      class="activity-drawer"
+      id="activityDetailDrawer"
+      aria-label="<%= t('activityPanel.title') %>"
+      aria-hidden="true"
+      hidden
+    >
+      <div class="activity-drawer-header">
+        <div class="activity-drawer-title-group">
+          <span class="activity-drawer-icon" aria-hidden="true">🎮</span>
+          <div>
+            <h2 class="activity-drawer-title"><%= t('activityPanel.title') %> • <%= t('activityPanel.subtitleMonth') %></h2>
+            <p class="activity-drawer-user"><%= currentUser.displayName %></p>
+          </div>
+        </div>
+        <div class="activity-drawer-header-actions">
+          <% if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+            <button
+              type="button"
+              class="btn btn-secondary btn-xs activity-drawer-refresh-btn"
+              id="drawerActivityRefreshBtn"
+            >
+              🔄 <span id="drawerRefreshBtnLabel"><%= t('activityPanel.refreshBtn') %></span>
+            </button>
+          <% } %>
+          <button
+            type="button"
+            class="activity-drawer-close-btn"
+            id="activityDrawerCloseBtn"
+            aria-label="<%= t('activityPanel.closeDetailAria') %>"
+            title="<%= t('activityPanel.closeDetailAria') %>"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div class="activity-drawer-body" id="activityDrawerBody">
+        <% if (typeof isRegistered !== 'undefined' && isRegistered) { %>
+          <div class="activity-skeleton" id="drawerActivitySkeleton">
+            <div class="activity-skel-line activity-skel-line--lg"></div>
+            <div class="activity-skel-line"></div>
+            <div class="activity-skel-line"></div>
+            <div class="activity-skel-line activity-skel-line--sm"></div>
+          </div>
+          <div class="activity-drawer-content" id="drawerActivityContent" hidden></div>
+        <% } else { %>
+          <div class="activity-unreg-drawer-card">
+            <div class="activity-unreg-drawer-icon" aria-hidden="true">🎮</div>
+            <h3 class="activity-unreg-drawer-title"><%= t('activityPanel.notRegisteredTitle') %></h3>
+            <p class="activity-unreg-drawer-desc"><%= t('activityPanel.notRegisteredDesc') %></p>
+            <a href="/kayit" class="btn btn-primary btn-sm"><%= t('activityPanel.notRegisteredCta') %></a>
+          </div>
+        <% } %>
+      </div>
     </aside>
 
   <% } else { %>

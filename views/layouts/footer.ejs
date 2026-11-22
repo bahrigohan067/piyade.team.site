@@ -82,6 +82,16 @@
   <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>
 
+  <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) { %>
+    <!-- Kişisel "Etkinliğim" Paneli İstemci Mantığı -->
+    <script src="/js/activity-panel.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isHomePage !== 'undefined' && isHomePage) { %>
+    <!-- Anasayfa "Sunucuda En Çok Oynanan Oyunlar" Sıralama ve Animasyon Mantığı -->
+    <script src="/js/top-games.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
   <% if (typeof isRegisterPage !== 'undefined' && isRegisterPage) { %>
     <script src="/js/register.js?v=<%= assetVer %>" defer></script>
   <% } %>

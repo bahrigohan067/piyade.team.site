@@ -94,7 +94,21 @@
     "faq3Q": "Piyade World Discord sunucusuna nasıl kayıt olunur ve hangi roller verilir?",
     "faq3A": "Sitemizdeki Kayıt Ol (/kayit) sayfasından Discord hesabınızla giriş yapıp oynadığınız oyunları, cinsiyetinizi ve oyun kullanıcı adlarınızı göndererek başvurabilirsiniz. Yetkili onayının ardından Cengaver, Hesabı Onaylı ve seçtiğiniz oyunların rolleri otomatik tanımlanır.",
     "faq4Q": "Piyade World (Piyade Dünyası) topluluğuna katılmak ücretsiz mi?",
-    "faq4A": "Evet, Piyade World (Piyade Dünyası) oyuncu topluluğuna katılmak, kayıt olmak ve tüm topluluk etkinliklerinde yer almak tamamen ücretsizdir."
+    "faq4A": "Evet, Piyade World (Piyade Dünyası) oyuncu topluluğuna katılmak, kayıt olmak ve tüm topluluk etkinliklerinde yer almak tamamen ücretsizdir.",
+    "topGamesBadge": "🏆 Canlı Sunucu Aktivitesi",
+    "topGamesTitle": "🏆 Sunucuda En Çok Oynanan Oyunlar",
+    "topGamesSubtitle": "Piyade World (Piyade Dünyası) Discord sunucusunda en çok vakit geçirilen oyunlar",
+    "topGamesTabMonth": "Bu Ay",
+    "topGamesTabAll": "Tüm Zamanlar",
+    "topGamesSinceNote": "{date} tarihinden beri biriken anonim sunucu toplamı",
+    "topGamesPlayers": "{count} oyuncu",
+    "topGamesShare": "%{percent} pay",
+    "topGamesTooltip": "Toplam: {duration} • Pay: %{percent} • {players} oyuncu",
+    "topGamesEmpty": "Bu ay henüz oyun etkinliği kaydedilmedi. İlk oynayan sen ol! 🎮",
+    "topGamesPreparing": "Oyun aktivite verileri hazırlanıyor…",
+    "topGamesError": "İstatistikler şu an yüklenemedi.",
+    "topGamesStaleNote": "⚡ Önbellekten gösteriliyor (Bot şu an meşgul)",
+    "topGamesAnonNote": "Discord etkinliğine göre anonim olarak hesaplanır • Kişisel veri içermez"
   },
   "rules": {
     "pageTitle": "Genel Kurallar ve Disiplin Yönetmeliği | Piyade",
@@ -453,5 +467,28 @@
     "errSession": "Oturumun sona ermiş, lütfen tekrar giriş yap.",
     "errOffline": "Şu an ulaşılamıyor. Mesajın silinmedi, tekrar dene.",
     "errGeneric": "Gönderilemedi, lütfen tekrar dene."
+  },
+  "activityPanel": {
+    "title": "Etkinliğim",
+    "subtitleMonth": "Bu Ay",
+    "toggleAria": "Etkinliğim panelini aç veya kapat",
+    "openDetailBtn": "Detaylı Görünüm",
+    "closeDetailAria": "Etkinliğim çekmecesini kapat",
+    "refreshBtn": "Yenile",
+    "refreshing": "Yenileniyor…",
+    "liveNow": "Şu an oynuyor:",
+    "gamesPlayed": "Oynadığın Oyunlar",
+    "totalLabel": "Bu Ay Toplam",
+    "emptyMonth": "Bu ay henüz kaydedilmiş oyun süren yok. Oyun oynayıp bir süre sonra tekrar bak 🎮",
+    "emptyHint": "Oyun oynuyorsan ama süre yazmıyorsa Discord'da /aktivitem > ⚙️ Ayarlarım > 🔍 Botun Gördüğü Etkinlik ile kontrol et.",
+    "trackingOff": "Etkinlik takibin kapalı. Discord'da /aktivitem > ⚙️ Ayarlarım üzerinden açabilirsin.",
+    "resetNote": "📅 Süreler her ay sıfırlanır • Sıradaki: {date}",
+    "errorLoad": "Etkinlik bilgisi şu an alınamadı.",
+    "retryBtn": "Tekrar Dene",
+    "notRegisteredTitle": "Etkinliğini Gör",
+    "notRegisteredDesc": "Oyun sürelerini ve canlı etkinliğini görmek için kayıt ol.",
+    "notRegisteredCta": "📝 Kayıt Ol",
+    "unauthenticated": "Etkinliğini görmek için Discord ile giriş yapmalısın.",
+    "rateLimited": "Çok sık yenileme yaptın. Lütfen birkaç saniye bekle."
   }
 }

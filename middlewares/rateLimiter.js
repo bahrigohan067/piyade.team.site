@@ -70,6 +70,53 @@ const robloxLookupLimiter = rateLimit({
   },
 });
 
+/**
+ * Kişisel Etkinliğim API Limiter'ı (Kullanıcı başına 1 dakikada max 20 istek)
+ */
+const activityApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `activity_user:${String(uid)}`;
+    return `activity_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('activityPanel.rateLimited')
+      : 'Çok sık etkinlik yenilemesi yaptınız. Lütfen biraz bekleyin.';
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
+/**
+ * Herkese Açık En Çok Oynanan Oyunlar API Limiter'ı (IP başına 1 dakikada max 30 istek)
+ */
+const publicStatsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('home.topGamesError')
+      : 'Çok fazla istek gönderdiniz. Lütfen bir süre sonra tekrar deneyiniz.';
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
@@ -77,4 +124,6 @@ module.exports = {
   formLimiter,
   formActionLimiter: formLimiter,
   robloxLookupLimiter,
+  activityApiLimiter,
+  publicStatsLimiter,
 };

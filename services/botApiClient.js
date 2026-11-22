@@ -18,6 +18,15 @@ function clearGamesCache() {
   };
 }
 
+const TOP_GAMES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 dakika
+const topGamesCache = new Map();
+const lastGoodTopGamesCache = new Map();
+
+function clearTopGamesCache() {
+  topGamesCache.clear();
+  lastGoodTopGamesCache.clear();
+}
+
 /**
  * Geçici Bellek İçi (RAM) Kanıt Deposu (Disk / public/uploads kesinlikle kullanılmaz).
  * Yüklenen kanıt görseli doğrudan Bot API'ye (base64 Buffer olarak) iletilir;
@@ -126,7 +135,10 @@ function isRetryableError(err) {
  */
 async function executeSingleRequest(endpoint, options = {}) {
   const url = `${appConfig.BOT_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  const timeoutMs = appConfig.API_TIMEOUT_MS || 8000;
+  const timeoutMs =
+    typeof options.timeoutMs === 'number' && options.timeoutMs > 0
+      ? options.timeoutMs
+      : appConfig.API_TIMEOUT_MS || 8000;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -172,7 +184,9 @@ async function executeSingleRequest(endpoint, options = {}) {
         endpoint === '/api/games' ||
         endpoint.startsWith('/api/roblox/lookup') ||
         endpoint === '/api/register' ||
-        endpoint.startsWith('/api/register/status/');
+        endpoint.startsWith('/api/register/status/') ||
+        endpoint.startsWith('/api/stats/top-games') ||
+        (/^\/api\/member\/[^/?]+\/activity\b/.test(endpoint) && /Endpoint bulunamadı|Cannot GET/i.test(rawErrorMsg));
 
       // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
       if (response.status === 401) {
@@ -552,6 +566,217 @@ async function getMemberProfile(discordId) {
   delete data.clan;
 
   return data;
+}
+
+/**
+ * Üyenin kişisel aylık oyun etkinliği özetini (/api/member/:id/activity) getirir ve güvenli şekilde normalize eder.
+ */
+async function getMemberActivity(discordId, lang = 'tr') {
+  const cleanLang = lang === 'en' ? 'en' : 'tr';
+  const raw = await requestBotApi(
+    `/api/member/${encodeURIComponent(discordId)}/activity?lang=${cleanLang}`,
+    {
+      method: 'GET',
+      retries: 1,
+    }
+  );
+
+  const data = raw && typeof raw === 'object' ? raw : {};
+  const tracking = data.tracking !== false;
+  const month = typeof data.month === 'string' && /^\d{4}-\d{2}$/.test(data.month) ? data.month : '';
+  const nextResetAt =
+    typeof data.nextResetAt === 'number' && Number.isFinite(data.nextResetAt) && data.nextResetAt > 0
+      ? data.nextResetAt
+      : typeof data.nextResetUnix === 'number' && Number.isFinite(data.nextResetUnix) && data.nextResetUnix > 0
+        ? data.nextResetUnix * 1000
+        : null;
+
+  if (!tracking) {
+    return {
+      userId: String(data.userId || discordId),
+      month,
+      tracking: false,
+      games: [],
+      totalSeconds: 0,
+      live: null,
+      nextResetAt,
+    };
+  }
+
+  const rawGames = Array.isArray(data.games) ? data.games : [];
+  const normalizedGames = rawGames
+    .filter((g) => g && typeof g === 'object' && g.id && Number(g.seconds) > 0)
+    .map((g) => ({
+      id: String(g.id).trim().slice(0, 48),
+      name: String(g.name || g.id).trim().slice(0, 96),
+      emoji: String(g.emoji || '🎮').trim().slice(0, 16),
+      family: g.family ? String(g.family).trim().slice(0, 32) : null,
+      seconds: Math.max(0, Math.floor(Number(g.seconds) || 0)),
+      percent: Math.min(100, Math.max(0, Math.round(Number(g.percent) || 0))),
+      formattedDuration: g.formattedDuration ? String(g.formattedDuration).trim().slice(0, 64) : null,
+    }))
+    .sort((a, b) => b.seconds - a.seconds)
+    .slice(0, 10);
+
+  const computedTotal = normalizedGames.reduce((sum, g) => sum + g.seconds, 0);
+  const totalSeconds =
+    typeof data.totalSeconds === 'number' && Number.isFinite(data.totalSeconds) && data.totalSeconds >= computedTotal
+      ? Math.floor(data.totalSeconds)
+      : computedTotal;
+
+  // Eğer toplam pozitifse ve yüzdeler gelmemişse hesapla
+  if (totalSeconds > 0) {
+    for (const g of normalizedGames) {
+      if (!g.percent) {
+        g.percent = Math.min(100, Math.max(0, Math.round((g.seconds / totalSeconds) * 100)));
+      }
+    }
+  }
+
+  let live = null;
+  if (data.live && typeof data.live === 'object' && data.live.gameId) {
+    live = {
+      gameId: String(data.live.gameId).trim().slice(0, 48),
+      name: String(data.live.name || data.live.gameId).trim().slice(0, 96),
+      emoji: String(data.live.emoji || '🎮').trim().slice(0, 16),
+      family: data.live.family ? String(data.live.family).trim().slice(0, 32) : null,
+      sessionElapsedSec: Math.max(0, Math.floor(Number(data.live.sessionElapsedSec) || 0)),
+      formattedDuration: data.live.formattedDuration ? String(data.live.formattedDuration).trim().slice(0, 64) : null,
+    };
+  }
+
+  return {
+    userId: String(data.userId || discordId),
+    month,
+    tracking: true,
+    games: normalizedGames,
+    totalSeconds,
+    live,
+    nextResetAt,
+  };
+}
+
+/**
+ * Sunucuda en çok oynanan oyunların anonim sıralamasını (/api/stats/top-games) getirir.
+ * 5 dakika bellek önbelleği + bot çevrimdışı/404 durumunda zarif stale/preparing yedeklemesi içerir.
+ */
+async function getTopGames(options = {}) {
+  const cleanScope = options.scope === 'all' ? 'all' : 'month';
+  const cleanGroup = options.group === 'family' ? 'family' : 'game';
+  const cleanLang = options.lang === 'en' ? 'en' : 'tr';
+  const rawLimit = Number.parseInt(String(options.limit ?? 8), 10);
+  const cleanLimit = Number.isFinite(rawLimit) ? Math.min(12, Math.max(1, rawLimit)) : 8;
+  const forceRefresh = Boolean(options.forceRefresh);
+  const timeoutMs =
+    typeof options.timeoutMs === 'number' && options.timeoutMs > 0 ? options.timeoutMs : undefined;
+
+  const cacheKey = `${cleanScope}:${cleanGroup}:${cleanLang}:${cleanLimit}`;
+  const now = Date.now();
+  const cached = topGamesCache.get(cacheKey);
+
+  if (!forceRefresh && cached && cached.expiresAt > now) {
+    return {
+      ...cached.payload,
+      cached: true,
+      stale: false,
+    };
+  }
+
+  try {
+    const query = `scope=${cleanScope}&group=${cleanGroup}&lang=${cleanLang}&limit=${cleanLimit}`;
+    const raw = await requestBotApi(`/api/stats/top-games?${query}`, {
+      method: 'GET',
+      retries: timeoutMs ? 0 : 1,
+      timeoutMs,
+    });
+
+    const data = raw && typeof raw === 'object' ? raw : {};
+    const rawGames = Array.isArray(data.games) ? data.games : [];
+    const normalizedGames = rawGames
+      .filter((g) => g && typeof g === 'object' && g.id && Number(g.seconds) > 0)
+      .map((g) => {
+        const seconds = Math.max(0, Math.floor(Number(g.seconds) || 0));
+        const hours =
+          typeof g.hours === 'number' && Number.isFinite(g.hours)
+            ? Number(g.hours.toFixed(1))
+            : Number((seconds / 3600).toFixed(1));
+        return {
+          id: String(g.id).trim().slice(0, 48),
+          name: String(g.name || g.id).trim().slice(0, 96),
+          emoji: String(g.emoji || '🎮').trim().slice(0, 16),
+          family: g.family ? String(g.family).trim().slice(0, 32) : null,
+          seconds,
+          hours,
+          percent: Math.min(100, Math.max(0, Math.round(Number(g.percent) || 0))),
+          players: Math.max(0, Math.floor(Number(g.players) || 0)),
+          formattedDuration: g.formattedDuration ? String(g.formattedDuration).trim().slice(0, 64) : null,
+        };
+      })
+      .sort((a, b) => b.seconds - a.seconds)
+      .slice(0, cleanLimit);
+
+    const computedTotal = normalizedGames.reduce((sum, g) => sum + g.seconds, 0);
+    const totalSeconds =
+      typeof data.totalSeconds === 'number' && Number.isFinite(data.totalSeconds) && data.totalSeconds >= computedTotal
+        ? Math.floor(data.totalSeconds)
+        : computedTotal;
+
+    if (totalSeconds > 0) {
+      for (const g of normalizedGames) {
+        if (!g.percent) {
+          g.percent = Math.min(100, Math.max(0, Math.round((g.seconds / totalSeconds) * 100)));
+        }
+      }
+    }
+
+    const payload = {
+      scope: cleanScope,
+      group: cleanGroup,
+      month: typeof data.month === 'string' ? data.month : '',
+      since:
+        typeof data.since === 'number' && Number.isFinite(data.since) && data.since > 0 ? data.since : null,
+      updatedAt:
+        typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt) ? data.updatedAt : now,
+      totalSeconds,
+      games: normalizedGames,
+      stale: false,
+      preparing: false,
+      offline: false,
+    };
+
+    topGamesCache.set(cacheKey, {
+      payload,
+      expiresAt: now + TOP_GAMES_CACHE_TTL_MS,
+      fetchedAt: now,
+    });
+    lastGoodTopGamesCache.set(cacheKey, payload);
+
+    return payload;
+  } catch (err) {
+    const lastGood = lastGoodTopGamesCache.get(cacheKey);
+    if (lastGood) {
+      return {
+        ...lastGood,
+        stale: true,
+      };
+    }
+
+    const isEndpointMissing =
+      err && (err.errorCategory === 'ENDPOINT_MISSING' || err.statusCode === 404);
+
+    return {
+      scope: cleanScope,
+      group: cleanGroup,
+      month: '',
+      since: null,
+      updatedAt: now,
+      totalSeconds: 0,
+      games: [],
+      stale: !isEndpointMissing,
+      preparing: Boolean(isEndpointMissing),
+      offline: !isEndpointMissing,
+    };
+  }
 }
 
 // ============================================================================
@@ -939,10 +1164,13 @@ module.exports = {
   getLastKnownActiveStats,
   updateActiveStatsCache,
   clearGamesCache,
+  clearTopGamesCache,
   getGames,
   lookupRobloxAccount,
   getMemberRoles,
   getMemberProfile,
+  getMemberActivity,
+  getTopGames,
   getRegistrationStatus,
   submitRegistration,
   getHelpStatus,

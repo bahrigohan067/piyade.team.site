@@ -8,7 +8,7 @@
       const footerLogoSrc = (typeof brandConfig !== 'undefined' && brandConfig && brandConfig.ASSETS && brandConfig.ASSETS.logo256)
         ? brandConfig.ASSETS.logo256
         : '/img/brand/logo-256.webp?v=1';
-      const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '2.0.0';
+      const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '2.2.0';
       const discordUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function' && brandConfig.getDiscordInviteUrl())
         ? brandConfig.getDiscordInviteUrl()
         : ((typeof seo !== 'undefined' && Array.isArray(seo.sameAs) && seo.sameAs.length > 0) ? seo.sameAs[0] : '');

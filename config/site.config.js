@@ -1,7 +1,36 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const appConfig = require('./app.config');
 const brandConfig = require('./brand.config');
 const trLocale = require('../locales/tr.json');
 const enLocale = require('../locales/en.json');
+
+/**
+ * CSS/JS dosyaları değiştiğinde tarayıcı önbelleğini (immutable) otomatik yenileyen sürüm etiketi üretir.
+ */
+function computeAssetVersion(baseVersion = '2.2.0') {
+  try {
+    const hash = crypto.createHash('sha1');
+    const publicDir = path.join(__dirname, '..', 'public');
+    const trackedFiles = [
+      'css/theme.css',
+      'css/style.css',
+      'js/app.js',
+      'js/activity-panel.js',
+      'js/top-games.js',
+    ];
+    for (const rel of trackedFiles) {
+      const fullPath = path.join(publicDir, rel);
+      if (fs.existsSync(fullPath)) {
+        hash.update(fs.readFileSync(fullPath));
+      }
+    }
+    return `${baseVersion}-${hash.digest('hex').slice(0, 8)}`;
+  } catch (_) {
+    return baseVersion;
+  }
+}
 
 /**
  * Merkezi SEO ve Yapılandırılmış Veri (JSON-LD) Konfigürasyonu.
@@ -15,7 +44,7 @@ const SHORT_BRAND_NAME = brandConfig.getShortSiteName();
 const BILINGUAL_BRAND_NAME = brandConfig.getBilingualSiteName();
 const ALTERNATE_NAME = TURKISH_BRAND_NAME;
 const ALTERNATE_NAMES = brandConfig.getBrandAliases();
-const ASSET_VERSION = '2.1.0';
+const ASSET_VERSION = computeAssetVersion('2.2.0');
 
 const KNOWS_ABOUT = Object.freeze([
   'Roblox',

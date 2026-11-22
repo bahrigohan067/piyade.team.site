@@ -14,6 +14,7 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;
   res.locals.activeStats = botApiClient.getLastKnownActiveStats();
+  botApiClient.refreshActiveStatsInBackground();
 
   if (!req.session || !req.session.user || !req.session.user.id) {
     return next();

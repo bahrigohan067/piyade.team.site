@@ -27,6 +27,22 @@ function clearTopGamesCache() {
   lastGoodTopGamesCache.clear();
 }
 
+const SUMMARY_CACHE_TTL_MS = 60 * 1000; // 60 saniye
+let serverStatsSummaryCache = {
+  payload: null,
+  expiresAt: 0,
+};
+let summaryBgRefreshInFlight = false;
+let lastSummaryBgAttemptAt = 0;
+
+function clearSummaryCache() {
+  serverStatsSummaryCache = {
+    payload: null,
+    expiresAt: 0,
+  };
+  lastSummaryBgAttemptAt = 0;
+}
+
 /**
  * Geçici Bellek İçi (RAM) Kanıt Deposu (Disk / public/uploads kesinlikle kullanılmaz).
  * Yüklenen kanıt görseli doğrudan Bot API'ye (base64 Buffer olarak) iletilir;
@@ -186,6 +202,7 @@ async function executeSingleRequest(endpoint, options = {}) {
         endpoint === '/api/register' ||
         endpoint.startsWith('/api/register/status/') ||
         endpoint.startsWith('/api/stats/top-games') ||
+        endpoint === '/api/stats/summary' ||
         (/^\/api\/member\/[^/?]+\/activity\b/.test(endpoint) && /Endpoint bulunamadı|Cannot GET/i.test(rawErrorMsg));
 
       // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
@@ -332,10 +349,23 @@ async function probeBotApiStatus() {
       };
     }
 
-    // /api/health şifresiz olabileceği için API_SECRET doğrulamasını korumalı /api/help/status üzerinden de test et
-    const helpData = await requestBotApi('/api/help/status', { method: 'GET', retries: 0 });
-    if (helpData && typeof helpData.activeRegisteredCount === 'number') {
-      updateActiveStatsCache(helpData.activeRegisteredCount, true);
+    // /api/health şifresiz olabileceği için API_SECRET doğrulamasını korumalı /api/stats/summary üzerinden de test et
+    try {
+      const summaryData = await requestBotApi('/api/stats/summary', { method: 'GET', retries: 0 });
+      if (summaryData && typeof summaryData.activeRegisteredCount === 'number') {
+        updateActiveStatsCache(summaryData.activeRegisteredCount, true);
+        serverStatsSummaryCache = {
+          payload: summaryData,
+          expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS,
+        };
+      }
+    } catch (summaryErr) {
+      // Bot henüz /api/stats/summary güncellemesini almadıysa (404 ENDPOINT_MISSING) /api/games ile API_SECRET'ı doğrula
+      if (summaryErr && (summaryErr.errorCategory === 'ENDPOINT_MISSING' || summaryErr.statusCode === 404)) {
+        await requestBotApi('/api/games', { method: 'GET', retries: 0 });
+      } else {
+        throw summaryErr;
+      }
     }
 
     const latencyMs = Date.now() - startMs;
@@ -384,7 +414,7 @@ async function runStartupConnectivityTest() {
       `✅ [BOT API AÇILIŞ TESTİ: BAŞARILI] Durum: ${result.statusText} | Sebep Sınıfı: ${result.category} | Süre: ${result.latencyMs}ms`
     );
     // Açılışta aktif üye sayısını da bir kez ısıt (başarısız olursa sessiz geç)
-    await getHelpStatus(null).catch(() => null);
+    await getServerStatsSummary({ timeoutMs: 2500 }).catch(() => null);
   } else {
     console.error(
       `❌ [BOT API AÇILIŞ TESTİ: BAŞARISIZ] Durum: ${result.statusText} | Sebep Sınıfı: ${result.category} (HTTP ${result.httpStatus}) | Açıklama: ${result.explanation}`
@@ -983,15 +1013,85 @@ async function submitRegistration({
 // 4. AKTİF ÜYE İSTATİSTİĞİ VE GERİ BİLDİRİM
 // ============================================================================
 
-async function getHelpStatus(discordId) {
-  const query = discordId ? `?userId=${encodeURIComponent(discordId)}` : '';
-  const data = await requestBotApi(`/api/help/status${query}`, {
-    method: 'GET',
-  });
-  if (data && typeof data.activeRegisteredCount === 'number') {
-    updateActiveStatsCache(data.activeRegisteredCount, true);
+/**
+ * Sunucudaki aktif kayıtlı oyuncu, toplam üye ve oynayan kişi sayılarını (/api/stats/summary) getirir.
+ * 60 saniye bellek önbelleklidir; başarılı olduğunda header/sidebar ("👥 X Aktif") önbelleğini günceller.
+ */
+async function getServerStatsSummary(options = {}) {
+  const forceRefresh = Boolean(options && options.forceRefresh);
+  const timeoutMs =
+    options && typeof options.timeoutMs === 'number' && options.timeoutMs > 0
+      ? options.timeoutMs
+      : undefined;
+  const now = Date.now();
+
+  if (!forceRefresh && serverStatsSummaryCache.payload && serverStatsSummaryCache.expiresAt > now) {
+    return serverStatsSummaryCache.payload;
   }
-  return data;
+
+  const raw = await requestBotApi('/api/stats/summary', {
+    method: 'GET',
+    retries: timeoutMs ? 0 : 1,
+    timeoutMs,
+  });
+
+  const data = raw && typeof raw === 'object' ? raw : {};
+  const activeRegisteredCount =
+    typeof data.activeRegisteredCount === 'number' && Number.isFinite(data.activeRegisteredCount)
+      ? Math.max(0, Math.floor(data.activeRegisteredCount))
+      : null;
+
+  const payload = {
+    activeRegisteredCount,
+    totalMemberCount:
+      typeof data.totalMemberCount === 'number' && Number.isFinite(data.totalMemberCount)
+        ? Math.max(0, Math.floor(data.totalMemberCount))
+        : activeRegisteredCount,
+    onlineCount:
+      typeof data.onlineCount === 'number' && Number.isFinite(data.onlineCount)
+        ? Math.max(0, Math.floor(data.onlineCount))
+        : 0,
+    playingCount:
+      typeof data.playingCount === 'number' && Number.isFinite(data.playingCount)
+        ? Math.max(0, Math.floor(data.playingCount))
+        : 0,
+    updatedAt:
+      typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt) ? data.updatedAt : now,
+  };
+
+  if (typeof activeRegisteredCount === 'number') {
+    updateActiveStatsCache(activeRegisteredCount, true);
+  }
+
+  serverStatsSummaryCache = {
+    payload,
+    expiresAt: now + SUMMARY_CACHE_TTL_MS,
+  };
+
+  return payload;
+}
+
+/**
+ * Header/sidebar aktif üye sayısını sayfayı bekletmeden arka planda tazeler (en fazla 60 sn'de bir).
+ */
+function refreshActiveStatsInBackground() {
+  const now = Date.now();
+  if (summaryBgRefreshInFlight) return;
+  if (serverStatsSummaryCache.payload && serverStatsSummaryCache.expiresAt > now) return;
+  if (now - lastSummaryBgAttemptAt < SUMMARY_CACHE_TTL_MS) return;
+
+  summaryBgRefreshInFlight = true;
+  lastSummaryBgAttemptAt = now;
+  getServerStatsSummary({ timeoutMs: 2500 })
+    .catch(() => null)
+    .finally(() => {
+      summaryBgRefreshInFlight = false;
+    });
+}
+
+// Geriye dönük uyumluluk takma adı: artık /api/stats/summary üzerinden çalışır
+async function getHelpStatus() {
+  return getServerStatsSummary();
 }
 
 /**
@@ -1165,12 +1265,15 @@ module.exports = {
   updateActiveStatsCache,
   clearGamesCache,
   clearTopGamesCache,
+  clearSummaryCache,
   getGames,
   lookupRobloxAccount,
   getMemberRoles,
   getMemberProfile,
   getMemberActivity,
   getTopGames,
+  getServerStatsSummary,
+  refreshActiveStatsInBackground,
   getRegistrationStatus,
   submitRegistration,
   getHelpStatus,

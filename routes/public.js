@@ -138,16 +138,16 @@ router.get('/', async (req, res) => {
   };
 
   try {
-    const [helpData, healthData, topGamesData] = await Promise.all([
-      botApiClient.getHelpStatus(req.session?.user?.id || null).catch(() => null),
+    const [summaryData, healthData, topGamesData] = await Promise.all([
+      botApiClient.getServerStatsSummary({ timeoutMs: 2500 }).catch(() => null),
       botApiClient.checkHealth().catch(() => null),
       botApiClient
         .getTopGames({ scope: 'month', limit: 8, lang, group: 'game', timeoutMs: 2500 })
         .catch(() => null),
     ]);
 
-    if (helpData && typeof helpData.activeRegisteredCount === 'number') {
-      activeStats.activeRegisteredCount = helpData.activeRegisteredCount;
+    if (summaryData && typeof summaryData.activeRegisteredCount === 'number') {
+      activeStats.activeRegisteredCount = summaryData.activeRegisteredCount;
       activeStats.botOnline = true;
     }
     if (!healthData || healthData.status !== 'ok') {
@@ -162,6 +162,8 @@ router.get('/', async (req, res) => {
     activeStats.botOnline = false;
     activeStats.activeRegisteredCount = null;
   }
+
+  res.locals.activeStats = activeStats;
 
   return res.render('pages/home', {
     title: res.locals.seo ? res.locals.seo.title : req.t('home.pageTitle'),

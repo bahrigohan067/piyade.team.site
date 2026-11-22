@@ -4453,11 +4453,19 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 }
 
 .sidebar-activity-sub {
-  font-size: 0.72rem;
-  color: var(--zirve-kicker-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
+}
+
+.activity-skeleton[hidden],
+.sidebar-activity-content[hidden],
+.sidebar-activity-body[hidden],
+.activity-drawer-content[hidden],
+.activity-drawer[hidden],
+.activity-drawer-backdrop[hidden],
+.activity-live-dot[hidden],
+.topgames-since-note[hidden],
+.topgames-stale-banner[hidden] {
+  display: none !important;
 }
 
 .sidebar-activity-chevron {

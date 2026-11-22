@@ -58,6 +58,7 @@
     const i18n = {
       since: section.getAttribute('data-t-since') || '{date}',
       players: section.getAttribute('data-t-players') || '{count} oyuncu',
+      playerSingular: section.getAttribute('data-t-player-singular') || '1 oyuncu',
       share: section.getAttribute('data-t-share') || '%{percent} pay',
       tooltip:
         section.getAttribute('data-t-tooltip') ||
@@ -198,7 +199,11 @@
             Math.min(100, Math.round((Number(g.seconds) / leaderSec) * 100))
           );
           const durText = g.formattedDuration || formatDuration(g.seconds, lang);
-          const playersText = i18n.players.replace('{count}', String(g.players || 0));
+          const playersNum = Number(g.players) || 0;
+          const playersText =
+            playersNum === 1
+              ? i18n.playerSingular
+              : i18n.players.replace('{count}', String(playersNum));
           const shareText = i18n.share.replace('{percent}', String(g.percent || 0));
           const tooltipText = i18n.tooltip
             .replace('{duration}', durText)

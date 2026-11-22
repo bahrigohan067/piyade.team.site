@@ -102,6 +102,7 @@
     "topGamesTabAll": "All Time",
     "topGamesSinceNote": "Anonymous server total accumulated since {date}",
     "topGamesPlayers": "{count} players",
+    "topGamesPlayerSingular": "1 player",
     "topGamesShare": "{percent}% share",
     "topGamesTooltip": "Total: {duration} • Share: {percent}% • {players} players",
     "topGamesEmpty": "No game activity recorded this month yet. Be the first to play! 🎮",

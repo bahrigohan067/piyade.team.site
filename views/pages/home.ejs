@@ -146,6 +146,7 @@
   data-lang="<%= currentLang %>"
   data-t-since="<%= t('home.topGamesSinceNote') %>"
   data-t-players="<%= t('home.topGamesPlayers') %>"
+  data-t-player-singular="<%= t('home.topGamesPlayerSingular') %>"
   data-t-share="<%= t('home.topGamesShare') %>"
   data-t-tooltip="<%= t('home.topGamesTooltip') %>"
   data-t-empty="<%= t('home.topGamesEmpty') %>"
@@ -213,7 +214,10 @@
             const gradIndex = (index % 8) + 1;
             const relativeWidth = Math.max(6, Math.min(100, Math.round((Number(g.seconds) / leaderSeconds) * 100)));
             const durText = g.formattedDuration || formatHomeDuration(g.seconds, currentLang);
-            const playersText = t('home.topGamesPlayers').replace('{count}', String(g.players || 0));
+            const playersNum = Number(g.players) || 0;
+            const playersText = playersNum === 1
+              ? t('home.topGamesPlayerSingular')
+              : t('home.topGamesPlayers').replace('{count}', String(playersNum));
             const shareText = t('home.topGamesShare').replace('{percent}', String(g.percent || 0));
             const tooltipText = t('home.topGamesTooltip')
               .replace('{duration}', durText)

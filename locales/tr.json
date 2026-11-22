@@ -102,6 +102,7 @@
     "topGamesTabAll": "Tüm Zamanlar",
     "topGamesSinceNote": "{date} tarihinden beri biriken anonim sunucu toplamı",
     "topGamesPlayers": "{count} oyuncu",
+    "topGamesPlayerSingular": "1 oyuncu",
     "topGamesShare": "%{percent} pay",
     "topGamesTooltip": "Toplam: {duration} • Pay: %{percent} • {players} oyuncu",
     "topGamesEmpty": "Bu ay henüz oyun etkinliği kaydedilmedi. İlk oynayan sen ol! 🎮",

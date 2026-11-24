@@ -224,7 +224,8 @@ test('T6) Hero ve üst şerit birebir aynı activeThisMonth ve playingNow değer
   assert.equal(topActiveMatch[1], '11');
   assert.equal(heroPlayingMatch[1], '3');
   assert.equal(topPlayingMatch[1], '3');
-  assert.ok(htmlTr.includes('Bu ay aktif'));
+  assert.ok(htmlTr.includes('11 Aktif') || htmlTr.includes('<span>Aktif</span>'));
+  assert.ok(!htmlTr.includes('Bu ay aktif'), '"Bu ay aktif" yerine yalnızca "Aktif" görünmeli');
   assert.ok(htmlTr.includes('Şu an oyunda'));
   assert.ok(htmlTr.includes('Son güncelleme:'));
 
@@ -232,7 +233,8 @@ test('T6) Hero ve üst şerit birebir aynı activeThisMonth ve playingNow değer
   const resEn = await fetch(`${siteBaseUrl}/en`);
   assert.equal(resEn.status, 200);
   const htmlEn = await resEn.text();
-  assert.ok(htmlEn.includes('Active this month'));
+  assert.ok(htmlEn.includes('11 Active') || htmlEn.includes('<span>Active</span>'));
+  assert.ok(!htmlEn.includes('Active this month'), '"Active this month" yerine yalnızca "Active" görünmeli');
   assert.ok(htmlEn.includes('Playing now'));
   assert.ok(htmlEn.includes('Last updated:'));
 });

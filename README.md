@@ -48,7 +48,41 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `GET /api/register/status/:id` | Kullanıcının mevcut kayıt / bekleyen / reddedilen başvuru durumu |
 | `POST /api/register` | `{ name, gender, games: [{ id, username }], lang }` başvurusu gönderimi ve hata kodları |
 | `GET /api/member/:id/profile` | Profilim sayfası (`displayName`, `registration.games`, disiplin bilgileri) |
+| `GET /api/member/:id/activity` | Giriş yapmış üyenin yalnızca kendi aylık etkinlik verisi (bot tarafından gruplanmış) |
+| `GET /api/stats/summary` | Anonim `activeThisMonth`, `playingNow`, `uncertainCount`, `computedAt`, `families` (+ eski alanlar) |
+| `GET /api/stats/top-games` | Anonim aile bazlı en çok oynanan oyun sıralaması (`group=family`, 60 sn bellek önbellekli) |
 | `GET /api/admin/members` & `/:id` | Yönetim üye listesi ve detayında oyun hesapları |
+
+---
+
+## 📊 Canlı İstatistikler, Roblox Gruplama ve Deploy Sırası
+
+### 1. "Bu ay aktif" ve "Şu an oyunda" Gösterimi
+- **Hero ve Üst Şerit Tek Kaynak**: Anasayfa Hero alanı ve üst şerit/kenar çubuğu birebir aynı bot yanıtından (`GET /api/stats/summary`) beslenir; site tarafında ayrıca toplama/çarpma yapılmaz.
+- **`Bu ay aktif` (`activeThisMonth`)**: Kayıtlı, sunucuda hâlâ bulunan, bot olmayan, takibi açık ve bu ay en az `1 dk` (`MIN_ACTIVE_MINUTES`) süresi olan benzersiz üye sayısı.
+- **`Şu an oyunda` (`playingNow`)**: Kayıtlı, takibi açık ve canlı Discord presence ile doğrulanmış aktif oyun oturumu bulunan benzersiz üye sayısı (küçük rozet olarak yanında gösterilir).
+- **Son Güncelleme & Çevrimdışı Dayanıklılığı**: Bot yanıtındaki `computedAt` göreli olarak (`"Son güncelleme: ..."`) gösterilir. Site bellek önbelleği **en fazla 60 sn** tutulur. Bot erişilemez veya bozuk yanıt döndürürse site çökmez, bellekteki son iyi veriyi sessiz `"veri güncellenemedi"` ibaresiyle korur.
+
+### 2. Süre Biçimi ve Bot Tarafı Süre Güvenceleri
+- Bot tarafında süreler delta esaslı (`lastCheckpointAt`), 120 sn boşluk sınırlı (`MAX_DELTA_SEC`), tek-saat ve ay-sınırı (B3) korumalı hesaplanır; Discord `timestamps.start` ve `STOP_GRACE_SEC` süreye eklenmez.
+- Site genelindeki süre biçimleyici (`utils/formatDuration.js`, `public/js/top-games.js`, `public/js/activity-panel.js`) bot ile birebir aynı kuralı uygular (`0 dk`, `1 dk'dan az`, `1 sa`, `1 sa 59 dk`, `41 sa 47 dk`) ve `NaN`/`Infinity`/`undefined` değerlerini asla ekrana basmaz.
+
+### 3. Roblox Aile Gruplama ve `SHOW_FAMILY_BREAKDOWN`
+- Site kendi oyun/aile eşleme listesini **tutmaz**; botun `activity.config.js` üzerinden gruplayıp döndürdüğü `families` dizisini doğrudan gösterir.
+- Tüm Roblox oyunları tek **`🧱 Roblox`** satırında toplanır (`"Roblox (diğer)"` etiketi artık gösterilmez); Minecraft, CS2 ve Zula ayrı satırlarında kalır.
+- Bot tarafında `SHOW_FAMILY_BREAKDOWN: true` açılırsa, site tasarımı bozmadan ilgili satırın altında en çok 5 alt oyun + `+N diğer` kırılım satırını otomatik gösterir (varsayılan kapalıdır).
+- Sol menüdeki **"🎮 Etkinliğim"** paneli yalnızca giriş yapmış kayıtlı üyenin kendi oturum kimliğinden (`req.session.user.id`) veri çeker; dışarıdan başka kullanıcı ID'si kabul etmez.
+
+### 4. Bot-Site Sözleşmesi ve Deploy Sırası
+- **DEPLOY SIRASI: Önce `tsb.piyade.bot` (Bot), sonra `piyade.team.site` (Site) deploy edilmelidir.**
+- Her iki yönde geriye dönük uyumluluk vardır: yeni site eski botla karşılaşırsa (`activeThisMonth`/`families` yoksa) sessizce eski `activeRegisteredCount`/`games` gösterimine düşer; eski site de yeni bottaki korunan eski alanlarla çalışmaya devam eder.
+- CSS/JS değişikliklerinde `config/site.config.js` içindeki `ASSET_VERSION` (`2.2.0-<8-hex>`) otomatik yenilenir ve tarayıcı önbelleğini temizler.
+
+### 5. Sorun Giderme (Sayı/Süre Tuhaf Görünüyorsa)
+- **Hero/Üst şeritte `"veri güncellenemedi"` veya `👥 —` görüyorsanız**: `/health` ucundan `botApi` durumunu ve `BOT_API_URL` / `API_SECRET` eşleşmesini kontrol edin.
+- **Sayı beklediğinizden farklıysa**: Discord'da Developer olarak `/aktivitem` -> `🛠️ Sistem Durumu` panelinden `activeThisMonth`, `playingNow`, `belirsiz` ve `Süre Sağlığı` satırlarına bakın.
+- **Sıralama saatleri yüksek görünüyorsa**: Gösterilen değer kişi başı ortalama değil, **tüm aktif oyuncuların bu ayki toplam süresidir** (AFK açık kalan oyunlar dahil).
+- **Değişiklikler tarayıcıda görünmüyorsa**: Sayfa kaynağında `/css/style.css?v=2.2.0-...` sürüm kodunun yenilendiğini doğrulayın (`npm test` ve `npm run verify:clean`).
 
 ---
 
@@ -92,6 +126,9 @@ npm run dev
 
 # Üretim modunda başlat
 npm start
+
+# Birim ve sözleşme testlerini çalıştır (Node yerleşik node:test)
+npm test
 
 # Railway temiz kurulum ve açılış doğrulama testini çalıştır
 npm run verify:clean

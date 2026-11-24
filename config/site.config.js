@@ -9,10 +9,10 @@ const enLocale = require('../locales/en.json');
 /**
  * CSS/JS dosyaları değiştiğinde tarayıcı önbelleğini (immutable) otomatik yenileyen sürüm etiketi üretir.
  */
-function computeAssetVersion(baseVersion = '2.2.0') {
+function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
   try {
     const hash = crypto.createHash('sha1');
-    const publicDir = path.join(__dirname, '..', 'public');
+    const publicDir = publicDirOverride || path.join(__dirname, '..', 'public');
     const trackedFiles = [
       'css/theme.css',
       'css/style.css',

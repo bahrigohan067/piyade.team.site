@@ -400,6 +400,7 @@ module.exports = {
   ALTERNATE_NAMES,
   KNOWS_ABOUT,
   ASSET_VERSION,
+  computeAssetVersion,
   PUBLIC_ROUTE_PATHS,
   getBaseUrl,
   getGoogleSiteVerification,

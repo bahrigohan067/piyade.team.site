@@ -116,53 +116,85 @@ router.get('/sitemap.xml', (req, res) => {
 
 /**
  * GET /
- * Anasayfa: Topluluk tanıtımı, canlı aktif üye istatistikleri ve en çok oynanan oyunlar sıralaması.
+ * Anasayfa: Topluluk tanıtımı, canlı aktif oyuncu (activeThisMonth / playingNow) istatistikleri
+ * ve bot tarafından aile bazlı gruplanmış en çok oynanan oyunlar sıralaması.
+ * Hero alanı ve üst şerit birebir AYNI activeStats nesnesinden beslenir (sitede ayrı hesap yapılmaz).
  */
 router.get('/', async (req, res) => {
-  let activeStats = {
-    activeRegisteredCount: null,
-    botOnline: false,
-  };
   const lang = req.lang === 'en' ? 'en' : 'tr';
+  let activeStats = {
+    activeThisMonth: null,
+    activeRegisteredCount: null,
+    playingNow: null,
+    playingCount: 0,
+    uncertainCount: 0,
+    computedAt: null,
+    legacyMode: false,
+    botOnline: false,
+    stale: false,
+    refreshFailed: false,
+  };
   let topGames = {
     scope: 'month',
-    group: 'game',
+    group: 'family',
     month: '',
     since: null,
     updatedAt: Date.now(),
+    computedAt: null,
     totalSeconds: 0,
+    families: [],
     games: [],
+    legacyMode: false,
     stale: false,
+    refreshFailed: false,
     preparing: false,
     offline: false,
   };
 
   try {
-    const [summaryData, healthData, topGamesData] = await Promise.all([
-      botApiClient.getServerStatsSummary({ timeoutMs: 2500 }).catch(() => null),
-      botApiClient.checkHealth().catch(() => null),
+    const [summaryData, topGamesData] = await Promise.all([
+      botApiClient.getServerStatsSummary({ timeoutMs: 2500, lang }).catch(() => null),
       botApiClient
-        .getTopGames({ scope: 'month', limit: 8, lang, group: 'game', timeoutMs: 2500 })
+        .getTopGames({ scope: 'month', limit: 8, lang, group: 'family', timeoutMs: 2500 })
         .catch(() => null),
     ]);
 
-    if (summaryData && typeof summaryData.activeRegisteredCount === 'number') {
-      activeStats.activeRegisteredCount = summaryData.activeRegisteredCount;
-      activeStats.botOnline = true;
-    }
-    if (!healthData || healthData.status !== 'ok') {
-      activeStats.botOnline = false;
+    if (summaryData && typeof summaryData === 'object') {
+      activeStats = {
+        activeThisMonth:
+          typeof summaryData.activeThisMonth === 'number' ? summaryData.activeThisMonth : null,
+        activeRegisteredCount:
+          typeof summaryData.activeRegisteredCount === 'number'
+            ? summaryData.activeRegisteredCount
+            : typeof summaryData.activeThisMonth === 'number'
+              ? summaryData.activeThisMonth
+              : null,
+        playingNow: typeof summaryData.playingNow === 'number' ? summaryData.playingNow : null,
+        playingCount:
+          typeof summaryData.playingNow === 'number'
+            ? summaryData.playingNow
+            : Number(summaryData.playingCount) || 0,
+        uncertainCount: Number(summaryData.uncertainCount) || 0,
+        computedAt: summaryData.computedAt || null,
+        legacyMode: Boolean(summaryData.legacyMode),
+        botOnline: Boolean(summaryData.botOnline),
+        stale: Boolean(summaryData.stale),
+        refreshFailed: Boolean(summaryData.refreshFailed),
+      };
     } else {
-      activeStats.botOnline = true;
+      const lastKnown = botApiClient.getLastKnownActiveStats();
+      activeStats = { ...lastKnown, botOnline: false, stale: true, refreshFailed: true };
     }
+
     if (topGamesData && typeof topGamesData === 'object') {
       topGames = topGamesData;
     }
   } catch (_) {
-    activeStats.botOnline = false;
-    activeStats.activeRegisteredCount = null;
+    const lastKnown = botApiClient.getLastKnownActiveStats();
+    activeStats = { ...lastKnown, botOnline: false, stale: true, refreshFailed: true };
   }
 
+  // Hero ve üst şerit (header/sidebar) birebir aynı activeStats referansını kullanır
   res.locals.activeStats = activeStats;
 
   return res.render('pages/home', {
@@ -181,7 +213,7 @@ router.get('/api/stats/top-games', publicStatsLimiter, async (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=60');
 
   const scope = req.query.scope === 'all' ? 'all' : 'month';
-  const group = req.query.group === 'family' ? 'family' : 'game';
+  const group = req.query.group === 'game' ? 'game' : 'family';
   const lang =
     req.query.lang === 'en' ? 'en' : req.query.lang === 'tr' ? 'tr' : req.lang === 'en' ? 'en' : 'tr';
   const rawLimit = Number.parseInt(String(req.query.limit ?? 8), 10);
@@ -203,9 +235,11 @@ router.get('/api/stats/top-games', publicStatsLimiter, async (req, res) => {
       ok: false,
       scope,
       group,
+      families: [],
       games: [],
       totalSeconds: 0,
       stale: true,
+      refreshFailed: true,
       offline: true,
     });
   }

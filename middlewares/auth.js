@@ -3,6 +3,7 @@ const brandConfig = require('../config/brand.config');
 const { isRegisteredMember, isManagement, isDeveloper } = require('../config/roles.config');
 const { getVisibleMenuItems } = require('../config/menu.config');
 const botApiClient = require('../services/botApiClient');
+const { formatDuration, formatRelativeUpdated } = require('../utils/formatDuration');
 
 /**
  * Her istekte kullanıcının oturumunu kontrol eder.
@@ -14,6 +15,8 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;
   res.locals.activeStats = botApiClient.getLastKnownActiveStats();
+  res.locals.formatDuration = formatDuration;
+  res.locals.formatRelativeUpdated = formatRelativeUpdated;
   botApiClient.refreshActiveStatsInBackground();
 
   if (!req.session || !req.session.user || !req.session.user.id) {

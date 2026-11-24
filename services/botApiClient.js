@@ -1,5 +1,6 @@
 const appConfig = require('../config/app.config');
 const gamesConfig = require('../config/games.config');
+const { formatDuration, safeNonNegInt } = require('../utils/formatDuration');
 
 const BOT_GAMES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 dakika
 let gamesCache = {
@@ -18,7 +19,8 @@ function clearGamesCache() {
   };
 }
 
-const TOP_GAMES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 dakika
+// Oyun sıralaması ve sunucu özeti bellek önbelleği en fazla 60 sn tutulur
+const TOP_GAMES_CACHE_TTL_MS = 60 * 1000; // 60 saniye
 const topGamesCache = new Map();
 const lastGoodTopGamesCache = new Map();
 
@@ -32,6 +34,7 @@ let serverStatsSummaryCache = {
   payload: null,
   expiresAt: 0,
 };
+let lastGoodSummaryPayload = null;
 let summaryBgRefreshInFlight = false;
 let lastSummaryBgAttemptAt = 0;
 
@@ -40,7 +43,21 @@ function clearSummaryCache() {
     payload: null,
     expiresAt: 0,
   };
+  lastGoodSummaryPayload = null;
   lastSummaryBgAttemptAt = 0;
+  lastKnownActiveStats = {
+    activeThisMonth: null,
+    activeRegisteredCount: null,
+    playingNow: null,
+    playingCount: 0,
+    uncertainCount: 0,
+    computedAt: null,
+    legacyMode: false,
+    botOnline: false,
+    stale: false,
+    refreshFailed: false,
+    updatedAt: 0,
+  };
 }
 
 /**
@@ -51,30 +68,108 @@ function clearSummaryCache() {
 const ephemeralEvidenceRamStore = new Map();
 
 /**
- * Header ("👥 X Aktif" / "👥 — Aktif") için son bilinen aktif üye sayısı önbelleği.
- * Bot API'den veri alınamadığında 0 yerine null döner, böylece arayüzde "—" gösterilir.
+ * Üst şerit ve Hero için son bilinen sunucu özet istatistikleri önbelleği.
+ * Bot erişilemezse son iyi veri korunur ve stale/refreshFailed bayrağı işaretlenir.
+ * Henüz hiç veri alınmadıysa null döner, böylece arayüzde "👥 —" gösterilir.
  */
 let lastKnownActiveStats = {
+  activeThisMonth: null,
   activeRegisteredCount: null,
-  botOnline: null,
+  playingNow: null,
+  playingCount: 0,
+  uncertainCount: 0,
+  computedAt: null,
+  legacyMode: false,
+  botOnline: false,
+  stale: false,
+  refreshFailed: false,
   updatedAt: 0,
 };
 
 function getLastKnownActiveStats() {
+  const hasActiveThisMonth = typeof lastKnownActiveStats.activeThisMonth === 'number';
+  const hasLegacyActive = typeof lastKnownActiveStats.activeRegisteredCount === 'number';
+  const primaryActive = hasActiveThisMonth
+    ? lastKnownActiveStats.activeThisMonth
+    : hasLegacyActive
+      ? lastKnownActiveStats.activeRegisteredCount
+      : null;
+
   return {
-    activeRegisteredCount:
-      typeof lastKnownActiveStats.activeRegisteredCount === 'number'
-        ? lastKnownActiveStats.activeRegisteredCount
-        : null,
+    activeThisMonth: primaryActive,
+    activeRegisteredCount: primaryActive,
+    playingNow:
+      typeof lastKnownActiveStats.playingNow === 'number' ? lastKnownActiveStats.playingNow : null,
+    playingCount:
+      typeof lastKnownActiveStats.playingNow === 'number'
+        ? lastKnownActiveStats.playingNow
+        : safeNonNegInt(lastKnownActiveStats.playingCount, 0),
+    uncertainCount: safeNonNegInt(lastKnownActiveStats.uncertainCount, 0),
+    computedAt: lastKnownActiveStats.computedAt || null,
+    legacyMode: Boolean(lastKnownActiveStats.legacyMode),
     botOnline: Boolean(lastKnownActiveStats.botOnline),
+    stale: Boolean(lastKnownActiveStats.stale),
+    refreshFailed: Boolean(lastKnownActiveStats.refreshFailed),
   };
 }
 
-function updateActiveStatsCache(count, online = true) {
+function updateActiveStatsCache(summaryOrCount, online = true) {
+  if (summaryOrCount && typeof summaryOrCount === 'object') {
+    const activeVal =
+      typeof summaryOrCount.activeThisMonth === 'number' && Number.isFinite(summaryOrCount.activeThisMonth)
+        ? Math.max(0, Math.floor(summaryOrCount.activeThisMonth))
+        : typeof summaryOrCount.activeRegisteredCount === 'number' && Number.isFinite(summaryOrCount.activeRegisteredCount)
+          ? Math.max(0, Math.floor(summaryOrCount.activeRegisteredCount))
+          : null;
+    const playingVal =
+      typeof summaryOrCount.playingNow === 'number' && Number.isFinite(summaryOrCount.playingNow)
+        ? Math.max(0, Math.floor(summaryOrCount.playingNow))
+        : typeof summaryOrCount.playingCount === 'number' && Number.isFinite(summaryOrCount.playingCount)
+          ? Math.max(0, Math.floor(summaryOrCount.playingCount))
+          : null;
+    lastKnownActiveStats = {
+      activeThisMonth: activeVal,
+      activeRegisteredCount: activeVal,
+      playingNow: playingVal,
+      playingCount: playingVal !== null ? playingVal : 0,
+      uncertainCount: safeNonNegInt(summaryOrCount.uncertainCount, 0),
+      computedAt:
+        typeof summaryOrCount.computedAt === 'string' && summaryOrCount.computedAt
+          ? summaryOrCount.computedAt
+          : null,
+      legacyMode: Boolean(summaryOrCount.legacyMode),
+      botOnline: Boolean(online),
+      stale: Boolean(summaryOrCount.stale),
+      refreshFailed: Boolean(summaryOrCount.refreshFailed),
+      updatedAt: Date.now(),
+    };
+    return;
+  }
+
+  const numericCount =
+    typeof summaryOrCount === 'number' && Number.isFinite(summaryOrCount)
+      ? Math.max(0, Math.floor(summaryOrCount))
+      : null;
   lastKnownActiveStats = {
-    activeRegisteredCount: typeof count === 'number' ? count : null,
+    ...lastKnownActiveStats,
+    activeThisMonth: numericCount,
+    activeRegisteredCount: numericCount,
     botOnline: Boolean(online),
+    stale: !online,
+    refreshFailed: !online,
     updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Geçici bot erişim hatalarında son bilinen iyi veriyi SİLMEDEN yalnızca çevrimdışı/bayat işaretler.
+ */
+function markActiveStatsOffline() {
+  lastKnownActiveStats = {
+    ...lastKnownActiveStats,
+    botOnline: false,
+    stale: true,
+    refreshFailed: true,
   };
 }
 
@@ -207,7 +302,7 @@ async function executeSingleRequest(endpoint, options = {}) {
 
       // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
       if (response.status === 401) {
-        updateActiveStatsCache(null, false);
+        markActiveStatsOffline();
         throw new BotApiError(
           'Bot API yetki hatası (HTTP 401): Site ile Bot servisindeki API_SECRET şifreleri birbiriyle uyuşmuyor.',
           401,
@@ -236,7 +331,7 @@ async function executeSingleRequest(endpoint, options = {}) {
         response.status === 504 ||
         response.status >= 520
       ) {
-        updateActiveStatsCache(null, false);
+        markActiveStatsOffline();
         const category =
           response.status === 504
             ? 'TIMEOUT'
@@ -256,7 +351,7 @@ async function executeSingleRequest(endpoint, options = {}) {
 
     // Yanıt 200 OK olsa bile JSON değilse (örneğin BOT_API_URL yanlışlıkla bir HTML web sayfasına ayarlandıysa)
     if (!isJson || data === null || typeof data !== 'object') {
-      updateActiveStatsCache(null, false);
+      markActiveStatsOffline();
       throw new BotApiError(
         'Bot API geçerli bir JSON yanıtı döndürmedi (HTML sayfası döndü). BOT_API_URL yanlış bir adrese ayarlanmış olabilir.',
         503,
@@ -273,7 +368,7 @@ async function executeSingleRequest(endpoint, options = {}) {
       throw err;
     }
 
-    updateActiveStatsCache(null, false);
+    markActiveStatsOffline();
 
     if (err.name === 'AbortError') {
       throw new BotApiError(
@@ -352,10 +447,12 @@ async function probeBotApiStatus() {
     // /api/health şifresiz olabileceği için API_SECRET doğrulamasını korumalı /api/stats/summary üzerinden de test et
     try {
       const summaryData = await requestBotApi('/api/stats/summary', { method: 'GET', retries: 0 });
-      if (summaryData && typeof summaryData.activeRegisteredCount === 'number') {
-        updateActiveStatsCache(summaryData.activeRegisteredCount, true);
+      const normalized = normalizeServerStatsSummaryPayload(summaryData, Date.now());
+      if (normalized) {
+        updateActiveStatsCache(normalized, true);
+        lastGoodSummaryPayload = normalized;
         serverStatsSummaryCache = {
-          payload: summaryData,
+          payload: normalized,
           expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS,
         };
       }
@@ -598,8 +695,47 @@ async function getMemberProfile(discordId) {
   return data;
 }
 
+function sanitizeFormattedDuration(rawStr, seconds, lang = 'tr') {
+  if (
+    typeof rawStr === 'string' &&
+    rawStr.trim() &&
+    !/\b(NaN|Infinity|undefined)\b/i.test(rawStr)
+  ) {
+    return rawStr.trim().slice(0, 64);
+  }
+  return formatDuration(seconds, lang);
+}
+
+function sanitizeBreakdown(rawBreakdown, lang = 'tr') {
+  if (!rawBreakdown || typeof rawBreakdown !== 'object') return null;
+  const rawItems = Array.isArray(rawBreakdown.items) ? rawBreakdown.items : [];
+  const items = rawItems
+    .filter((it) => it && typeof it === 'object' && (it.name || it.id))
+    .slice(0, 5)
+    .map((it) => {
+      const sec = safeNonNegInt(it.seconds, 0);
+      return {
+        id: String(it.id || it.name).trim().slice(0, 48),
+        name: String(it.name || it.id).trim().slice(0, 80),
+        seconds: sec,
+        formattedDuration: sanitizeFormattedDuration(it.formattedDuration, sec, lang),
+      };
+    });
+  const overflowCount = safeNonNegInt(rawBreakdown.overflowCount, 0);
+  const rawLine =
+    typeof rawBreakdown.formattedLine === 'string' &&
+    rawBreakdown.formattedLine.trim() &&
+    !/\b(NaN|Infinity|undefined)\b/i.test(rawBreakdown.formattedLine)
+      ? rawBreakdown.formattedLine.trim().slice(0, 260)
+      : '';
+  const formattedLine = rawLine;
+  if (!formattedLine && items.length === 0) return null;
+  return { items, overflowCount, formattedLine };
+}
+
 /**
  * Üyenin kişisel aylık oyun etkinliği özetini (/api/member/:id/activity) getirir ve güvenli şekilde normalize eder.
+ * Roblox aile gruplaması tamamen bot tarafından yapılır; site kendi oyun listesi tutmaz.
  */
 async function getMemberActivity(discordId, lang = 'tr') {
   const cleanLang = lang === 'en' ? 'en' : 'tr';
@@ -627,24 +763,48 @@ async function getMemberActivity(discordId, lang = 'tr') {
       month,
       tracking: false,
       games: [],
+      families: [],
       totalSeconds: 0,
       live: null,
       nextResetAt,
     };
   }
 
-  const rawGames = Array.isArray(data.games) ? data.games : [];
-  const normalizedGames = rawGames
-    .filter((g) => g && typeof g === 'object' && g.id && Number(g.seconds) > 0)
-    .map((g) => ({
-      id: String(g.id).trim().slice(0, 48),
-      name: String(g.name || g.id).trim().slice(0, 96),
-      emoji: String(g.emoji || '🎮').trim().slice(0, 16),
-      family: g.family ? String(g.family).trim().slice(0, 32) : null,
-      seconds: Math.max(0, Math.floor(Number(g.seconds) || 0)),
-      percent: Math.min(100, Math.max(0, Math.round(Number(g.percent) || 0))),
-      formattedDuration: g.formattedDuration ? String(g.formattedDuration).trim().slice(0, 64) : null,
-    }))
+  // Yeni bot families veya eski bot games alanını sessizce destekle
+  const sourceList =
+    Array.isArray(data.families) && data.families.length > 0
+      ? data.families.map((f) => ({
+          id: f.key,
+          name: f.label,
+          emoji: f.emoji,
+          family: f.key,
+          seconds: f.totalSeconds,
+          percent: f.percent,
+          rank: f.rank,
+          formattedDuration: f.formattedDuration,
+          breakdown: f.breakdown,
+        }))
+      : Array.isArray(data.games)
+        ? data.games
+        : [];
+
+  const normalizedGames = sourceList
+    .filter((g) => g && typeof g === 'object' && (g.id || g.key) && Number.isFinite(Number(g.seconds)) && Number(g.seconds) > 0)
+    .map((g, idx) => {
+      const sec = safeNonNegInt(g.seconds, 0);
+      const breakdown = sanitizeBreakdown(g.breakdown, cleanLang);
+      return {
+        id: String(g.id || g.key).trim().slice(0, 48),
+        name: String(g.name || g.label || g.id || g.key).trim().slice(0, 96),
+        emoji: String(g.emoji || '🎮').trim().slice(0, 16),
+        family: g.family ? String(g.family).trim().slice(0, 32) : null,
+        seconds: sec,
+        percent: Math.min(100, safeNonNegInt(Math.round(Number(g.percent) || 0), 0)),
+        rank: safeNonNegInt(g.rank, idx + 1) || idx + 1,
+        formattedDuration: sanitizeFormattedDuration(g.formattedDuration, sec, cleanLang),
+        ...(breakdown ? { breakdown } : {}),
+      };
+    })
     .sort((a, b) => b.seconds - a.seconds)
     .slice(0, 10);
 
@@ -654,7 +814,6 @@ async function getMemberActivity(discordId, lang = 'tr') {
       ? Math.floor(data.totalSeconds)
       : computedTotal;
 
-  // Eğer toplam pozitifse ve yüzdeler gelmemişse hesapla
   if (totalSeconds > 0) {
     for (const g of normalizedGames) {
       if (!g.percent) {
@@ -665,13 +824,14 @@ async function getMemberActivity(discordId, lang = 'tr') {
 
   let live = null;
   if (data.live && typeof data.live === 'object' && data.live.gameId) {
+    const liveSec = safeNonNegInt(data.live.sessionElapsedSec, 0);
     live = {
       gameId: String(data.live.gameId).trim().slice(0, 48),
       name: String(data.live.name || data.live.gameId).trim().slice(0, 96),
       emoji: String(data.live.emoji || '🎮').trim().slice(0, 16),
       family: data.live.family ? String(data.live.family).trim().slice(0, 32) : null,
-      sessionElapsedSec: Math.max(0, Math.floor(Number(data.live.sessionElapsedSec) || 0)),
-      formattedDuration: data.live.formattedDuration ? String(data.live.formattedDuration).trim().slice(0, 64) : null,
+      sessionElapsedSec: liveSec,
+      formattedDuration: sanitizeFormattedDuration(data.live.formattedDuration, liveSec, cleanLang),
     };
   }
 
@@ -680,6 +840,17 @@ async function getMemberActivity(discordId, lang = 'tr') {
     month,
     tracking: true,
     games: normalizedGames,
+    families: normalizedGames.map((g, idx) => ({
+      key: g.id,
+      label: g.name,
+      emoji: g.emoji,
+      totalSeconds: g.seconds,
+      uniquePlayers: 1,
+      rank: g.rank || idx + 1,
+      percent: g.percent,
+      formattedDuration: g.formattedDuration,
+      ...(g.breakdown ? { breakdown: g.breakdown } : {}),
+    })),
     totalSeconds,
     live,
     nextResetAt,
@@ -687,12 +858,67 @@ async function getMemberActivity(discordId, lang = 'tr') {
 }
 
 /**
+ * Bot yanıtındaki families (yeni bot) veya games (eski bot) dizisini tek biçime normalize eder.
+ * Site kendi oyun/aile listesini TUTMAZ; botun verdiği gruplanmış veriyi doğrudan gösterir.
+ */
+function normalizeTopGamesEntries(data, cleanLang, cleanLimit) {
+  const hasNewFamilies = Array.isArray(data?.families);
+  const rawList = hasNewFamilies
+    ? data.families.map((f, idx) => ({
+        id: f?.key,
+        name: f?.label,
+        emoji: f?.emoji,
+        family: f?.key,
+        seconds: f?.totalSeconds,
+        hours: f?.hours,
+        percent: f?.percent,
+        players: f?.uniquePlayers,
+        rank: f?.rank || idx + 1,
+        formattedDuration: f?.formattedDuration,
+        breakdown: f?.breakdown,
+      }))
+    : Array.isArray(data?.games)
+      ? data.games
+      : [];
+
+  const normalized = rawList
+    .filter((g) => g && typeof g === 'object' && g.id && Number.isFinite(Number(g.seconds)) && Number(g.seconds) > 0)
+    .map((g, idx) => {
+      const seconds = safeNonNegInt(g.seconds, 0);
+      const hours =
+        typeof g.hours === 'number' && Number.isFinite(g.hours) && g.hours >= 0
+          ? Number(g.hours.toFixed(1))
+          : Number((seconds / 3600).toFixed(1));
+      const breakdown = sanitizeBreakdown(g.breakdown, cleanLang);
+      return {
+        id: String(g.id).trim().slice(0, 48),
+        name: String(g.name || g.id).trim().slice(0, 96),
+        emoji: String(g.emoji || '🎮').trim().slice(0, 16),
+        family: g.family ? String(g.family).trim().slice(0, 32) : null,
+        seconds,
+        hours,
+        percent: Math.min(100, safeNonNegInt(Math.round(Number(g.percent) || 0), 0)),
+        players: safeNonNegInt(g.players, 0),
+        rank: safeNonNegInt(g.rank, idx + 1) || idx + 1,
+        formattedDuration: sanitizeFormattedDuration(g.formattedDuration, seconds, cleanLang),
+        ...(breakdown ? { breakdown } : {}),
+      };
+    })
+    .sort((a, b) => b.seconds - a.seconds || b.players - a.players)
+    .slice(0, cleanLimit)
+    .map((g, idx) => ({ ...g, rank: idx + 1 }));
+
+  return { normalized, hasNewFamilies };
+}
+
+/**
  * Sunucuda en çok oynanan oyunların anonim sıralamasını (/api/stats/top-games) getirir.
- * 5 dakika bellek önbelleği + bot çevrimdışı/404 durumunda zarif stale/preparing yedeklemesi içerir.
+ * En fazla 60 sn bellek önbelleği + bot çevrimdışı/bozuk yanıt durumunda son iyi veriyi
+ * ("veri güncellenemedi" bayrağıyla) çökmeden gösterir.
  */
 async function getTopGames(options = {}) {
   const cleanScope = options.scope === 'all' ? 'all' : 'month';
-  const cleanGroup = options.group === 'family' ? 'family' : 'game';
+  const cleanGroup = options.group === 'game' ? 'game' : 'family';
   const cleanLang = options.lang === 'en' ? 'en' : 'tr';
   const rawLimit = Number.parseInt(String(options.limit ?? 8), 10);
   const cleanLimit = Number.isFinite(rawLimit) ? Math.min(12, Math.max(1, rawLimit)) : 8;
@@ -709,6 +935,7 @@ async function getTopGames(options = {}) {
       ...cached.payload,
       cached: true,
       stale: false,
+      refreshFailed: false,
     };
   }
 
@@ -720,35 +947,16 @@ async function getTopGames(options = {}) {
       timeoutMs,
     });
 
-    const data = raw && typeof raw === 'object' ? raw : {};
-    const rawGames = Array.isArray(data.games) ? data.games : [];
-    const normalizedGames = rawGames
-      .filter((g) => g && typeof g === 'object' && g.id && Number(g.seconds) > 0)
-      .map((g) => {
-        const seconds = Math.max(0, Math.floor(Number(g.seconds) || 0));
-        const hours =
-          typeof g.hours === 'number' && Number.isFinite(g.hours)
-            ? Number(g.hours.toFixed(1))
-            : Number((seconds / 3600).toFixed(1));
-        return {
-          id: String(g.id).trim().slice(0, 48),
-          name: String(g.name || g.id).trim().slice(0, 96),
-          emoji: String(g.emoji || '🎮').trim().slice(0, 16),
-          family: g.family ? String(g.family).trim().slice(0, 32) : null,
-          seconds,
-          hours,
-          percent: Math.min(100, Math.max(0, Math.round(Number(g.percent) || 0))),
-          players: Math.max(0, Math.floor(Number(g.players) || 0)),
-          formattedDuration: g.formattedDuration ? String(g.formattedDuration).trim().slice(0, 64) : null,
-        };
-      })
-      .sort((a, b) => b.seconds - a.seconds)
-      .slice(0, cleanLimit);
+    if (!raw || typeof raw !== 'object' || (!Array.isArray(raw.families) && !Array.isArray(raw.games))) {
+      throw new BotApiError('Bot API geçersiz oyun sıralaması yanıtı döndürdü.', 502, true, 'INVALID_PAYLOAD');
+    }
+
+    const { normalized: normalizedGames, hasNewFamilies } = normalizeTopGamesEntries(raw, cleanLang, cleanLimit);
 
     const computedTotal = normalizedGames.reduce((sum, g) => sum + g.seconds, 0);
     const totalSeconds =
-      typeof data.totalSeconds === 'number' && Number.isFinite(data.totalSeconds) && data.totalSeconds >= computedTotal
-        ? Math.floor(data.totalSeconds)
+      typeof raw.totalSeconds === 'number' && Number.isFinite(raw.totalSeconds) && raw.totalSeconds >= computedTotal
+        ? Math.floor(raw.totalSeconds)
         : computedTotal;
 
     if (totalSeconds > 0) {
@@ -759,17 +967,42 @@ async function getTopGames(options = {}) {
       }
     }
 
+    const updatedAt =
+      typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) && raw.updatedAt > 0
+        ? raw.updatedAt
+        : now;
+    const computedAt =
+      typeof raw.computedAt === 'string' && Number.isFinite(Date.parse(raw.computedAt))
+        ? raw.computedAt
+        : new Date(updatedAt).toISOString();
+
+    const families = normalizedGames.map((g) => ({
+      key: g.id,
+      label: g.name,
+      emoji: g.emoji,
+      totalSeconds: g.seconds,
+      uniquePlayers: g.players,
+      rank: g.rank,
+      percent: g.percent,
+      hours: g.hours,
+      formattedDuration: g.formattedDuration,
+      ...(g.breakdown ? { breakdown: g.breakdown } : {}),
+    }));
+
     const payload = {
       scope: cleanScope,
       group: cleanGroup,
-      month: typeof data.month === 'string' ? data.month : '',
+      month: typeof raw.month === 'string' ? raw.month : '',
       since:
-        typeof data.since === 'number' && Number.isFinite(data.since) && data.since > 0 ? data.since : null,
-      updatedAt:
-        typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt) ? data.updatedAt : now,
+        typeof raw.since === 'number' && Number.isFinite(raw.since) && raw.since > 0 ? raw.since : null,
+      updatedAt,
+      computedAt,
       totalSeconds,
+      families,
       games: normalizedGames,
+      legacyMode: !hasNewFamilies,
       stale: false,
+      refreshFailed: false,
       preparing: false,
       offline: false,
     };
@@ -788,6 +1021,8 @@ async function getTopGames(options = {}) {
       return {
         ...lastGood,
         stale: true,
+        refreshFailed: true,
+        offline: true,
       };
     }
 
@@ -800,9 +1035,13 @@ async function getTopGames(options = {}) {
       month: '',
       since: null,
       updatedAt: now,
+      computedAt: null,
       totalSeconds: 0,
+      families: [],
       games: [],
+      legacyMode: false,
       stale: !isEndpointMissing,
+      refreshFailed: !isEndpointMissing,
       preparing: Boolean(isEndpointMissing),
       offline: !isEndpointMissing,
     };
@@ -1014,11 +1253,81 @@ async function submitRegistration({
 // ============================================================================
 
 /**
- * Sunucudaki aktif kayıtlı oyuncu, toplam üye ve oynayan kişi sayılarını (/api/stats/summary) getirir.
- * 60 saniye bellek önbelleklidir; başarılı olduğunda header/sidebar ("👥 X Aktif") önbelleğini günceller.
+ * Botun /api/stats/summary yanıtını yeni ve eski sürüm uyumlu biçimde normalize eder.
+ * Yeni alanlar yoksa (eski bot), sessizce eski activeRegisteredCount/playingCount alanlarına düşer.
+ * Geçersiz veya bozuk yanıtta null döner.
+ */
+function normalizeServerStatsSummaryPayload(raw, now = Date.now(), lang = 'tr') {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const hasActiveThisMonth = typeof raw.activeThisMonth === 'number' && Number.isFinite(raw.activeThisMonth) && raw.activeThisMonth >= 0;
+  const hasLegacyActive = typeof raw.activeRegisteredCount === 'number' && Number.isFinite(raw.activeRegisteredCount) && raw.activeRegisteredCount >= 0;
+  if (!hasActiveThisMonth && !hasLegacyActive) return null;
+
+  const activeThisMonth = hasActiveThisMonth
+    ? Math.floor(raw.activeThisMonth)
+    : Math.floor(raw.activeRegisteredCount);
+
+  const hasPlayingNow = typeof raw.playingNow === 'number' && Number.isFinite(raw.playingNow) && raw.playingNow >= 0;
+  const hasLegacyPlaying = typeof raw.playingCount === 'number' && Number.isFinite(raw.playingCount) && raw.playingCount >= 0;
+  const playingNow = hasPlayingNow
+    ? Math.floor(raw.playingNow)
+    : hasLegacyPlaying
+      ? Math.floor(raw.playingCount)
+      : null;
+
+  const updatedAt =
+    typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) && raw.updatedAt > 0
+      ? raw.updatedAt
+      : now;
+  const computedAt =
+    typeof raw.computedAt === 'string' && Number.isFinite(Date.parse(raw.computedAt))
+      ? raw.computedAt
+      : new Date(updatedAt).toISOString();
+
+  const { normalized: familyEntries } = normalizeTopGamesEntries(raw, lang, 12);
+
+  return {
+    activeThisMonth,
+    playingNow,
+    uncertainCount: safeNonNegInt(raw.uncertainCount, 0),
+    computedAt,
+    families: familyEntries.map((g) => ({
+      key: g.id,
+      label: g.name,
+      emoji: g.emoji,
+      totalSeconds: g.seconds,
+      uniquePlayers: g.players,
+      rank: g.rank,
+      percent: g.percent,
+      hours: g.hours,
+      formattedDuration: g.formattedDuration,
+      ...(g.breakdown ? { breakdown: g.breakdown } : {}),
+    })),
+    activeRegisteredCount: activeThisMonth,
+    totalMemberCount:
+      typeof raw.totalMemberCount === 'number' && Number.isFinite(raw.totalMemberCount) && raw.totalMemberCount >= 0
+        ? Math.floor(raw.totalMemberCount)
+        : activeThisMonth,
+    onlineCount: safeNonNegInt(raw.onlineCount, 0),
+    playingCount: playingNow !== null ? playingNow : 0,
+    updatedAt,
+    legacyMode: !hasActiveThisMonth,
+    botOnline: true,
+    stale: false,
+    refreshFailed: false,
+    offline: false,
+  };
+}
+
+/**
+ * Sunucudaki bu ay aktif oyuncu (activeThisMonth) ve şu an oyunda (playingNow) özetini (/api/stats/summary) getirir.
+ * En fazla 60 saniye bellek önbelleklidir; bot erişilemezse veya yanıt bozuksa
+ * son iyi veriyi ("veri güncellenemedi" bayrağıyla) çökmeden döndürür.
  */
 async function getServerStatsSummary(options = {}) {
   const forceRefresh = Boolean(options && options.forceRefresh);
+  const lang = options && options.lang === 'en' ? 'en' : 'tr';
   const timeoutMs =
     options && typeof options.timeoutMs === 'number' && options.timeoutMs > 0
       ? options.timeoutMs
@@ -1029,46 +1338,56 @@ async function getServerStatsSummary(options = {}) {
     return serverStatsSummaryCache.payload;
   }
 
-  const raw = await requestBotApi('/api/stats/summary', {
-    method: 'GET',
-    retries: timeoutMs ? 0 : 1,
-    timeoutMs,
-  });
+  try {
+    const raw = await requestBotApi(`/api/stats/summary?lang=${lang}`, {
+      method: 'GET',
+      retries: timeoutMs ? 0 : 1,
+      timeoutMs,
+    });
 
-  const data = raw && typeof raw === 'object' ? raw : {};
-  const activeRegisteredCount =
-    typeof data.activeRegisteredCount === 'number' && Number.isFinite(data.activeRegisteredCount)
-      ? Math.max(0, Math.floor(data.activeRegisteredCount))
-      : null;
+    const payload = normalizeServerStatsSummaryPayload(raw, now, lang);
+    if (!payload) {
+      throw new BotApiError('Bot API geçersiz sunucu özeti yanıtı döndürdü.', 502, true, 'INVALID_PAYLOAD');
+    }
 
-  const payload = {
-    activeRegisteredCount,
-    totalMemberCount:
-      typeof data.totalMemberCount === 'number' && Number.isFinite(data.totalMemberCount)
-        ? Math.max(0, Math.floor(data.totalMemberCount))
-        : activeRegisteredCount,
-    onlineCount:
-      typeof data.onlineCount === 'number' && Number.isFinite(data.onlineCount)
-        ? Math.max(0, Math.floor(data.onlineCount))
-        : 0,
-    playingCount:
-      typeof data.playingCount === 'number' && Number.isFinite(data.playingCount)
-        ? Math.max(0, Math.floor(data.playingCount))
-        : 0,
-    updatedAt:
-      typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt) ? data.updatedAt : now,
-  };
+    updateActiveStatsCache(payload, true);
+    lastGoodSummaryPayload = payload;
+    serverStatsSummaryCache = {
+      payload,
+      expiresAt: now + SUMMARY_CACHE_TTL_MS,
+    };
 
-  if (typeof activeRegisteredCount === 'number') {
-    updateActiveStatsCache(activeRegisteredCount, true);
+    return payload;
+  } catch (_) {
+    markActiveStatsOffline();
+    if (lastGoodSummaryPayload) {
+      return {
+        ...lastGoodSummaryPayload,
+        botOnline: false,
+        stale: true,
+        refreshFailed: true,
+        offline: true,
+      };
+    }
+
+    return {
+      activeThisMonth: null,
+      playingNow: null,
+      uncertainCount: 0,
+      computedAt: null,
+      families: [],
+      activeRegisteredCount: null,
+      totalMemberCount: null,
+      onlineCount: 0,
+      playingCount: 0,
+      updatedAt: now,
+      legacyMode: false,
+      botOnline: false,
+      stale: true,
+      refreshFailed: true,
+      offline: true,
+    };
   }
-
-  serverStatsSummaryCache = {
-    payload,
-    expiresAt: now + SUMMARY_CACHE_TTL_MS,
-  };
-
-  return payload;
 }
 
 /**
@@ -1256,6 +1575,8 @@ async function attachWarningEvidence(warnId, { actorId, fileBuffer = null, fileN
 }
 
 module.exports = {
+  TOP_GAMES_CACHE_TTL_MS,
+  SUMMARY_CACHE_TTL_MS,
   BotApiError,
   requestBotApi,
   checkHealth,
@@ -1266,6 +1587,7 @@ module.exports = {
   clearGamesCache,
   clearTopGamesCache,
   clearSummaryCache,
+  normalizeServerStatsSummaryPayload,
   getGames,
   lookupRobloxAccount,
   getMemberRoles,

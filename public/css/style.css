@@ -4039,9 +4039,17 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   line-height: 1.7;
 }
 
+.home-active-stats-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
 .home-active-stat-pill {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.55rem;
   padding: 0.45rem 0.95rem;
   border-radius: var(--radius-full);
@@ -4054,6 +4062,88 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 .home-active-stat-pill strong {
   color: var(--text-primary);
   font-weight: 800;
+}
+
+.home-playing-now-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.16rem 0.62rem;
+  margin-left: 0.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-purple-badge-bg);
+  border: 1px solid var(--color-purple-badge-border);
+  color: var(--color-purple-badge-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.home-playing-now-badge strong {
+  color: inherit;
+  font-weight: 800;
+}
+
+.status-dot-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+.home-stats-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  padding-left: 0.35rem;
+}
+
+.nav-playing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem 0.5rem;
+  margin-left: 0.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-purple-badge-bg);
+  border: 1px solid var(--color-purple-badge-border);
+  color: var(--color-purple-badge-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.nav-playing-inline {
+  font-weight: 700;
+  color: var(--color-purple-badge-text);
+}
+
+.stats-stale-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.topgames-breakdown {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.topgames-updated-note {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.activity-game-breakdown {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .home-seo-section {

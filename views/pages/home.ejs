@@ -11,11 +11,18 @@
   const discordInviteUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function')
     ? brandConfig.getDiscordInviteUrl()
     : ((typeof brandConfig !== 'undefined' && brandConfig && brandConfig.DISCORD_INVITE_URL) ? brandConfig.DISCORD_INVITE_URL : '');
-  const hasLiveMemberCount = Boolean(
-    typeof activeStats !== 'undefined' &&
-    activeStats &&
-    typeof activeStats.activeRegisteredCount === 'number'
-  );
+  const safeHeroStats = (typeof activeStats !== 'undefined' && activeStats && typeof activeStats === 'object') ? activeStats : {};
+  const heroActiveCount = (typeof safeHeroStats.activeThisMonth === 'number' && Number.isFinite(safeHeroStats.activeThisMonth))
+    ? safeHeroStats.activeThisMonth
+    : ((typeof safeHeroStats.activeRegisteredCount === 'number' && Number.isFinite(safeHeroStats.activeRegisteredCount))
+      ? safeHeroStats.activeRegisteredCount
+      : null);
+  const heroPlayingNow = (typeof safeHeroStats.playingNow === 'number' && Number.isFinite(safeHeroStats.playingNow))
+    ? safeHeroStats.playingNow
+    : null;
+  const heroLegacyMode = Boolean(safeHeroStats.legacyMode);
+  const heroStale = Boolean(safeHeroStats.stale || safeHeroStats.refreshFailed);
+  const hasLiveMemberCount = heroActiveCount !== null;
   const homeGames = [
     { emoji: '🧱', titleKey: 'home.gameRobloxTitle', descKey: 'home.gameRobloxDesc' },
     { emoji: '🔫', titleKey: 'home.gameCs2Title', descKey: 'home.gameCs2Desc' },
@@ -36,22 +43,32 @@
   ];
   const initialTopGames = (typeof topGames !== 'undefined' && topGames && typeof topGames === 'object')
     ? topGames
-    : { scope: 'month', games: [], totalSeconds: 0, since: null, stale: false, preparing: false, offline: false };
+    : { scope: 'month', families: [], games: [], totalSeconds: 0, since: null, computedAt: null, stale: false, preparing: false, offline: false };
   const initialGamesList = Array.isArray(initialTopGames.games) ? initialTopGames.games : [];
   const leaderSeconds = initialGamesList.length > 0 ? Math.max(1, Number(initialGamesList[0].seconds) || 1) : 1;
   const currentLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
   const rankMedals = ['🥇', '🥈', '🥉'];
   function formatHomeDuration(sec, lng) {
+    if (typeof formatDuration === 'function') {
+      return formatDuration(sec, lng);
+    }
     const isEn = lng === 'en';
-    const clean = Math.max(0, Math.floor(Number(sec) || 0));
-    if (clean < 60) return isEn ? '< 1 min' : '< 1 dk';
-    const totalMin = Math.floor(clean / 60);
+    const raw = Number(sec);
+    if (!Number.isFinite(raw) || raw <= 0) return isEn ? '0 min' : '0 dk';
+    if (raw < 60) return isEn ? '<1 min' : "1 dk'dan az";
+    const totalMin = Math.floor(Math.floor(raw) / 60);
     const hrs = Math.floor(totalMin / 60);
     const mins = totalMin % 60;
     if (hrs === 0) return isEn ? (mins + ' min') : (mins + ' dk');
     if (mins === 0) return isEn ? (hrs + ' hr') : (hrs + ' sa');
     return isEn ? (hrs + ' hr ' + mins + ' min') : (hrs + ' sa ' + mins + ' dk');
   }
+  const heroUpdatedRelative = (typeof formatRelativeUpdated === 'function' && safeHeroStats.computedAt)
+    ? formatRelativeUpdated(safeHeroStats.computedAt, currentLang)
+    : '';
+  const topGamesUpdatedRelative = (typeof formatRelativeUpdated === 'function' && initialTopGames.computedAt)
+    ? formatRelativeUpdated(initialTopGames.computedAt, currentLang)
+    : '';
 %>
 
 <!-- ==============================================================================
@@ -75,10 +92,29 @@
         </p>
 
         <% if (hasLiveMemberCount) { %>
-          <div class="home-active-stat-pill">
-            <span class="status-dot-success"></span>
-            <strong><%= activeStats.activeRegisteredCount %></strong>
-            <span><%= t('home.activeMembersLabel') %></span>
+          <div class="home-active-stats-group">
+            <div class="home-active-stat-pill">
+              <span class="status-dot-success"></span>
+              <strong data-stat="hero-active-month" data-stat-value="<%= heroActiveCount %>"><%= heroActiveCount %></strong>
+              <span><%= heroLegacyMode ? t('home.activeMembersLabel') : t('home.activeThisMonthLabel') %></span>
+              <% if (!heroLegacyMode && heroPlayingNow !== null) { %>
+                <span class="home-playing-now-badge">
+                  <span class="status-dot-live" aria-hidden="true"></span>
+                  <strong data-stat="hero-playing-now" data-stat-value="<%= heroPlayingNow %>"><%= heroPlayingNow %></strong>
+                  <span><%= t('home.playingNowLabel') %></span>
+                </span>
+              <% } %>
+            </div>
+            <% if (heroUpdatedRelative || heroStale) { %>
+              <div class="home-stats-meta">
+                <% if (heroUpdatedRelative) { %>
+                  <span class="home-stats-updated"><%= t('home.lastUpdatedPrefix') %> <%= heroUpdatedRelative %></span>
+                <% } %>
+                <% if (heroStale) { %>
+                  <span class="stats-stale-tag">• <%= t('home.staleNotice') %></span>
+                <% } %>
+              </div>
+            <% } %>
           </div>
         <% } %>
       </div>
@@ -153,6 +189,7 @@
   data-t-preparing="<%= t('home.topGamesPreparing') %>"
   data-t-error="<%= t('home.topGamesError') %>"
   data-t-stale="<%= t('home.topGamesStaleNote') %>"
+  data-t-updated="<%= t('home.lastUpdatedPrefix') %>"
 >
   <script type="application/json" id="initialTopGamesJson"><%- JSON.stringify(initialTopGames).replace(/</g, '\\u003c') %></script>
 
@@ -259,6 +296,9 @@
                   data-target-width="<%= relativeWidth %>"
                 ></div>
               </div>
+              <% if (g.breakdown && g.breakdown.formattedLine) { %>
+                <div class="topgames-breakdown"><%= g.breakdown.formattedLine %></div>
+              <% } %>
             </div>
           <% }); %>
         </div>
@@ -282,6 +322,9 @@
 
     <div class="topgames-footer">
       <span class="topgames-anon-note">🔒 <%= t('home.topGamesAnonNote') %></span>
+      <span class="topgames-updated-note" id="topGamesUpdatedNote"<% if (!topGamesUpdatedRelative) { %> hidden<% } %>>
+        <% if (topGamesUpdatedRelative) { %><%= t('home.lastUpdatedPrefix') %> <%= topGamesUpdatedRelative %><% } %>
+      </span>
     </div>
   </div>
 </section>

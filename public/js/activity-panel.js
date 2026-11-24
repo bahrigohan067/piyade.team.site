@@ -20,10 +20,14 @@
 
   function formatDurationClient(seconds, lang) {
     const isEn = lang === 'en';
-    const sec = Math.max(0, Math.floor(Number(seconds) || 0));
-    if (sec < 60) {
-      return isEn ? '< 1 min' : '< 1 dk';
+    const raw = Number(seconds);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return isEn ? '0 min' : '0 dk';
     }
+    if (raw < 60) {
+      return isEn ? '<1 min' : "1 dk'dan az";
+    }
+    const sec = Math.floor(raw);
     const totalMinutes = Math.floor(sec / 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -301,6 +305,11 @@
               <div class="activity-bar-track" role="progressbar" aria-valuenow="${escapeHtml(pct)}" aria-valuemin="0" aria-valuemax="100">
                 <div class="activity-bar-fill rank-grad-${rankIdx}" style="width: ${barWidth}%;"></div>
               </div>
+              ${
+                g.breakdown && g.breakdown.formattedLine
+                  ? `<div class="activity-game-breakdown">${escapeHtml(g.breakdown.formattedLine)}</div>`
+                  : ''
+              }
             </div>
           `;
         })

@@ -17,11 +17,15 @@
 
   function formatDuration(seconds, lang) {
     const isEn = lang === 'en';
-    const clean = Math.max(0, Math.floor(Number(seconds) || 0));
-    if (clean < 60) {
-      return isEn ? '< 1 min' : '< 1 dk';
+    const raw = Number(seconds);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return isEn ? '0 min' : '0 dk';
     }
-    const totalMin = Math.floor(clean / 60);
+    if (raw < 60) {
+      return isEn ? '<1 min' : "1 dk'dan az";
+    }
+    const totalSec = Math.floor(raw);
+    const totalMin = Math.floor(totalSec / 60);
     const hrs = Math.floor(totalMin / 60);
     const mins = totalMin % 60;
     const nf = new Intl.NumberFormat(isEn ? 'en-US' : 'tr-TR');
@@ -34,6 +38,22 @@
     return isEn
       ? `${nf.format(hrs)} hr ${nf.format(mins)} min`
       : `${nf.format(hrs)} sa ${nf.format(mins)} dk`;
+  }
+
+  function formatRelativeUpdated(isoOrMs, lang) {
+    const isEn = lang === 'en';
+    let ts = NaN;
+    if (typeof isoOrMs === 'number') ts = isoOrMs;
+    else if (typeof isoOrMs === 'string' && isoOrMs.trim()) ts = Date.parse(isoOrMs);
+    if (!Number.isFinite(ts) || ts <= 0) return '';
+    const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (diffSec < 45) return isEn ? 'just now' : 'az önce';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return isEn ? `${diffMin} min ago` : `${diffMin} dk önce`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return isEn ? `${diffHr} hr ago` : `${diffHr} sa önce`;
+    const diffDay = Math.floor(diffHr / 24);
+    return isEn ? `${diffDay} d ago` : `${diffDay} gün önce`;
   }
 
   function formatSinceDate(timestampMs, lang) {
@@ -66,6 +86,7 @@
       empty: section.getAttribute('data-t-empty') || 'Bu ay henüz oyun etkinliği kaydedilmedi.',
       preparing: section.getAttribute('data-t-preparing') || 'Veri hazırlanıyor…',
       error: section.getAttribute('data-t-error') || 'İstatistikler şu an yüklenemedi.',
+      updatedPrefix: section.getAttribute('data-t-updated') || (lang === 'en' ? 'Last updated:' : 'Son güncelleme:'),
     };
 
     const tabMonth = document.getElementById('topGamesTabMonth');
@@ -74,6 +95,7 @@
     const panel = document.getElementById('topGamesListPanel');
     const sinceNoteEl = document.getElementById('topGamesSinceNote');
     const staleBannerEl = document.getElementById('topGamesStaleBanner');
+    const updatedNoteEl = document.getElementById('topGamesUpdatedNote');
     const initialJsonEl = document.getElementById('initialTopGamesJson');
 
     const prefersReducedMotion = Boolean(
@@ -160,13 +182,43 @@
       sinceNoteEl.hidden = true;
     }
 
+    function extractNormalizedEntries(data) {
+      if (data && Array.isArray(data.families) && data.families.length > 0) {
+        return data.families.map((f, idx) => ({
+          id: f.key,
+          name: f.label,
+          emoji: f.emoji || '🎮',
+          seconds: Number.isFinite(Number(f.totalSeconds)) ? Math.max(0, Math.floor(Number(f.totalSeconds))) : 0,
+          hours: Number.isFinite(Number(f.hours)) ? Number(f.hours) : 0,
+          percent: Number.isFinite(Number(f.percent)) ? Math.max(0, Math.min(100, Math.round(Number(f.percent)))) : 0,
+          players: Number.isFinite(Number(f.uniquePlayers)) ? Math.max(0, Math.floor(Number(f.uniquePlayers))) : 0,
+          rank: Number.isFinite(Number(f.rank)) ? Math.floor(Number(f.rank)) : idx + 1,
+          formattedDuration: f.formattedDuration || null,
+          breakdown: f.breakdown || null,
+        }));
+      }
+      return Array.isArray(data?.games) ? data.games : [];
+    }
+
+    function updateUpdatedNote(data) {
+      if (!updatedNoteEl) return;
+      const rel = formatRelativeUpdated(data?.computedAt || data?.updatedAt, lang);
+      if (rel) {
+        updatedNoteEl.textContent = `${i18n.updatedPrefix} ${rel}`;
+        updatedNoteEl.hidden = false;
+      } else {
+        updatedNoteEl.hidden = true;
+      }
+    }
+
     function renderPanelData(data, { animate = true } = {}) {
       if (!panel) return;
       updateSinceNote(data);
+      updateUpdatedNote(data);
 
-      const games = Array.isArray(data?.games) ? data.games : [];
+      const games = extractNormalizedEntries(data);
       if (staleBannerEl) {
-        staleBannerEl.hidden = !(data && data.stale && games.length > 0);
+        staleBannerEl.hidden = !(data && (data.stale || data.refreshFailed) && games.length > 0);
       }
 
       if (games.length === 0) {
@@ -248,6 +300,11 @@
                   data-target-width="${relativeWidth}"
                 ></div>
               </div>
+              ${
+                g.breakdown && g.breakdown.formattedLine
+                  ? `<div class="topgames-breakdown">${escapeHtml(g.breakdown.formattedLine)}</div>`
+                  : ''
+              }
             </div>
           `;
         })
@@ -303,7 +360,7 @@
       renderSkeletonPanel();
 
       try {
-        const res = await fetch(`/api/stats/top-games?scope=${cleanScope}&limit=8&lang=${lang}`, {
+        const res = await fetch(`/api/stats/top-games?scope=${cleanScope}&group=family&limit=8&lang=${lang}`, {
           method: 'GET',
           headers: { Accept: 'application/json' },
         });

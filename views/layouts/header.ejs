@@ -162,6 +162,18 @@
     const allMenus = (typeof visibleMenus !== 'undefined' && Array.isArray(visibleMenus)) ? visibleMenus : [];
     const memberMenus = allMenus.filter(function (m) { return m.section !== 'admin'; });
     const adminMenus = allMenus.filter(function (m) { return m.section === 'admin'; });
+    const safeActiveStats = (typeof activeStats !== 'undefined' && activeStats && typeof activeStats === 'object') ? activeStats : {};
+    const headerActiveCount = (typeof safeActiveStats.activeThisMonth === 'number' && Number.isFinite(safeActiveStats.activeThisMonth))
+      ? safeActiveStats.activeThisMonth
+      : ((typeof safeActiveStats.activeRegisteredCount === 'number' && Number.isFinite(safeActiveStats.activeRegisteredCount))
+        ? safeActiveStats.activeRegisteredCount
+        : null);
+    const headerPlayingNow = (typeof safeActiveStats.playingNow === 'number' && Number.isFinite(safeActiveStats.playingNow))
+      ? safeActiveStats.playingNow
+      : null;
+    const headerLegacyMode = Boolean(safeActiveStats.legacyMode);
+    const headerActiveLabel = headerLegacyMode ? t('nav.activeCount') : t('nav.activeThisMonth');
+    const headerStale = Boolean((safeActiveStats.stale || safeActiveStats.refreshFailed) && headerActiveCount !== null);
   %>
 
   <% if (isLoggedIn) { %>
@@ -266,9 +278,9 @@
 
       <!-- Canlı Sunucu Aktiflik & Dil Seçici Çubuğu -->
       <div class="sidebar-meta-bar">
-        <div class="nav-status-pill sidebar-status-pill">
+        <div class="nav-status-pill sidebar-status-pill"<% if (headerStale) { %> title="<%= t('nav.refreshFailed') %>"<% } %>>
           <span class="status-dot-success"></span>
-          <span class="sidebar-status-text">👥 <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %> <%= t('nav.activeCount') %></span>
+          <span class="sidebar-status-text"><span data-stat="top-active-month" data-stat-value="<%= headerActiveCount !== null ? headerActiveCount : '' %>">👥 <%= headerActiveCount !== null ? headerActiveCount : '—' %></span> <%= headerActiveLabel %><% if (!headerLegacyMode && headerPlayingNow !== null) { %> · <span class="nav-playing-inline" data-stat="top-playing-now" data-stat-value="<%= headerPlayingNow %>">🎮 <%= headerPlayingNow %> <%= t('nav.playingNow') %></span><% } %><% if (headerStale) { %> <span class="stats-stale-tag">(<%= t('nav.refreshFailed') %>)</span><% } %></span>
         </div>
 
         <div class="lang-switch-pill sidebar-lang-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
@@ -631,9 +643,15 @@
             <% }); %>
           </div>
 
-          <div class="nav-status-pill hidden-sm">
+          <div class="nav-status-pill hidden-sm"<% if (headerStale) { %> title="<%= t('nav.refreshFailed') %>"<% } %>>
             <span class="status-dot-success"></span>
-            <span>👥 <%= (typeof activeStats !== 'undefined' && activeStats && typeof activeStats.activeRegisteredCount === 'number') ? activeStats.activeRegisteredCount : '—' %> <%= t('nav.activeCount') %></span>
+            <span data-stat="top-active-month" data-stat-value="<%= headerActiveCount !== null ? headerActiveCount : '' %>">👥 <%= headerActiveCount !== null ? headerActiveCount : '—' %> <%= headerActiveLabel %></span>
+            <% if (!headerLegacyMode && headerPlayingNow !== null) { %>
+              <span class="nav-playing-badge" data-stat="top-playing-now" data-stat-value="<%= headerPlayingNow %>" title="<%= t('nav.playingNow') %>">🎮 <%= headerPlayingNow %> <%= t('nav.playingNow') %></span>
+            <% } %>
+            <% if (headerStale) { %>
+              <span class="stats-stale-tag">(<%= t('nav.refreshFailed') %>)</span>
+            <% } %>
           </div>
 
           <a href="/auth/discord" class="btn btn-discord btn-sm">

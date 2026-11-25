@@ -3,7 +3,9 @@
 <%
   const chatBootstrap = {
     needsConsent: Boolean(needsConsent),
-    policyVersion: String(policyVersion || '1.0'),
+    policyVersion: String(policyVersion || '2.0'),
+    activeSanction: typeof activeSanction !== 'undefined' ? activeSanction : null,
+    unreadNotices: typeof unreadNotices !== 'undefined' && Array.isArray(unreadNotices) ? unreadNotices : [],
     csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
     lang: typeof lang !== 'undefined' ? lang : 'tr',
     selfId: currentUser ? String(currentUser.id) : '',
@@ -77,6 +79,23 @@
       errMaxFiles: t('chat.errMaxFiles'),
       errUploadFailed: t('chat.errUploadFailed'),
       gifPlayHint: t('chat.gifPlayHint'),
+      reportBtn: t('chat.reportBtn'),
+      reportReceivedToast: t('chat.reportReceivedToast'),
+      reportResolvedAction: t('chat.reportResolvedAction'),
+      reportResolvedNoAction: t('chat.reportResolvedNoAction'),
+      muteBannerText: t('chat.muteBannerText'),
+      reportCatLabels: {
+        harassment: t('chat.reportCatHarassment'),
+        sexual: t('chat.reportCatSexual'),
+        child_safety: t('chat.reportCatChildSafety'),
+        threat: t('chat.reportCatThreat'),
+        scam_spam: t('chat.reportCatScamSpam'),
+        other: t('chat.reportCatOther'),
+        profanity: t('chat.reportCatHarassment'),
+        discord_invite: t('chat.reportCatScamSpam'),
+        suspicious_link: t('chat.reportCatScamSpam'),
+        pii_contact: t('chat.reportCatOther'),
+      },
     },
   };
   const safeBootstrapJson = JSON.stringify(chatBootstrap).replace(/</g, '\\u003c');
@@ -85,7 +104,28 @@
 <script id="chatBootstrapData" type="application/json"><%- safeBootstrapJson %></script>
 
 <div class="chat-page-backdrop" id="chatPageRoot">
-  <% if (needsConsent) { %>
+  <% if (typeof activeSanction !== 'undefined' && activeSanction && activeSanction.type === 'ban') { %>
+    <!-- ==================================================================
+         SOHBETTEN YASAKLI KULLANICI AÇIKLAMA EKRANI
+         ================================================================== -->
+    <section class="chat-consent-shell" aria-labelledby="chatBanTitle">
+      <div class="chat-consent-card chat-sanction-card">
+        <div class="chat-consent-header">
+          <div class="chat-consent-icon chat-consent-icon--danger" aria-hidden="true">⛔</div>
+          <div>
+            <span class="badge badge-danger"><%= t('chat.banScreenReason') %>: <%= activeSanction.reasonCategory %></span>
+            <h1 id="chatBanTitle" class="chat-consent-title"><%= t('chat.banScreenTitle') %></h1>
+          </div>
+        </div>
+        <p class="chat-consent-intro"><%= t('chat.banScreenDesc') %></p>
+        <p class="chat-sanction-appeal"><%= t('chat.sanctionAppealNote') %></p>
+        <div class="chat-privacy-footer">
+          <a href="/kurallar" class="btn btn-secondary">📜 <%= t('nav.rules') %></a>
+          <a href="/sohbet/gizlilik" class="btn btn-secondary">🔒 <%= t('chat.consentPrivacyLink') %></a>
+        </div>
+      </div>
+    </section>
+  <% } else if (needsConsent) { %>
     <!-- ==================================================================
          ZORUNLU İLK KULLANIM BİLGİLENDİRME VE ONAY EKRANI
          ================================================================== -->
@@ -271,6 +311,9 @@
                   ⋮
                 </button>
                 <div class="chat-dropdown-menu" id="chatHeaderMenu" role="menu" hidden>
+                  <button type="button" class="chat-dropdown-item chat-dropdown-item--danger" id="chatMenuReportBtn" role="menuitem">
+                    🚩 <span><%= t('chat.reportBtn') %></span>
+                  </button>
                   <button type="button" class="chat-dropdown-item chat-dropdown-item--danger" id="chatMenuBlockBtn" role="menuitem">
                     🚫 <span id="chatMenuBlockLabel"><%= t('chat.blockUser') %></span>
                   </button>
@@ -305,6 +348,25 @@
               </div>
               <span class="chat-typing-label" id="chatTypingLabel"><%= t('chat.typingIndicator') %></span>
             </div>
+          </div>
+
+          <!-- Mesaj İsteği (İlk İletişim) Onay Şeridi -->
+          <div class="chat-request-bar" id="chatRequestBar" hidden>
+            <div class="chat-request-copy">
+              <strong>📩 <%= t('chat.requestBannerTitle') %></strong>
+              <p><%= t('chat.requestBannerDesc') %></p>
+            </div>
+            <div class="chat-request-actions">
+              <button type="button" class="btn btn-primary btn-xs" id="chatReqAcceptBtn"><%= t('chat.requestAcceptBtn') %></button>
+              <button type="button" class="btn btn-secondary btn-xs" id="chatReqDeclineBtn"><%= t('chat.requestDeclineBtn') %></button>
+              <button type="button" class="btn btn-danger btn-xs" id="chatReqBlockBtn"><%= t('chat.requestBlockBtn') %></button>
+            </div>
+          </div>
+
+          <!-- Susturma Yaptırımı Uyarı Şeridi -->
+          <div class="chat-mute-bar" id="chatMuteBar" hidden>
+            <span id="chatMuteBarText"></span>
+            <a href="/kurallar" class="chat-mute-appeal-link">📜 <%= t('nav.rules') %></a>
           </div>
 
           <!-- Engel / Kapalı DM Uyarı Şeridi -->
@@ -482,6 +544,16 @@
               </select>
             </div>
 
+            <div class="chat-setting-row">
+              <label class="chat-setting-toggle-label">
+                <input type="checkbox" id="chatSetRequireRequest" />
+                <div>
+                  <strong><%= t('chat.privacyRequireRequest') %></strong>
+                  <p><%= t('chat.privacyRequireRequestDesc') %></p>
+                </div>
+              </label>
+            </div>
+
             <hr class="chat-setting-divider" />
             <h3 class="chat-setting-subtitle">🔔 <%= t('chat.notifySectionTitle') %></h3>
 
@@ -541,6 +613,51 @@
           <button type="button" class="btn btn-secondary btn-sm" id="chatConfirmCancelBtn"><%= t('chat.cancelBtn') %></button>
           <button type="button" class="btn btn-danger btn-sm" id="chatConfirmOkBtn"><%= t('chat.confirmBtn') %></button>
         </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         RAPORLAMA MODALI (Mesaj veya Sohbet)
+         ================================================================== -->
+    <div class="chat-modal-backdrop" id="chatReportModal" hidden aria-hidden="true">
+      <div class="chat-modal-card chat-report-modal" role="dialog" aria-modal="true" aria-labelledby="chatReportTitle">
+        <div class="chat-modal-header">
+          <h3 id="chatReportTitle" class="chat-modal-title">🚩 <%= t('chat.reportModalTitle') %></h3>
+          <button type="button" class="chat-icon-btn" id="chatReportCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+        </div>
+        <form id="chatReportForm" class="chat-modal-body" novalidate>
+          <p class="chat-report-desc"><%= t('chat.reportModalDesc') %></p>
+          <div class="chat-setting-row">
+            <label class="chat-setting-select-label" for="chatReportCategory">
+              <strong><%= t('chat.reportCategoryLabel') %></strong>
+            </label>
+            <select id="chatReportCategory" class="form-control" required>
+              <option value="harassment"><%= t('chat.reportCatHarassment') %></option>
+              <option value="sexual"><%= t('chat.reportCatSexual') %></option>
+              <option value="child_safety"><%= t('chat.reportCatChildSafety') %></option>
+              <option value="threat"><%= t('chat.reportCatThreat') %></option>
+              <option value="scam_spam"><%= t('chat.reportCatScamSpam') %></option>
+              <option value="other"><%= t('chat.reportCatOther') %></option>
+            </select>
+          </div>
+          <div class="chat-setting-row">
+            <label class="chat-setting-select-label" for="chatReportNote">
+              <strong><%= t('chat.reportNoteLabel') %></strong>
+            </label>
+            <textarea
+              id="chatReportNote"
+              class="form-control"
+              rows="3"
+              maxlength="500"
+              placeholder="<%= t('chat.reportNotePlaceholder') %>"
+            ></textarea>
+          </div>
+          <div id="chatReportError" class="chat-inline-error" role="alert" hidden></div>
+          <div class="chat-modal-footer chat-report-footer">
+            <button type="button" class="btn btn-secondary btn-sm" id="chatReportCancelBtn"><%= t('chat.cancelBtn') %></button>
+            <button type="submit" class="btn btn-danger btn-sm" id="chatReportSubmitBtn">🚩 <%= t('chat.reportSubmitBtn') %></button>
+          </div>
+        </form>
       </div>
     </div>
 

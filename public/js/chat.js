@@ -116,6 +116,22 @@
     headerMenu: document.getElementById('chatHeaderMenu'),
     menuBlockBtn: document.getElementById('chatMenuBlockBtn'),
     menuBlockLabel: document.getElementById('chatMenuBlockLabel'),
+    menuReportBtn: document.getElementById('chatMenuReportBtn'),
+    requestBar: document.getElementById('chatRequestBar'),
+    reqAcceptBtn: document.getElementById('chatReqAcceptBtn'),
+    reqDeclineBtn: document.getElementById('chatReqDeclineBtn'),
+    reqBlockBtn: document.getElementById('chatReqBlockBtn'),
+    muteBar: document.getElementById('chatMuteBar'),
+    muteBarText: document.getElementById('chatMuteBarText'),
+    reportModal: document.getElementById('chatReportModal'),
+    reportForm: document.getElementById('chatReportForm'),
+    reportCategory: document.getElementById('chatReportCategory'),
+    reportNote: document.getElementById('chatReportNote'),
+    reportError: document.getElementById('chatReportError'),
+    reportCloseBtn: document.getElementById('chatReportCloseBtn'),
+    reportCancelBtn: document.getElementById('chatReportCancelBtn'),
+    reportSubmitBtn: document.getElementById('chatReportSubmitBtn'),
+    setRequireRequest: document.getElementById('chatSetRequireRequest'),
     messagesScroll: document.getElementById('chatMessagesScroll'),
     loadOlderWrap: document.getElementById('chatLoadOlderWrap'),
     loadOlderBtn: document.getElementById('chatLoadOlderBtn'),
@@ -197,6 +213,10 @@
     myInitialLastRead: 0,
     blockedState: { byMe: false, byOther: false, any: false },
     whoCanMessageOther: 'everyone',
+    requestStatus: 'accepted',
+    requestFrom: null,
+    activeSanction: boot.activeSanction || null,
+    reportTargetMsgId: null,
     drafts: new Map(),
     typingTimer: null,
     lastTypingSentAt: 0,
@@ -866,8 +886,47 @@
         : i18n.blockUser || 'Üyeyi Engelle';
     }
 
-    // Engel veya kapalı DM durumu
-    if (state.blockedState.byMe) {
+    const isPendingIncoming =
+      state.requestStatus === 'pending' && state.requestFrom && state.requestFrom === other.id;
+
+    if (els.requestBar) {
+      els.requestBar.hidden = !isPendingIncoming;
+    }
+
+    const activeMute =
+      state.activeSanction &&
+      state.activeSanction.type === 'mute' &&
+      (!state.activeSanction.expiresAt || state.activeSanction.expiresAt > Date.now());
+
+    if (els.muteBar) {
+      if (activeMute) {
+        const untilStr = state.activeSanction.expiresAt
+          ? new Date(state.activeSanction.expiresAt).toLocaleString(localeTag, {
+              dateStyle: 'short',
+              timeStyle: 'short',
+            })
+          : '—';
+        const reasonLbl =
+          (i18n.reportCatLabels && i18n.reportCatLabels[state.activeSanction.reasonCategory]) ||
+          state.activeSanction.reasonCategory ||
+          '—';
+        els.muteBarText.textContent = (i18n.muteBannerText || '')
+          .replace('{until}', untilStr)
+          .replace('{reason}', reasonLbl);
+        els.muteBar.hidden = false;
+      } else {
+        els.muteBar.hidden = true;
+      }
+    }
+
+    // Engel, susturma, istek veya kapalı DM durumu
+    if (isPendingIncoming) {
+      els.blockedBar.hidden = true;
+      els.composerShell.hidden = true;
+    } else if (activeMute) {
+      els.blockedBar.hidden = true;
+      els.composerShell.hidden = true;
+    } else if (state.blockedState.byMe) {
       els.blockedBarText.textContent = i18n.blockedBannerMe || '';
       els.quickUnblockBtn.hidden = false;
       els.blockedBar.hidden = false;
@@ -921,6 +980,8 @@
       state.myInitialLastRead = Number(data.state && data.state.myLastRead) || 0;
       state.blockedState = data.blocked || { byMe: false, byOther: false, any: false };
       state.whoCanMessageOther = data.whoCanMessageOther || 'everyone';
+      state.requestStatus = (data.state && data.state.requestStatus) || 'accepted';
+      state.requestFrom = (data.state && data.state.requestFrom) || null;
 
       renderThreadHeader();
       renderMessageThread({ animateLast: false, scrollToBottom: true });
@@ -1074,7 +1135,7 @@
     const bubbleWrap = document.createElement('div');
     bubbleWrap.className = 'chat-bubble-wrap';
 
-    // Kendi mesajıysa hover/odakta silme butonu
+    // Kendi mesajıysa silme; karşı taraf mesajıysa raporla düğmesi
     if (isSelf && !msg.deleted && !msg.pending && !msg.system) {
       const actions = document.createElement('div');
       actions.className = 'chat-msg-actions';
@@ -1092,7 +1153,12 @@
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble${isSelf ? ' chat-bubble--self' : ' chat-bubble--other'}${msg.deleted ? ' chat-bubble--deleted' : ''}${msg.system ? ' chat-bubble--system' : ''}`;
 
-    if (msg.deleted) {
+    if (msg.maskedRequest) {
+      const maskedSpan = document.createElement('span');
+      maskedSpan.className = 'chat-msg-deleted-text';
+      maskedSpan.textContent = '📩 •••';
+      bubble.appendChild(maskedSpan);
+    } else if (msg.deleted) {
       const delText = document.createElement('span');
       delText.className = 'chat-msg-deleted-text';
       delText.textContent = msg.modRemoved ? i18n.msgModRemoved : i18n.msgDeleted;
@@ -1140,6 +1206,21 @@
 
     bubble.appendChild(meta);
     bubbleWrap.appendChild(bubble);
+
+    if (!isSelf && !msg.deleted && !msg.system && !msg.maskedRequest) {
+      const actions = document.createElement('div');
+      actions.className = 'chat-msg-actions';
+      const repBtn = document.createElement('button');
+      repBtn.type = 'button';
+      repBtn.className = 'chat-msg-action-btn';
+      repBtn.title = i18n.reportBtn || 'Raporla';
+      repBtn.setAttribute('aria-label', i18n.reportBtn || 'Raporla');
+      repBtn.textContent = '🚩';
+      repBtn.addEventListener('click', () => openReportModal(msg.id));
+      actions.appendChild(repBtn);
+      bubbleWrap.appendChild(actions);
+    }
+
     col.appendChild(bubbleWrap);
 
     // Instagram tarzı: "Görüldü ✓ HH:MM" yalnızca gönderenin EN SON mesajının altında
@@ -1836,6 +1917,7 @@
 
     if (els.setReadReceipts) els.setReadReceipts.checked = prof.readReceipts !== false;
     if (els.setWhoCanMessage) els.setWhoCanMessage.value = prof.whoCanMessage === 'nobody' ? 'nobody' : 'everyone';
+    if (els.setRequireRequest) els.setRequireRequest.checked = Boolean(prof.requireMessageRequest);
     if (els.setNotifyPreview) els.setNotifyPreview.checked = Boolean(prof.notify && prof.notify.preview);
     if (els.setNotifySound) els.setNotifySound.checked = Boolean(prof.notify && prof.notify.sound);
 
@@ -1860,6 +1942,7 @@
       ringId: state.settingsDraft.ringId,
       readReceipts: els.setReadReceipts ? els.setReadReceipts.checked : true,
       whoCanMessage: els.setWhoCanMessage ? els.setWhoCanMessage.value : 'everyone',
+      requireMessageRequest: els.setRequireRequest ? els.setRequireRequest.checked : false,
       notify: {
         browser: typeof window.Notification !== 'undefined' && Notification.permission === 'granted' && state.profile.notify.browser,
         preview: els.setNotifyPreview ? els.setNotifyPreview.checked : false,
@@ -2097,6 +2180,29 @@
       } catch (_) {}
     });
 
+    sse.addEventListener('sanction', (ev) => {
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        state.activeSanction = d.sanction || null;
+        if (state.activeSanction && state.activeSanction.type === 'ban') {
+          window.location.reload();
+          return;
+        }
+        renderThreadHeader();
+      } catch (_) {}
+    });
+
+    sse.addEventListener('report_update', (ev) => {
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        const msg =
+          d.outcome === 'action_taken'
+            ? i18n.reportResolvedAction
+            : i18n.reportResolvedNoAction;
+        showToast('🛡️', msg || '', { variant: 'info' });
+      } catch (_) {}
+    });
+
     sse.onerror = () => {
       sse.close();
       state.sse = null;
@@ -2325,6 +2431,97 @@
     createRingAvatarEl,
     scrollThreadToBottom,
   };
+
+  // Parça 4: Raporlama ve Mesaj İsteği İşleyicileri
+  function openReportModal(msgId = null) {
+    if (!els.reportModal || !state.activeOtherId) return;
+    state.reportTargetMsgId = msgId;
+    if (els.reportNote) els.reportNote.value = '';
+    if (els.reportError) {
+      els.reportError.hidden = true;
+      els.reportError.textContent = '';
+    }
+    closeHeaderMenu();
+    els.reportModal.hidden = false;
+    els.reportModal.setAttribute('aria-hidden', 'false');
+    if (els.reportCategory) els.reportCategory.focus();
+  }
+
+  function closeReportModal() {
+    if (!els.reportModal) return;
+    els.reportModal.hidden = true;
+    els.reportModal.setAttribute('aria-hidden', 'true');
+    state.reportTargetMsgId = null;
+  }
+
+  async function handleMessageRequestAction(action) {
+    if (!state.activeOtherId) return;
+    try {
+      await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/istek`, {
+        method: 'POST',
+        body: { action },
+      });
+      if (action === 'accept') {
+        openConversation(state.activeOtherId, state.activeOther);
+      } else {
+        state.activeOtherId = null;
+        els.threadActive.hidden = true;
+        els.threadEmpty.hidden = false;
+        appEl.classList.remove('is-thread-open');
+      }
+      loadConversations();
+    } catch (err) {
+      showToast('Hata', err.message || 'İşlem başarısız.', { variant: 'danger' });
+    }
+  }
+
+  if (els.menuReportBtn) els.menuReportBtn.addEventListener('click', () => openReportModal(null));
+  if (els.reportCloseBtn) els.reportCloseBtn.addEventListener('click', closeReportModal);
+  if (els.reportCancelBtn) els.reportCancelBtn.addEventListener('click', closeReportModal);
+  if (els.reqAcceptBtn) els.reqAcceptBtn.addEventListener('click', () => handleMessageRequestAction('accept'));
+  if (els.reqDeclineBtn) els.reqDeclineBtn.addEventListener('click', () => handleMessageRequestAction('decline'));
+  if (els.reqBlockBtn) els.reqBlockBtn.addEventListener('click', () => handleMessageRequestAction('block'));
+
+  if (els.reportForm) {
+    els.reportForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (!state.activeOtherId) return;
+      if (els.reportError) els.reportError.hidden = true;
+      if (els.reportSubmitBtn) els.reportSubmitBtn.disabled = true;
+      try {
+        const res = await apiJson('/sohbet/api/raporla', {
+          method: 'POST',
+          body: {
+            otherId: state.activeOtherId,
+            msgId: state.reportTargetMsgId,
+            category: els.reportCategory ? els.reportCategory.value : 'other',
+            note: els.reportNote ? els.reportNote.value : '',
+          },
+        });
+        closeReportModal();
+        showToast('🛡️', res.message || i18n.reportReceivedToast || 'Raporun alındı.', { variant: 'success' });
+      } catch (err) {
+        if (els.reportError) {
+          els.reportError.textContent = err.message || 'Rapor gönderilemedi.';
+          els.reportError.hidden = false;
+        }
+      } finally {
+        if (els.reportSubmitBtn) els.reportSubmitBtn.disabled = false;
+      }
+    });
+  }
+
+  // Okunmamış rapor sonuç bildirimlerini göster
+  if (Array.isArray(boot.unreadNotices) && boot.unreadNotices.length > 0) {
+    for (const n of boot.unreadNotices) {
+      if (n.type === 'report_resolved') {
+        const text = n.outcome === 'action_taken' ? i18n.reportResolvedAction : i18n.reportResolvedNoAction;
+        showToast('🛡️', text || '', { variant: 'info' });
+      } else if (n.type === 'mod_warning' && n.text) {
+        showToast('⚠️', n.text, { variant: 'warning' });
+      }
+    }
+  }
 
   // İlk yükleme
   loadConversations().then(() => {

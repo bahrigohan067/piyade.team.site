@@ -1,0 +1,182 @@
+<%- include('../layouts/header') %>
+
+<%
+  const modBootstrap = {
+    auditOnly: Boolean(auditOnly),
+    csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
+    lang: typeof lang !== 'undefined' ? lang : 'tr',
+    i18n: {
+      noCases: t('chatMod.noCases'),
+      noSanctions: t('chatMod.noSanctions'),
+      noAuditLogs: t('chatMod.noAuditLogs'),
+      openCaseBtn: t('chatMod.openCaseBtn'),
+      caseLockedBy: t('chatMod.caseLockedBy'),
+      snapshotPurged: t('chatMod.snapshotPurged'),
+      revealAttachment: t('chatMod.revealAttachment'),
+      liftSanctionBtn: t('chatMod.liftSanctionBtn'),
+      highVolumeBadge: t('chatMod.highVolumeBadge'),
+      errNoteRequired: t('chatMod.errNoteRequired'),
+      confirmActionTitle: t('chatMod.confirmActionTitle'),
+      confirmActionDesc: t('chatMod.confirmActionDesc'),
+      sourceReport: t('chatMod.filterSourceReport'),
+      sourceAuto: t('chatMod.filterSourceAuto'),
+      statusOpen: t('chatMod.filterStatusOpen'),
+      statusInReview: t('chatMod.filterStatusInReview'),
+      statusClosed: t('chatMod.filterStatusClosed'),
+      prioCritical: t('chatMod.filterPriorityCritical'),
+      prioHigh: t('chatMod.filterPriorityHigh'),
+      prioNormal: t('chatMod.filterPriorityNormal'),
+      prioLow: t('chatMod.filterPriorityLow'),
+      confirmBtn: t('chat.confirmBtn'),
+      cancelBtn: t('chat.cancelBtn'),
+    },
+  };
+  const safeModJson = JSON.stringify(modBootstrap).replace(/</g, '\\u003c');
+%>
+
+<script id="chatModBootstrapData" type="application/json"><%- safeModJson %></script>
+
+<section class="chat-mod-page">
+  <div class="chat-mod-header-card">
+    <div class="chat-mod-title-row">
+      <div>
+        <span class="badge badge-primary">🛡️ Community Official</span>
+        <h1 class="chat-mod-heading">
+          <%= auditOnly ? t('chatMod.auditHeading') : t('chatMod.heading') %>
+        </h1>
+      </div>
+      <a href="/sohbet" class="btn btn-secondary btn-sm">💬 <%= t('chat.privacyBackToChat') %></a>
+    </div>
+    <div class="chat-mod-principle-banner">
+      <span>🔒</span>
+      <span><%= t('chatMod.principleBanner') %></span>
+    </div>
+
+    <div class="chat-mod-tabs" role="tablist">
+      <% if (!auditOnly) { %>
+        <button type="button" class="chat-mod-tab active" data-mod-tab="cases" role="tab" aria-selected="true">
+          📋 <%= t('chatMod.tabCases') %>
+        </button>
+        <button type="button" class="chat-mod-tab" data-mod-tab="sanctions" role="tab" aria-selected="false">
+          🔇 <%= t('chatMod.tabSanctions') %>
+        </button>
+      <% } %>
+      <button type="button" class="chat-mod-tab <%= auditOnly ? 'active' : '' %>" data-mod-tab="audit" role="tab" aria-selected="<%= auditOnly ? 'true' : 'false' %>">
+        📜 <%= t('chatMod.tabAudit') %>
+      </button>
+    </div>
+  </div>
+
+  <% if (!auditOnly) { %>
+    <!-- SEKME 1: VAKALAR LİSTESİ & VAKA DETAYI -->
+    <div id="modPanelCases" class="chat-mod-panel">
+      <div id="modCasesListView">
+        <div class="chat-mod-filters">
+          <select id="modFilterStatus" class="form-control">
+            <option value=""><%= t('chatMod.filterStatusAll') %></option>
+            <option value="open"><%= t('chatMod.filterStatusOpen') %></option>
+            <option value="in_review"><%= t('chatMod.filterStatusInReview') %></option>
+            <option value="closed"><%= t('chatMod.filterStatusClosed') %></option>
+          </select>
+          <select id="modFilterPriority" class="form-control">
+            <option value=""><%= t('chatMod.filterPriorityAll') %></option>
+            <option value="critical"><%= t('chatMod.filterPriorityCritical') %></option>
+            <option value="high"><%= t('chatMod.filterPriorityHigh') %></option>
+            <option value="normal"><%= t('chatMod.filterPriorityNormal') %></option>
+            <option value="low"><%= t('chatMod.filterPriorityLow') %></option>
+          </select>
+          <select id="modFilterSource" class="form-control">
+            <option value=""><%= t('chatMod.filterSourceAll') %></option>
+            <option value="report"><%= t('chatMod.filterSourceReport') %></option>
+            <option value="auto"><%= t('chatMod.filterSourceAuto') %></option>
+          </select>
+          <button type="button" id="modRefreshCasesBtn" class="btn btn-secondary btn-sm">🔄</button>
+        </div>
+
+        <div id="modCasesContainer" class="chat-mod-list"></div>
+        <div id="modCasesPager" class="chat-mod-pager" hidden></div>
+      </div>
+
+      <!-- VAKA DETAY GÖRÜNÜMÜ (Yalnızca kopyalanmış anlık görüntü) -->
+      <div id="modCaseDetailView" class="chat-mod-detail" hidden>
+        <div class="chat-mod-detail-top">
+          <button type="button" class="btn btn-secondary btn-sm" id="modBackToListBtn">
+            <%= t('chatMod.backToCasesBtn') %>
+          </button>
+          <div id="modCaseBadges" class="chat-mod-badges"></div>
+        </div>
+
+        <div id="modCaseMetaBox" class="chat-mod-meta-box"></div>
+
+        <div class="chat-mod-detail-grid">
+          <div class="chat-mod-snapshot-box">
+            <h2 class="chat-mod-subhead">💬 Kopyalanan Mesaj Çevresi</h2>
+            <div id="modCaseMessages" class="chat-mod-snapshot-list"></div>
+          </div>
+
+          <aside class="chat-mod-actions-box" id="modCaseActionsBox">
+            <h2 class="chat-mod-subhead">⚖️ <%= t('chatMod.actionsTitle') %></h2>
+            <div class="chat-setting-row">
+              <label class="chat-setting-select-label" for="modActionNote">
+                <strong><%= t('chatMod.mandatoryNoteLabel') %></strong>
+              </label>
+              <textarea
+                id="modActionNote"
+                class="form-control"
+                rows="3"
+                maxlength="300"
+                placeholder="<%= t('chatMod.mandatoryNotePlaceholder') %>"
+              ></textarea>
+            </div>
+            <div id="modActionError" class="chat-inline-error" role="alert" hidden></div>
+            <div class="chat-mod-action-btns">
+              <button type="button" class="btn btn-secondary btn-sm" data-mod-action="remove_message"><%= t('chatMod.actRemoveMsg') %></button>
+              <button type="button" class="btn btn-secondary btn-sm" data-mod-action="warn_note"><%= t('chatMod.actWarn') %></button>
+              <div class="chat-mod-mute-grid">
+                <button type="button" class="btn btn-secondary btn-xs" data-mod-action="mute" data-duration="1h"><%= t('chatMod.actMute1h') %></button>
+                <button type="button" class="btn btn-secondary btn-xs" data-mod-action="mute" data-duration="24h"><%= t('chatMod.actMute24h') %></button>
+                <button type="button" class="btn btn-secondary btn-xs" data-mod-action="mute" data-duration="7d"><%= t('chatMod.actMute7d') %></button>
+                <button type="button" class="btn btn-secondary btn-xs" data-mod-action="mute" data-duration="30d"><%= t('chatMod.actMute30d') %></button>
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" data-mod-action="ban"><%= t('chatMod.actBan') %></button>
+              <hr class="chat-setting-divider" />
+              <button type="button" class="btn btn-primary btn-sm" data-mod-action="close" data-resolution="action_taken"><%= t('chatMod.actCloseTaken') %></button>
+              <button type="button" class="btn btn-secondary btn-sm" data-mod-action="close" data-resolution="no_violation"><%= t('chatMod.actCloseNoViolation') %></button>
+              <button type="button" class="btn btn-secondary btn-sm" data-mod-action="close" data-resolution="false_report"><%= t('chatMod.actCloseFalse') %></button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEKME 2: YAPTIRIMLAR -->
+    <div id="modPanelSanctions" class="chat-mod-panel" hidden>
+      <div id="modSanctionsContainer" class="chat-mod-list"></div>
+    </div>
+  <% } %>
+
+  <!-- SEKME 3: DENETİM KAYDI (Şeffaf ve İçeriksiz) -->
+  <div id="modPanelAudit" class="chat-mod-panel" <%= auditOnly ? '' : 'hidden' %>>
+    <div id="modAuditContainer" class="chat-mod-list"></div>
+  </div>
+</section>
+
+<!-- Onay Diyaloğu -->
+<div class="chat-modal-backdrop" id="modConfirmModal" hidden aria-hidden="true">
+  <div class="chat-modal-card chat-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="modConfirmTitle">
+    <div class="chat-modal-header">
+      <h3 id="modConfirmTitle" class="chat-modal-title"><%= t('chatMod.confirmActionTitle') %></h3>
+    </div>
+    <div class="chat-modal-body">
+      <p id="modConfirmDesc" class="chat-confirm-text"><%= t('chatMod.confirmActionDesc') %></p>
+    </div>
+    <div class="chat-modal-footer">
+      <button type="button" class="btn btn-secondary btn-sm" id="modConfirmCancelBtn"><%= t('chat.cancelBtn') %></button>
+      <button type="button" class="btn btn-danger btn-sm" id="modConfirmOkBtn"><%= t('chat.confirmBtn') %></button>
+    </div>
+  </div>
+</div>
+
+<div class="chat-toast-stack" id="modToastStack" aria-live="polite"></div>
+
+<%- include('../layouts/footer') %>

@@ -69,6 +69,14 @@
       errTextTooLong: t('chat.errTextTooLong'),
       confirmBtn: t('chat.confirmBtn'),
       cancelBtn: t('chat.cancelBtn'),
+      attachBtn: t('chat.attachBtn'),
+      dropOverlayText: t('chat.dropOverlayText'),
+      downloadFile: t('chat.downloadFile'),
+      cancelUpload: t('chat.cancelUpload'),
+      removeAttachment: t('chat.removeAttachment'),
+      errMaxFiles: t('chat.errMaxFiles'),
+      errUploadFailed: t('chat.errUploadFailed'),
+      gifPlayHint: t('chat.gifPlayHint'),
     },
   };
   const safeBootstrapJson = JSON.stringify(chatBootstrap).replace(/</g, '\\u003c');
@@ -212,6 +220,13 @@
 
         <!-- Aktif Konuşma Kapsayıcısı -->
         <div class="chat-thread-active" id="chatThreadActive" hidden>
+          <!-- Sürükle-Bırak Dosya Katmanı -->
+          <div class="chat-drop-overlay" id="chatDropOverlay" hidden aria-hidden="true">
+            <div class="chat-drop-overlay-card">
+              <span class="chat-drop-overlay-icon" aria-hidden="true">📎</span>
+              <strong><%= t('chat.dropOverlayText') %></strong>
+            </div>
+          </div>
           <!-- Konuşma Başlığı -->
           <header class="chat-thread-header">
             <div class="chat-thread-header-left">
@@ -321,6 +336,9 @@
               </div>
             </div>
 
+            <!-- Yüklenen / Bekleyen Dosya Önizleme Çipleri -->
+            <div class="chat-attachment-chips" id="chatAttachmentChips" hidden></div>
+
             <form id="chatComposerForm" class="chat-composer-form" novalidate>
               <button
                 type="button"
@@ -334,8 +352,25 @@
                 😊
               </button>
 
-              <!-- Parça 3 (Dosya Gönderme) için hazır ek buton yuvası -->
-              <div id="chatAttachmentControlsSlot" class="chat-attachment-controls-slot"></div>
+              <!-- Parça 3: Dosya Ekleme Düğmesi ve Gizli Dosya Seçici -->
+              <div id="chatAttachmentControlsSlot" class="chat-attachment-controls-slot">
+                <button
+                  type="button"
+                  class="chat-composer-btn"
+                  id="chatAttachBtn"
+                  title="<%= t('chat.attachBtn') %>"
+                  aria-label="<%= t('chat.attachBtn') %>"
+                >
+                  📎
+                </button>
+                <input
+                  type="file"
+                  id="chatFileInput"
+                  multiple
+                  accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.mp4,.webm,image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,video/mp4,video/webm"
+                  hidden
+                />
+              </div>
 
               <div class="chat-textarea-wrap">
                 <textarea
@@ -506,6 +541,24 @@
           <button type="button" class="btn btn-secondary btn-sm" id="chatConfirmCancelBtn"><%= t('chat.cancelBtn') %></button>
           <button type="button" class="btn btn-danger btn-sm" id="chatConfirmOkBtn"><%= t('chat.confirmBtn') %></button>
         </div>
+      </div>
+    </div>
+
+    <!-- Tam Ekran Görsel Görüntüleyici (Lightbox) -->
+    <div class="chat-lightbox" id="chatLightboxModal" role="dialog" aria-modal="true" aria-label="<%= t('chat.lightboxClose') %>" hidden aria-hidden="true">
+      <div class="chat-lightbox-topbar">
+        <span class="chat-lightbox-filename" id="chatLightboxFilename"></span>
+        <div class="chat-lightbox-actions">
+          <a href="#" id="chatLightboxDownload" class="btn btn-secondary btn-xs" download>
+            ⬇️ <%= t('chat.downloadFile') %>
+          </a>
+          <button type="button" class="chat-icon-btn" id="chatLightboxCloseBtn" aria-label="<%= t('chat.lightboxClose') %>">✕</button>
+        </div>
+      </div>
+      <div class="chat-lightbox-stage">
+        <button type="button" class="chat-lightbox-nav chat-lightbox-nav--prev" id="chatLightboxPrevBtn" aria-label="<%= t('chat.lightboxPrev') %>">‹</button>
+        <img id="chatLightboxImg" class="chat-lightbox-img" alt="" />
+        <button type="button" class="chat-lightbox-nav chat-lightbox-nav--next" id="chatLightboxNextBtn" aria-label="<%= t('chat.lightboxNext') %>">›</button>
       </div>
     </div>
 

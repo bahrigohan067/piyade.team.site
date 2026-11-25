@@ -1297,7 +1297,15 @@
     const targetOtherId = state.activeOtherId;
     const text = els.messageInput.value.trim();
     const maxLen = (boot.limits && boot.limits.maxMessageLength) || 4000;
-    if (!text) return;
+    const attHelper = window.PiyadeChatAttachments || null;
+    if (attHelper && typeof attHelper.isUploading === 'function' && attHelper.isUploading()) {
+      return;
+    }
+    const readyFiles =
+      attHelper && typeof attHelper.getReadyFiles === 'function' ? attHelper.getReadyFiles() : [];
+    const attachmentIds = readyFiles.map((f) => f.id);
+
+    if (!text && attachmentIds.length === 0) return;
     if (text.length > maxLen) {
       showToast('Uyarı', i18n.errTextTooLong || 'Mesaj çok uzun.', { variant: 'warning' });
       return;
@@ -1310,13 +1318,16 @@
       from: selfId,
       ts: Date.now(),
       text,
-      attachments: [],
+      attachments: readyFiles.slice(),
       clientId,
       pending: true,
       deleted: false,
     };
 
     els.messageInput.value = '';
+    if (attHelper && typeof attHelper.clearAll === 'function') {
+      attHelper.clearAll();
+    }
     state.drafts.set(targetOtherId, '');
     try {
       sessionStorage.removeItem(`piyade_chat_draft_${targetOtherId}`);
@@ -1330,9 +1341,11 @@
     renderMessageThread({ animateLast: true, scrollToBottom: true });
 
     try {
+      const payload = { text, clientId };
+      if (attachmentIds.length > 0) payload.attachmentIds = attachmentIds;
       const data = await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(targetOtherId)}/mesaj`, {
         method: 'POST',
-        body: { text, clientId },
+        body: payload,
       });
 
       const idx = state.messages.findIndex((m) => m.id === tempId || (m.clientId && m.clientId === clientId));

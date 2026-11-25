@@ -12,6 +12,9 @@ const ROLES = {
   // Kurucu / Developer Rolü (En üst düzey yönetim)
   DEVELOPER: '1561777507223601353',
 
+  // Community Official Rolü (Sohbet moderasyon vakaları için tek yetkili rol)
+  COMMUNITY_OFFICIAL: '1570767625188016259',
+
   // Yönetmenlik / Üst Yönetim Rolü
   YONETMENLIK: '1559614111128490044',
 
@@ -66,6 +69,13 @@ function isDeveloper(roles, userLevel) {
 }
 
 /**
+ * Kullanıcının Community Official (1570767625188016259) rolüne sahip olup olmadığını denetler
+ */
+function isCommunityOfficial(roles) {
+  return hasRole(roles, ROLES.COMMUNITY_OFFICIAL);
+}
+
+/**
  * Kullanıcının Kayıtlı Üye (Kayıtlı Üye 1559604702143062016 veya üstü) olup olmadığını denetler.
  * Öncelik: Bot /api/member/:id/roles yanıtındaki registered alanı varsa onu kullanır; yoksa yerel rol kontrolüne düşer.
  */
@@ -115,6 +125,7 @@ module.exports = {
   hasMinLevel,
   isManagement,
   isDeveloper,
+  isCommunityOfficial,
   isRegisteredMember,
   isOnlyUnregistered,
 };

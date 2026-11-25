@@ -16,6 +16,9 @@ const OPTIONAL_ENV_KEYS = [
   'GOOGLE_SITE_VERIFICATION',
   'DISCORD_INVITE_URL',
   'ROBLOX_GROUP_URL',
+  'CHAT_ENABLED',
+  'CHAT_FIRST_CONTACT_REQUEST',
+  'MOD_PANEL_ALSO_DEVELOPER',
 ];
 
 function isValidHttpUrl(value) {
@@ -122,6 +125,14 @@ const appConfig = {
 
   // İstek Zaman Aşımı (8 saniye - Madde 8)
   API_TIMEOUT_MS: 8000,
+
+  // Özellik Bayrakları (Varsayılan KAPALI)
+  isChatEnabled(envObj = process.env) {
+    const raw = String(envObj && envObj.CHAT_ENABLED !== undefined ? envObj.CHAT_ENABLED : '')
+      .trim()
+      .toLowerCase();
+    return raw === 'true' || raw === '1' || raw === 'yes';
+  },
 
   // Ortam Değişkeni Anahtar Listeleri ve Doğrulama Yardımcıları
   REQUIRED_ENV_KEYS,

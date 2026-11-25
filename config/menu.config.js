@@ -11,6 +11,7 @@
  * - "developer"   : Sadece Developer (1561777507223601353)
  */
 
+const appConfig = require('./app.config');
 const { hasMinLevel, isRegisteredMember, isManagement, isDeveloper } = require('./roles.config');
 
 const MENU_ITEMS = [
@@ -90,6 +91,21 @@ const MENU_ITEMS = [
     description: 'Kişisel topluluk profiliniz, kayıt bilgileriniz ve sicil puanınız',
     descriptionEn: 'Your personal community profile, registration info, and disciplinary record',
   },
+  {
+    id: 'chat',
+    title: '💬 Sohbet',
+    titleEn: '💬 Chat',
+    path: '/sohbet',
+    icon: 'message-circle',
+    section: 'member',
+    minLevel: 'registered',
+    showWhenLoggedIn: true,
+    showWhenLoggedOut: false,
+    requiresChatEnabled: true,
+    hasUnreadBadge: true,
+    description: 'Kayıtlı üyelerle birebir özel mesajlaşma',
+    descriptionEn: 'Private one-to-one messaging with registered members',
+  },
 
   // ==========================================
   // 3. YÖNETİM MENÜLERİ (Yönetmenlik + Developer)
@@ -143,7 +159,10 @@ function getVisibleMenuItems(user, lang = 'tr') {
   const developer = isLogged && isDeveloper(userRoles, userLevel);
   const isEn = lang === 'en';
 
+  const chatEnabled = appConfig.isChatEnabled();
+
   return MENU_ITEMS.filter((item) => {
+    if (item.requiresChatEnabled && !chatEnabled) return false;
     if (isLogged && !item.showWhenLoggedIn) return false;
     if (!isLogged && !item.showWhenLoggedOut) return false;
 

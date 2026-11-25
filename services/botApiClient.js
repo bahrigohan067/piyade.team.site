@@ -29,6 +29,15 @@ function clearTopGamesCache() {
   lastGoodTopGamesCache.clear();
 }
 
+const DIRECTORY_CACHE_TTL_MS = 60 * 1000; // 60 saniye
+const directorySearchCache = new Map();
+const directoryMemberCache = new Map();
+
+function clearDirectoryCache() {
+  directorySearchCache.clear();
+  directoryMemberCache.clear();
+}
+
 const SUMMARY_CACHE_TTL_MS = 60 * 1000; // 60 saniye
 let serverStatsSummaryCache = {
   payload: null,
@@ -298,6 +307,9 @@ async function executeSingleRequest(endpoint, options = {}) {
         endpoint.startsWith('/api/register/status/') ||
         endpoint.startsWith('/api/stats/top-games') ||
         endpoint === '/api/stats/summary' ||
+        endpoint === '/api/directory' ||
+        endpoint.startsWith('/api/directory?') ||
+        endpoint === '/api/directory/lookup' ||
         (/^\/api\/member\/[^/?]+\/activity\b/.test(endpoint) && /Endpoint bulunamadı|Cannot GET/i.test(rawErrorMsg));
 
       // 1) 401 Yetki Hatası (API_SECRET Uyuşmazlığı)
@@ -1574,9 +1586,176 @@ async function attachWarningEvidence(warnId, { actorId, fileBuffer = null, fileN
   }
 }
 
+// ============================================================================
+// 6. SOHBET ÜYE REHBERİ (GET /api/directory & POST /api/directory/lookup)
+// ============================================================================
+
+function sanitizeDirectoryItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = typeof raw.id === 'string' ? raw.id.trim() : String(raw.id || '').trim();
+  if (!/^\d{15,25}$/.test(id)) return null;
+  const displayName =
+    typeof raw.displayName === 'string' && raw.displayName.trim()
+      ? raw.displayName.trim().slice(0, 64)
+      : id;
+  const discordAvatarUrl = sanitizeHttpUrl(raw.discordAvatarUrl) || null;
+  const robloxId =
+    raw.robloxId !== undefined && raw.robloxId !== null && String(raw.robloxId).trim()
+      ? String(raw.robloxId).trim().slice(0, 32)
+      : null;
+  const robloxUsername =
+    typeof raw.robloxUsername === 'string' && raw.robloxUsername.trim()
+      ? raw.robloxUsername.trim().slice(0, 64)
+      : null;
+  const robloxAvatarUrl = sanitizeHttpUrl(raw.robloxAvatarUrl) || null;
+  const hasRoblox = Boolean(raw.hasRoblox && (robloxId || robloxUsername));
+  return {
+    id,
+    displayName,
+    discordAvatarUrl,
+    robloxId,
+    robloxUsername,
+    robloxAvatarUrl,
+    hasRoblox,
+  };
+}
+
+/**
+ * Bot rehberini sorgular (60 sn bellek önbelleği).
+ * @param {string} actorId - İsteyen üyenin Discord ID'si (X-Actor-Id)
+ * @param {{ query?: string, limit?: number, cursor?: string, excludeSelf?: boolean }} [opts]
+ */
+async function getDirectory(actorId, { query = '', limit = 50, cursor = '', excludeSelf = true } = {}) {
+  const cleanActor = String(actorId || '').trim();
+  const cleanQuery = typeof query === 'string' ? query.trim().slice(0, 64) : '';
+  const safeLimit = Math.min(100, Math.max(1, Number.parseInt(String(limit || 50), 10) || 50));
+  const cleanCursor = typeof cursor === 'string' ? cursor.trim().slice(0, 120) : '';
+  const excludeFlag = excludeSelf ? '1' : '0';
+
+  const cacheKey = `${cleanActor}|${cleanQuery.toLowerCase()}|${safeLimit}|${cleanCursor}|${excludeFlag}`;
+  const now = Date.now();
+  const cached = directorySearchCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return {
+      items: cached.data.items.map((x) => ({ ...x })),
+      nextCursor: cached.data.nextCursor,
+      hasMore: cached.data.hasMore,
+      total: cached.data.total,
+    };
+  }
+
+  const params = new URLSearchParams();
+  if (cleanQuery) params.set('query', cleanQuery);
+  params.set('limit', String(safeLimit));
+  if (cleanCursor) params.set('cursor', cleanCursor);
+  params.set('excludeSelf', excludeFlag);
+
+  const raw = await requestBotApi(`/api/directory?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'X-Actor-Id': cleanActor,
+    },
+    retries: 1,
+  });
+
+  const rawItems = Array.isArray(raw && raw.items) ? raw.items : [];
+  const items = rawItems.map(sanitizeDirectoryItem).filter(Boolean);
+  const result = {
+    items,
+    nextCursor: raw && typeof raw.nextCursor === 'string' ? raw.nextCursor : null,
+    hasMore: Boolean(raw && raw.hasMore),
+    total: Number.isFinite(Number(raw && raw.total)) ? Number(raw.total) : items.length,
+  };
+
+  // Önbelleği güncelle ve üye bazlı hızlı lookup önbelleğini de besle
+  const expiresAt = Date.now() + DIRECTORY_CACHE_TTL_MS;
+  if (directorySearchCache.size > 200) {
+    for (const [k, v] of directorySearchCache.entries()) {
+      if (v.expiresAt <= now) directorySearchCache.delete(k);
+    }
+    if (directorySearchCache.size > 200) directorySearchCache.clear();
+  }
+  directorySearchCache.set(cacheKey, { data: result, expiresAt });
+
+  for (const item of items) {
+    directoryMemberCache.set(item.id, { item, expiresAt });
+  }
+
+  return {
+    items: result.items.map((x) => ({ ...x })),
+    nextCursor: result.nextCursor,
+    hasMore: result.hasMore,
+    total: result.total,
+  };
+}
+
+/**
+ * Verilen Discord ID listesinin rehber bilgilerini topluca getirir (60 sn bellek önbelleği).
+ * @param {string} actorId
+ * @param {string[]} ids
+ * @returns {Promise<{ items: Array, byId: Map<string, object> }>}
+ */
+async function lookupDirectoryMembers(actorId, ids = []) {
+  const cleanActor = String(actorId || '').trim();
+  const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((x) => String(x || '').trim()))].filter((id) =>
+    /^\d{15,25}$/.test(id)
+  );
+  const byId = new Map();
+  if (uniqueIds.length === 0) {
+    return { items: [], byId };
+  }
+
+  const now = Date.now();
+  const missing = [];
+  for (const id of uniqueIds) {
+    const cached = directoryMemberCache.get(id);
+    if (cached && cached.expiresAt > now) {
+      byId.set(id, { ...cached.item });
+    } else {
+      missing.push(id);
+    }
+  }
+
+  // Eksik ID'leri 100'lük gruplarla bot API'den çek
+  for (let i = 0; i < missing.length; i += 100) {
+    const chunk = missing.slice(i, i + 100);
+    try {
+      const raw = await requestBotApi('/api/directory/lookup', {
+        method: 'POST',
+        headers: {
+          'X-Actor-Id': cleanActor,
+        },
+        body: { ids: chunk },
+        retries: 1,
+      });
+      const expiresAt = Date.now() + DIRECTORY_CACHE_TTL_MS;
+      const rawItems = Array.isArray(raw && raw.items) ? raw.items : [];
+      for (const entry of rawItems) {
+        const clean = sanitizeDirectoryItem(entry);
+        if (clean) {
+          byId.set(clean.id, clean);
+          directoryMemberCache.set(clean.id, { item: clean, expiresAt });
+        }
+      }
+    } catch (_) {
+      // Kısmi hata durumunda diğer bilinen üyeler bozulmasın
+    }
+  }
+
+  if (directoryMemberCache.size > 1000) {
+    for (const [k, v] of directoryMemberCache.entries()) {
+      if (v.expiresAt <= now) directoryMemberCache.delete(k);
+    }
+  }
+
+  const items = uniqueIds.map((id) => byId.get(id)).filter(Boolean);
+  return { items, byId };
+}
+
 module.exports = {
   TOP_GAMES_CACHE_TTL_MS,
   SUMMARY_CACHE_TTL_MS,
+  DIRECTORY_CACHE_TTL_MS,
   BotApiError,
   requestBotApi,
   checkHealth,
@@ -1587,6 +1766,7 @@ module.exports = {
   clearGamesCache,
   clearTopGamesCache,
   clearSummaryCache,
+  clearDirectoryCache,
   normalizeServerStatsSummaryPayload,
   getGames,
   lookupRobloxAccount,
@@ -1605,4 +1785,6 @@ module.exports = {
   attachWarningEvidence,
   getEphemeralEvidence,
   sendFeedback,
+  getDirectory,
+  lookupDirectoryMembers,
 };

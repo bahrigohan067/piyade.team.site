@@ -19,6 +19,9 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'js/app.js',
       'js/activity-panel.js',
       'js/top-games.js',
+      'js/chat.js',
+      'js/chat-badge.js',
+      'js/chat-mod.js',
     ];
     for (const rel of trackedFiles) {
       const fullPath = path.join(publicDir, rel);

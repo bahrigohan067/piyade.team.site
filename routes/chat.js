@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 
 const appConfig = require('../config/app.config');
@@ -6,9 +10,41 @@ const brandConfig = require('../config/brand.config');
 const chatConfig = require('../config/chat.config');
 const { isRegisteredMember } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
-const { getChatStore, makeConvId, isValidDiscordId, sanitizeChatText } = require('../services/chatStore');
+const { getChatStore, makeConvId, parseConvId, isValidDiscordId, sanitizeChatText } = require('../services/chatStore');
 const { chatSseHub } = require('../services/chatSseHub');
-const { chatMessageLimiter } = require('../middlewares/rateLimiter');
+const { chatMessageLimiter, chatUploadLimiter } = require('../middlewares/rateLimiter');
+const chatFileValidator = require('../utils/chatFileValidator');
+
+// Parça 4 moderasyon dosya erişim kancası (varsayılan kapalı; Parça 4 tarafından bağlanır)
+let modFileAccessAuthorizer = null;
+function setModFileAccessAuthorizer(fn) {
+  modFileAccessAuthorizer = typeof fn === 'function' ? fn : null;
+}
+
+const chatUploadStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    const store = getChatStore();
+    try {
+      if (!fs.existsSync(store.tmpDir)) {
+        fs.mkdirSync(store.tmpDir, { recursive: true, mode: 0o700 });
+      }
+      cb(null, store.tmpDir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename(req, file, cb) {
+    cb(null, `up_${Date.now()}_${crypto.randomBytes(8).toString('hex')}.part`);
+  },
+});
+
+const uploadSingleChatFile = multer({
+  storage: chatUploadStorage,
+  limits: {
+    fileSize: chatConfig.FILES.MAX_VIDEO_BYTES,
+    files: 1,
+  },
+}).single('file');
 
 /**
  * 1) Özellik bayrağı koruması: CHAT_ENABLED kapalıysa tüm /sohbet* yolları 404 döner.
@@ -226,6 +262,11 @@ router.get('/', requireChatMember, async (req, res) => {
       maxMessageLength: chatConfig.LIMITS.MAX_MESSAGE_LENGTH,
       maxAnimatedDirectoryRings: chatConfig.LIMITS.MAX_ANIMATED_DIRECTORY_RINGS,
       retentionDays: chatConfig.RETENTION_DAYS,
+      maxFilesPerMessage: chatConfig.FILES.MAX_FILES_PER_MESSAGE,
+      maxImageBytes: chatConfig.FILES.MAX_IMAGE_BYTES,
+      maxPdfBytes: chatConfig.FILES.MAX_PDF_BYTES,
+      maxTxtBytes: chatConfig.FILES.MAX_TXT_BYTES,
+      maxVideoBytes: chatConfig.FILES.MAX_VIDEO_BYTES,
     },
   });
 });
@@ -553,7 +594,47 @@ router.post(
     const replyTo =
       req.body && typeof req.body.replyTo === 'string' ? req.body.replyTo.trim().slice(0, 64) : null;
 
-    if (!cleanText) {
+    // Parça 3: Mesaja eklenecek dosya kimliklerini doğrula (en çok 5 dosya)
+    const rawAttachmentIds = req.body && Array.isArray(req.body.attachmentIds) ? req.body.attachmentIds : [];
+    const uniqueAttIds = [...new Set(rawAttachmentIds.map((x) => String(x || '').trim()).filter(Boolean))];
+    if (uniqueAttIds.length > chatConfig.FILES.MAX_FILES_PER_MESSAGE) {
+      return res.status(400).json({
+        ok: false,
+        code: 'TOO_MANY_ATTACHMENTS',
+        error: req.t('chat.errMaxFiles'),
+      });
+    }
+
+    const resolvedAttachments = [];
+    for (const attId of uniqueAttIds) {
+      if (!/^[0-9a-f]{32}$/.test(attId)) {
+        return res.status(400).json({
+          ok: false,
+          code: 'INVALID_ATTACHMENT',
+          error: req.t('chat.errInvalidAttachment'),
+        });
+      }
+      const meta = store.getFileMeta(attId);
+      if (!meta || meta.uploaderId !== userId || (meta.convId && meta.convId !== convId) || meta.msgId) {
+        return res.status(400).json({
+          ok: false,
+          code: 'INVALID_ATTACHMENT',
+          error: req.t('chat.errInvalidAttachment'),
+        });
+      }
+      resolvedAttachments.push({
+        id: meta.id,
+        originalName: meta.originalName,
+        ext: meta.ext,
+        mimeType: meta.mimeType,
+        category: meta.category,
+        size: meta.size,
+        url: `/sohbet/dosya/${meta.id}`,
+        txtPreview: meta.txtPreview || null,
+      });
+    }
+
+    if (!cleanText && resolvedAttachments.length === 0) {
       return res.status(400).json({
         ok: false,
         code: 'EMPTY_MESSAGE',
@@ -566,7 +647,7 @@ router.post(
       appended = store.appendMessage(convId, {
         from: userId,
         text: cleanText,
-        attachments: [],
+        attachments: resolvedAttachments,
         replyTo,
         clientId,
       });
@@ -585,6 +666,16 @@ router.post(
         convId,
         message: appended.message,
       });
+    }
+
+    // Yüklenen dosyaları bu sohbet ve mesaja kalıcı olarak bağla
+    for (const att of resolvedAttachments) {
+      const meta = store.getFileMeta(att.id);
+      if (meta) {
+        meta.convId = convId;
+        meta.msgId = appended.message.id;
+        store.registerFileMeta(meta);
+      }
     }
 
     if (appended.isNewConversation) {
@@ -827,5 +918,281 @@ router.post('/api/engeli-kaldir', requireChatMember, requireChatConsent, (req, r
   chatSseHub.sendToUser(userId, 'unread', { unread: store.getTotalUnreadCount(userId) });
   return res.json({ ok: true, blocked: updated.blocked });
 });
+
+// ============================================================================
+// PARÇA 3: DOSYA YÜKLEME (POST /sohbet/api/yukle) VE ERİŞİM KONTROLLÜ SUNUM
+// ============================================================================
+
+router.post(
+  '/api/yukle',
+  requireChatMember,
+  requireChatConsent,
+  chatUploadLimiter,
+  (req, res) => {
+    const store = getChatStore();
+    const userId = String(req.session.user.id);
+
+    // Önce disk doluluk eşiğini (%90) kontrol et
+    const preDisk = chatFileValidator.checkVolumeDiskSpace(store.baseDir, 0);
+    if (!preDisk.ok) {
+      return res.status(507).json({
+        ok: false,
+        code: 'DISK_FULL',
+        error: req.t('chat.errDiskFull'),
+      });
+    }
+
+    uploadSingleChatFile(req, res, (multerErr) => {
+      const tmpFilePath = req.file && req.file.path ? req.file.path : null;
+      const cleanupTmp = () => {
+        if (tmpFilePath) {
+          try {
+            if (fs.existsSync(tmpFilePath)) fs.unlinkSync(tmpFilePath);
+          } catch (_) {}
+        }
+      };
+
+      if (multerErr) {
+        cleanupTmp();
+        if (multerErr.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            ok: false,
+            code: 'FILE_TOO_LARGE',
+            error: 'Dosya boyutu izin verilen azami sınırı (50 MB) aşıyor.',
+          });
+        }
+        return res.status(400).json({
+          ok: false,
+          code: 'UPLOAD_ERROR',
+          error: req.t('chat.errUploadFailed'),
+        });
+      }
+
+      if (!req.file || !tmpFilePath) {
+        return res.status(400).json({
+          ok: false,
+          code: 'NO_FILE',
+          error: req.t('chat.errUploadFailed'),
+        });
+      }
+
+      try {
+        // Dosya boyutuyla disk doluluğunu ve günlük 200 MB kullanıcı kotasını tekrar doğrula
+        const fileSize = req.file.size || 0;
+        const diskCheck = chatFileValidator.checkVolumeDiskSpace(store.baseDir, fileSize);
+        if (!diskCheck.ok) {
+          cleanupTmp();
+          return res.status(507).json({
+            ok: false,
+            code: 'DISK_FULL',
+            error: req.t('chat.errDiskFull'),
+          });
+        }
+
+        const usedToday = store.getDailyUploadBytes(userId);
+        if (usedToday + fileSize > chatConfig.FILES.DAILY_QUOTA_BYTES) {
+          cleanupTmp();
+          return res.status(413).json({
+            ok: false,
+            code: 'QUOTA_EXCEEDED',
+            error: req.t('chat.errDailyQuota'),
+          });
+        }
+
+        const rawBuffer = fs.readFileSync(tmpFilePath);
+        const validated = chatFileValidator.validateChatAttachmentBuffer(rawBuffer, req.file.originalname || '');
+        if (!validated.ok) {
+          cleanupTmp();
+          const status = validated.code === 'FILE_TOO_LARGE' ? 413 : 400;
+          return res.status(status).json({
+            ok: false,
+            code: validated.code,
+            error: validated.error,
+          });
+        }
+
+        // Doğrulanmış (ve JPEG ise EXIF'i temizlenmiş) dosyayı rasgele 32-hex isimle files/ altına atomik taşı
+        if (!fs.existsSync(store.filesDir)) {
+          fs.mkdirSync(store.filesDir, { recursive: true, mode: 0o700 });
+        }
+        const finalPath = path.join(store.filesDir, validated.storedName);
+        const writeTmpPath = `${finalPath}.${process.pid}.tmp`;
+        fs.writeFileSync(writeTmpPath, validated.buffer, { mode: 0o600 });
+        fs.renameSync(writeTmpPath, finalPath);
+        cleanupTmp();
+
+        const metaObj = {
+          id: validated.id,
+          storedName: validated.storedName,
+          ext: validated.ext,
+          mimeType: validated.mimeType,
+          category: validated.category,
+          size: validated.size,
+          originalName: validated.originalName,
+          uploaderId: userId,
+          convId: null,
+          msgId: null,
+          createdAt: Date.now(),
+          preserved: false,
+          preservedByCases: [],
+          txtPreview: validated.txtPreview || null,
+        };
+        store.registerFileMeta(metaObj);
+        store.addDailyUploadBytes(userId, validated.size);
+
+        return res.status(201).json({
+          ok: true,
+          file: {
+            id: metaObj.id,
+            originalName: metaObj.originalName,
+            ext: metaObj.ext,
+            mimeType: metaObj.mimeType,
+            category: metaObj.category,
+            size: metaObj.size,
+            url: `/sohbet/dosya/${metaObj.id}`,
+            txtPreview: metaObj.txtPreview,
+          },
+        });
+      } catch (_) {
+        cleanupTmp();
+        return res.status(500).json({
+          ok: false,
+          code: 'UPLOAD_FAILED',
+          error: req.t('chat.errUploadFailed'),
+        });
+      }
+    });
+  }
+);
+
+/**
+ * GET /sohbet/dosya/:id
+ * Erişim kontrollü dosya sunumu: yalnızca oturumlu katılımcı (veya Parça 4 yetkili vaka moderatörü) erişebilir;
+ * aksi halde 404 döner (dosyanın varlığı belli edilmez). Video için HTTP Range destekler.
+ */
+router.get('/dosya/:id', async (req, res) => {
+  const user = req.session && req.session.user;
+  if (!user || !user.id || !isUserChatEligible(user)) {
+    return res.status(404).end();
+  }
+
+  const fileId = String(req.params.id || '').trim();
+  if (!/^[0-9a-f]{32}$/.test(fileId)) {
+    return res.status(404).end();
+  }
+
+  const store = getChatStore();
+  const meta = store.getFileMeta(fileId);
+  if (!meta || !meta.storedName) {
+    return res.status(404).end();
+  }
+
+  const userId = String(user.id);
+  let authorized = false;
+
+  if (meta.convId) {
+    const participants = parseConvId(meta.convId);
+    if (participants && participants.includes(userId)) {
+      authorized = true;
+    }
+  } else if (meta.uploaderId === userId) {
+    // Gönderilmeden önceki önizleme yalnızca yükleyenin kendisine açıktır
+    authorized = true;
+  }
+
+  // Parça 4 moderasyon vaka erişimi (yalnızca ?caseId= ve taze Community Official rolü ile)
+  let modCaseAccess = false;
+  if (!authorized && req.query && req.query.caseId && typeof modFileAccessAuthorizer === 'function') {
+    try {
+      modCaseAccess = Boolean(await modFileAccessAuthorizer(req, fileId, String(req.query.caseId)));
+      if (modCaseAccess) authorized = true;
+    } catch (_) {
+      authorized = false;
+    }
+  }
+
+  if (!authorized) {
+    return res.status(404).end();
+  }
+
+  const diskPath = path.join(store.filesDir, path.basename(meta.storedName));
+  if (!fs.existsSync(diskPath)) {
+    return res.status(404).end();
+  }
+
+  let stat;
+  try {
+    stat = fs.statSync(diskPath);
+    if (!stat.isFile()) return res.status(404).end();
+  } catch (_) {
+    return res.status(404).end();
+  }
+
+  const isInline = meta.category === 'image' || meta.category === 'video';
+  const asciiName = String(meta.originalName || meta.storedName)
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/["\\;]/g, '_');
+  const encodedName = encodeURIComponent(meta.originalName || meta.storedName);
+  const dispositionType = isInline ? 'inline' : 'attachment';
+
+  const csp =
+    meta.category === 'image'
+      ? "default-src 'none'; img-src 'self'; sandbox"
+      : meta.category === 'video'
+        ? "default-src 'none'; media-src 'self'; sandbox"
+        : "default-src 'none'; sandbox";
+
+  res.setHeader('Content-Type', meta.mimeType || 'application/octet-stream');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', csp);
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.setHeader('Content-Disposition', `${dispositionType}; filename="${asciiName}"; filename*=UTF-8''${encodedName}`);
+  res.setHeader('Accept-Ranges', 'bytes');
+
+  const totalSize = stat.size;
+  const rangeHeader = req.headers.range;
+
+  if (rangeHeader && typeof rangeHeader === 'string' && rangeHeader.startsWith('bytes=')) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+    if (!match) {
+      res.setHeader('Content-Range', `bytes */${totalSize}`);
+      return res.status(416).end();
+    }
+    let start = match[1] ? Number.parseInt(match[1], 10) : 0;
+    let end = match[2] ? Number.parseInt(match[2], 10) : totalSize - 1;
+    if (!match[1] && match[2]) {
+      // suffix-byte-range-spec: bytes=-500
+      const suffix = Number.parseInt(match[2], 10);
+      start = Math.max(0, totalSize - suffix);
+      end = totalSize - 1;
+    }
+    if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || start >= totalSize || end < start) {
+      res.setHeader('Content-Range', `bytes */${totalSize}`);
+      return res.status(416).end();
+    }
+    end = Math.min(end, totalSize - 1);
+    const chunkSize = end - start + 1;
+    res.status(206);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+    res.setHeader('Content-Length', String(chunkSize));
+    const stream = fs.createReadStream(diskPath, { start, end });
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
+    return stream.pipe(res);
+  }
+
+  res.status(200);
+  res.setHeader('Content-Length', String(totalSize));
+  const stream = fs.createReadStream(diskPath);
+  stream.on('error', () => {
+    if (!res.headersSent) res.status(500).end();
+    else res.end();
+  });
+  return stream.pipe(res);
+});
+
+router.setModFileAccessAuthorizer = setModFileAccessAuthorizer;
 
 module.exports = router;

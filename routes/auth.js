@@ -4,6 +4,7 @@ const router = express.Router();
 const discordAuthService = require('../services/discordAuthService');
 const botApiClient = require('../services/botApiClient');
 const { authLimiter } = require('../middlewares/rateLimiter');
+const { chatSseHub } = require('../services/chatSseHub');
 
 /**
  * GET /auth/discord
@@ -122,6 +123,10 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
  * Kullanıcının oturumunu güvenli şekilde sonlandırır.
  */
 router.get('/logout', (req, res) => {
+  const uid = req.session && req.session.user && req.session.user.id;
+  if (uid) {
+    chatSseHub.disconnectUser(uid, 'logout');
+  }
   req.session.destroy(() => {
     res.clearCookie('piyade.sid');
     res.redirect('/');

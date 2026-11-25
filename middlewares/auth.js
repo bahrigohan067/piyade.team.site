@@ -1,6 +1,6 @@
 const appConfig = require('../config/app.config');
 const brandConfig = require('../config/brand.config');
-const { isRegisteredMember, isManagement, isDeveloper } = require('../config/roles.config');
+const { isRegisteredMember, isManagement, isDeveloper, isCommunityOfficial } = require('../config/roles.config');
 const { getVisibleMenuItems } = require('../config/menu.config');
 const botApiClient = require('../services/botApiClient');
 const { formatDuration, formatRelativeUpdated } = require('../utils/formatDuration');
@@ -12,6 +12,8 @@ const { formatDuration, formatRelativeUpdated } = require('../utils/formatDurati
  */
 async function syncRolesMiddleware(req, res, next) {
   res.locals.currentUser = null;
+  res.locals.chatEnabled = appConfig.isChatEnabled();
+  res.locals.isCommunityOfficial = false;
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;
   res.locals.activeStats = botApiClient.getLastKnownActiveStats();
@@ -59,6 +61,7 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.isRegistered = isRegisteredMember(user.roles, user.level, user.registered);
   res.locals.isManagement = isManagement(user.roles, user.level);
   res.locals.isDeveloper = isDeveloper(user.roles, user.level);
+  res.locals.isCommunityOfficial = isCommunityOfficial(user.roles);
   res.locals.visibleMenus = getVisibleMenuItems(user, req.lang || 'tr');
 
   return next();

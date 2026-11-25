@@ -1,5 +1,6 @@
 const rateLimit = require('express-rate-limit');
 const { ipKeyGenerator } = rateLimit;
+const chatConfig = require('../config/chat.config');
 
 /**
  * Genel Site Rate Limiter (1 dakikada max 150 istek)
@@ -117,6 +118,81 @@ const publicStatsLimiter = rateLimit({
   },
 });
 
+/**
+ * Sohbet Mesaj Gönderme Limiter'ı (Kullanıcı başına 1 dakikada max 30 mesaj)
+ */
+const chatMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: chatConfig.LIMITS.MAX_MESSAGES_PER_MIN || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `chat_msg_user:${String(uid)}`;
+    return `chat_msg_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('chat.errRateLimited')
+      : 'Çok hızlı mesaj gönderiyorsunuz. Lütfen biraz bekleyin.';
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
+/**
+ * Sohbet Dosya Yükleme Limiter'ı (Kullanıcı başına 1 dakikada max 10 yükleme)
+ */
+const chatUploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: chatConfig.FILES.MAX_UPLOADS_PER_MIN || 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `chat_upload_user:${String(uid)}`;
+    return `chat_upload_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('chat.errUploadRateLimited')
+      : 'Çok sık dosya yüklediniz. Lütfen 1 dakika bekleyin.';
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
+/**
+ * Sohbet Moderasyon Paneli Limiter'ı (Kullanıcı başına 1 dakikada max 60 istek)
+ */
+const chatModLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `chat_mod_user:${String(uid)}`;
+    return `chat_mod_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: 'Moderasyon paneli hız sınırı aşıldı. Lütfen kısa süre sonra tekrar deneyin.',
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
@@ -126,4 +202,7 @@ module.exports = {
   robloxLookupLimiter,
   activityApiLimiter,
   publicStatsLimiter,
+  chatMessageLimiter,
+  chatUploadLimiter,
+  chatModLimiter,
 };

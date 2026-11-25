@@ -23,10 +23,9 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
-  // /geri-bildirim oturum süresi dolmuş veya girişsiz isteklerde 403 CSRF yerine net 401 SESSION_EXPIRED dön
+  // /geri-bildirim veya /sohbet/api/* oturum süresi dolmuş/girişsiz isteklerde 403 CSRF yerine net 401 SESSION_EXPIRED dön
   if (
-    req.method === 'POST' &&
-    req.path === '/geri-bildirim' &&
+    (req.path === '/geri-bildirim' || req.path.startsWith('/sohbet/api/') || req.path.startsWith('/sohbet/moderasyon/api/')) &&
     (!req.session.user || !req.session.user.id)
   ) {
     return res.status(401).json({

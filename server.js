@@ -20,6 +20,9 @@ const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/member');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
+const chatRoutes = require('./routes/chat');
+const { getChatStore } = require('./services/chatStore');
+const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
   const app = express();
@@ -159,6 +162,7 @@ function createServerApp() {
   app.use('/', memberRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
+  app.use('/sohbet', chatRoutes);
 
   // 404 ve Global Hata Yakalayıcılar
   app.use(notFoundHandler);
@@ -185,7 +189,26 @@ if (require.main === module) {
 
     // Madde 3: Açılışta BOT_API_URL'e bir kez test isteği at ve sonucu (başarılı/başarısız + sebep sınıfı) loga yaz
     botApiClient.runStartupConnectivityTest().catch(() => null);
+
+    // Sohbet etkinse 30 günlük saklama temizliği zamanlayıcısını başlat
+    if (appConfig.isChatEnabled()) {
+      const chatStore = getChatStore();
+      chatStore.startCleanupScheduler();
+    }
   });
+
+  // SIGTERM / SIGINT kapanışında sohbet deposunu güvenle boşalt ve SSE bağlantılarını kapat
+  const handleGracefulShutdown = () => {
+    try {
+      chatSseHub.closeAll();
+      if (appConfig.isChatEnabled()) {
+        getChatStore().flush();
+      }
+    } catch (_) {}
+    process.exit(0);
+  };
+  process.once('SIGTERM', handleGracefulShutdown);
+  process.once('SIGINT', handleGracefulShutdown);
 }
 
 module.exports = { createServerApp };

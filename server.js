@@ -21,7 +21,9 @@ const memberRoutes = require('./routes/member');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
 const chatRoutes = require('./routes/chat');
+const chatModRoutes = require('./routes/chatMod');
 const { getChatStore } = require('./services/chatStore');
+const { getChatModStore } = require('./services/chatModStore');
 const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
@@ -162,6 +164,7 @@ function createServerApp() {
   app.use('/', memberRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
+  app.use('/sohbet/moderasyon', chatModRoutes);
   app.use('/sohbet', chatRoutes);
 
   // 404 ve Global Hata Yakalayıcılar
@@ -190,19 +193,27 @@ if (require.main === module) {
     // Madde 3: Açılışta BOT_API_URL'e bir kez test isteği at ve sonucu (başarılı/başarısız + sebep sınıfı) loga yaz
     botApiClient.runStartupConnectivityTest().catch(() => null);
 
-    // Sohbet etkinse 30 günlük saklama temizliği zamanlayıcısını başlat
+    // Sohbet etkinse 30 günlük saklama + moderasyon vaka temizliği zamanlayıcısını başlat
     if (appConfig.isChatEnabled()) {
       const chatStore = getChatStore();
-      chatStore.startCleanupScheduler();
+      chatStore.startCleanupScheduler({
+        onAfterCleanup: () => {
+          try {
+            getChatModStore(chatStore).runModRetentionCleanup({ chatStore });
+          } catch (_) {}
+        },
+      });
     }
   });
 
-  // SIGTERM / SIGINT kapanışında sohbet deposunu güvenle boşalt ve SSE bağlantılarını kapat
+  // SIGTERM / SIGINT kapanışında sohbet ve moderasyon depolarını güvenle boşalt ve SSE bağlantılarını kapat
   const handleGracefulShutdown = () => {
     try {
       chatSseHub.closeAll();
       if (appConfig.isChatEnabled()) {
-        getChatStore().flush();
+        const cs = getChatStore();
+        cs.flush();
+        getChatModStore(cs).flush();
       }
     } catch (_) {}
     process.exit(0);

@@ -14,6 +14,8 @@ const { getChatStore, makeConvId, parseConvId, isValidDiscordId, sanitizeChatTex
 const { chatSseHub } = require('../services/chatSseHub');
 const { chatMessageLimiter, chatUploadLimiter } = require('../middlewares/rateLimiter');
 const chatFileValidator = require('../utils/chatFileValidator');
+const chatAutoFilter = require('../services/chatAutoFilter');
+const { getChatModStore, REPORT_CATEGORIES } = require('../services/chatModStore');
 
 // Parça 4 moderasyon dosya erişim kancası (varsayılan kapalı; Parça 4 tarafından bağlanır)
 let modFileAccessAuthorizer = null;
@@ -139,6 +141,27 @@ function requireChatConsent(req, res, next) {
   return next();
 }
 
+function requireNotBannedFromChat(req, res, next) {
+  const store = getChatStore();
+  const modStore = getChatModStore(store);
+  const userId = String(req.session.user.id);
+  const sanction = modStore.getActiveSanction(userId);
+  if (sanction && sanction.type === 'ban') {
+    return res.status(403).json({
+      ok: false,
+      code: 'USER_BANNED',
+      sanction: {
+        type: 'ban',
+        reasonCategory: sanction.reasonCategory,
+        createdAt: sanction.createdAt,
+      },
+      error: req.t('chat.errBannedFromChat'),
+    });
+  }
+  req.activeChatSanction = sanction || null;
+  return next();
+}
+
 function buildMemberPublicInfo(memberObj, fallbackId, store) {
   const id = String((memberObj && memberObj.id) || fallbackId || '');
   const ring = store.getPublicRingForUser(id);
@@ -213,12 +236,16 @@ router.get('/gizlilik', (req, res) => {
  */
 router.get('/', requireChatMember, async (req, res) => {
   const store = getChatStore();
+  const modStore = getChatModStore(store);
   const user = req.session.user;
   const userId = String(user.id);
+  const activeSanction = modStore.getActiveSanction(userId);
   const hasConsented = store.hasValidConsent(userId, chatConfig.POLICY_VERSION);
   const profile = store.getProfile(userId);
   const effectiveRing = chatConfig.resolveEffectiveRing(profile);
   const retentionInfo = store.getRetentionInfo();
+  const unreadNotices = modStore.getUnreadNotices(userId);
+  if (unreadNotices.length > 0) modStore.markNoticesRead(userId);
 
   // Kendi Roblox avatarını da halka önizlemesinde kullanabilmek için rehber lookup yap (başarısızsa Discord avatarı)
   let selfDirectoryInfo = null;
@@ -242,6 +269,17 @@ router.get('/', requireChatMember, async (req, res) => {
     isChatPage: true,
     needsConsent: !hasConsented,
     policyVersion: chatConfig.POLICY_VERSION,
+    activeSanction: activeSanction
+      ? {
+          type: activeSanction.type,
+          reasonCategory: activeSanction.reasonCategory,
+          expiresAt: activeSanction.expiresAt || null,
+          createdAt: activeSanction.createdAt,
+        }
+      : null,
+    unreadNotices,
+    reportCategories: REPORT_CATEGORIES,
+    firstContactRequestGlobal: chatConfig.isFirstContactRequestEnabled(),
     chatProfile: {
       ringId: profile.ringId,
       ring: profile.ring,
@@ -310,7 +348,7 @@ router.get('/api/okunmamis', requireChatMember, (req, res) => {
 // SSE GERÇEK ZAMANLI AKIŞ
 // ============================================================================
 
-router.get('/akis', requireChatMember, requireChatConsent, (req, res) => {
+router.get('/akis', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
   const store = getChatStore();
   const userId = String(req.session.user.id);
   const initialUnread = store.getTotalUnreadCount(userId);
@@ -321,7 +359,7 @@ router.get('/akis', requireChatMember, requireChatConsent, (req, res) => {
 // ÜYE REHBERİ VE SOHBET LİSTESİ
 // ============================================================================
 
-router.get('/api/rehber', requireChatMember, requireChatConsent, async (req, res) => {
+router.get('/api/rehber', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
   const userId = String(req.session.user.id);
   const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
@@ -360,7 +398,7 @@ router.get('/api/rehber', requireChatMember, requireChatConsent, async (req, res
   }
 });
 
-router.get('/api/sohbetler', requireChatMember, requireChatConsent, async (req, res) => {
+router.get('/api/sohbetler', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
   const userId = String(req.session.user.id);
   const myProfile = store.getProfile(userId);
@@ -420,7 +458,7 @@ router.get('/api/sohbetler', requireChatMember, requireChatConsent, async (req, 
 // SOHBET MESAJLARI: OKUMA, GÖNDERME, SİLME, GÖRÜLDÜ, YAZIYOR
 // ============================================================================
 
-router.get('/api/sohbet/:digerId/mesajlar', requireChatMember, requireChatConsent, async (req, res) => {
+router.get('/api/sohbet/:digerId/mesajlar', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
   const userId = String(req.session.user.id);
   const otherId = String(req.params.digerId || '').trim();
@@ -509,10 +547,28 @@ router.post(
   '/api/sohbet/:digerId/mesaj',
   requireChatMember,
   requireChatConsent,
+  requireNotBannedFromChat,
   chatMessageLimiter,
   async (req, res) => {
     const store = getChatStore();
+    const modStore = getChatModStore(store);
     const userId = String(req.session.user.id);
+
+    // Susturulmuş kullanıcı mesaj gönderemez
+    const activeSanction = req.activeChatSanction || modStore.getActiveSanction(userId);
+    if (activeSanction && activeSanction.type === 'mute') {
+      return res.status(403).json({
+        ok: false,
+        code: 'USER_MUTED',
+        sanction: {
+          type: 'mute',
+          reasonCategory: activeSanction.reasonCategory,
+          expiresAt: activeSanction.expiresAt,
+        },
+        error: req.t('chat.errMutedInChat'),
+      });
+    }
+
     const otherId = String(req.params.digerId || '').trim();
     const convId = makeConvId(userId, otherId);
 
@@ -680,6 +736,30 @@ router.post(
 
     if (appended.isNewConversation) {
       store.recordNewConversation(userId);
+      // Parça 4: İlk mesaj isteği (global CHAT_FIRST_CONTACT_REQUEST veya alıcının ayarı açıksa)
+      if (chatConfig.isFirstContactRequestEnabled() || otherProfile.requireMessageRequest) {
+        store.setConvRequestStatus(convId, 'pending', userId);
+      }
+    }
+
+    // Parça 4: Yerel otomatik filtre (mesajı ASLA engellemez; işaretlenirse ±5 mesajla otomatik vaka açar/birleştirir)
+    if (cleanText) {
+      try {
+        const scan = chatAutoFilter.scanMessageText(cleanText);
+        if (scan.flagged) {
+          const radius = chatConfig.MODERATION.AUTOFLAG_CONTEXT_RADIUS || 5;
+          const ctxMsgs = store.getContextWindow(convId, appended.message.id, { radius });
+          modStore.createOrMergeAutoCase({
+            convId,
+            offendingUserId: userId,
+            targetMsgId: appended.message.id,
+            categories: scan.categories,
+            priority: scan.priority,
+            snapshotMessages: ctxMsgs,
+            chatStore: store,
+          });
+        }
+      } catch (_) {}
     }
 
     const msg = appended.message;
@@ -927,10 +1007,22 @@ router.post(
   '/api/yukle',
   requireChatMember,
   requireChatConsent,
+  requireNotBannedFromChat,
   chatUploadLimiter,
   (req, res) => {
     const store = getChatStore();
+    const modStore = getChatModStore(store);
     const userId = String(req.session.user.id);
+
+    const activeSanction = req.activeChatSanction || modStore.getActiveSanction(userId);
+    if (activeSanction && activeSanction.type === 'mute') {
+      return res.status(403).json({
+        ok: false,
+        code: 'USER_MUTED',
+        sanction: { type: 'mute', reasonCategory: activeSanction.reasonCategory, expiresAt: activeSanction.expiresAt },
+        error: req.t('chat.errMutedInChat'),
+      });
+    }
 
     // Önce disk doluluk eşiğini (%90) kontrol et
     const preDisk = chatFileValidator.checkVolumeDiskSpace(store.baseDir, 0);
@@ -1191,6 +1283,108 @@ router.get('/dosya/:id', async (req, res) => {
     else res.end();
   });
   return stream.pipe(res);
+});
+
+// ============================================================================
+// PARÇA 4: KULLANICI RAPORLAMA, MESAJ İSTEĞİ YANITLAMA VE BİLDİRİMLER
+// ============================================================================
+
+/**
+ * POST /sohbet/api/raporla
+ * Bir mesajı veya sohbeti raporlar; etrafındaki son 30 mesaj (+ ekleri) anlık görüntü olarak vakaya kopyalanır.
+ */
+router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
+  const store = getChatStore();
+  const modStore = getChatModStore(store);
+  const userId = String(req.session.user.id);
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+
+  const otherId = String(body.otherId || '').trim();
+  const convId = makeConvId(userId, otherId);
+  if (!convId) {
+    return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
+  }
+
+  const category = String(body.category || '').trim();
+  if (!REPORT_CATEGORIES.includes(category)) {
+    return res.status(400).json({ ok: false, code: 'INVALID_CATEGORY', error: req.t('chat.errInvalidCategory') });
+  }
+
+  const targetMsgId = typeof body.msgId === 'string' && body.msgId.trim() ? body.msgId.trim().slice(0, 64) : null;
+  const note = typeof body.note === 'string' ? body.note.trim().slice(0, chatConfig.LIMITS.MAX_REPORT_NOTE_LENGTH) : '';
+
+  if (!store.canSubmitReport(userId)) {
+    return res.status(429).json({
+      ok: false,
+      code: 'REPORT_DAILY_LIMIT',
+      error: req.t('chat.errReportLimit'),
+    });
+  }
+
+  if (modStore.hasDuplicateReport(userId, convId, targetMsgId)) {
+    return res.status(409).json({
+      ok: false,
+      code: 'DUPLICATE_REPORT',
+      error: req.t('chat.errDuplicateReport'),
+    });
+  }
+
+  const contextMsgs = store.getContextWindow(convId, targetMsgId, {
+    totalCount: chatConfig.MODERATION.REPORT_CONTEXT_MESSAGES || 30,
+  });
+
+  try {
+    const createdCase = modStore.createReportCase({
+      convId,
+      reporterId: userId,
+      reportedUserId: otherId,
+      targetMsgId,
+      category,
+      note,
+      snapshotMessages: contextMsgs,
+      chatStore: store,
+    });
+    store.recordReportSubmission(userId);
+    return res.status(201).json({
+      ok: true,
+      caseId: createdCase.id,
+      message: req.t('chat.reportReceivedToast'),
+    });
+  } catch (err) {
+    const status = err.code === 'DUPLICATE_REPORT' ? 409 : 400;
+    return res.status(status).json({ ok: false, code: err.code || 'REPORT_FAILED', error: err.message });
+  }
+});
+
+/**
+ * POST /sohbet/api/sohbet/:digerId/istek
+ * Mesaj isteğini kabul eder, reddeder veya göndereni engeller.
+ */
+router.post('/api/sohbet/:digerId/istek', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
+  const store = getChatStore();
+  const userId = String(req.session.user.id);
+  const otherId = String(req.params.digerId || '').trim();
+  const convId = makeConvId(userId, otherId);
+  const action = String((req.body && req.body.action) || '').trim();
+
+  if (!convId || !['accept', 'decline', 'block'].includes(action)) {
+    return res.status(400).json({ ok: false, code: 'INVALID_REQUEST' });
+  }
+
+  if (action === 'accept') {
+    const st = store.setConvRequestStatus(convId, 'accepted');
+    return res.json({ ok: true, requestStatus: st.requestStatus });
+  }
+  if (action === 'decline') {
+    const st = store.setConvRequestStatus(convId, 'declined');
+    chatSseHub.sendToUser(userId, 'unread', { unread: store.getTotalUnreadCount(userId) });
+    return res.json({ ok: true, requestStatus: st.requestStatus });
+  }
+  // block
+  store.setConvRequestStatus(convId, 'declined');
+  const updated = store.blockUser(userId, otherId);
+  chatSseHub.sendToUser(userId, 'unread', { unread: store.getTotalUnreadCount(userId) });
+  return res.json({ ok: true, requestStatus: 'declined', blocked: updated.blocked });
 });
 
 router.setModFileAccessAuthorizer = setModFileAccessAuthorizer;

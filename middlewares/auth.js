@@ -1,5 +1,6 @@
 const appConfig = require('../config/app.config');
 const brandConfig = require('../config/brand.config');
+const chatConfig = require('../config/chat.config');
 const { isRegisteredMember, isManagement, isDeveloper, isCommunityOfficial } = require('../config/roles.config');
 const { getVisibleMenuItems } = require('../config/menu.config');
 const botApiClient = require('../services/botApiClient');
@@ -227,10 +228,89 @@ async function requireFreshManagement(req, res, next) {
   }
 }
 
+/**
+ * Parça 4: Sohbet moderasyon paneli için her istekte Bot API'den TAZE Community Official rolü doğrular.
+ * Önbellek kullanmaz; yetkisi olmayan herkese (Developer dahil, MOD_PANEL_ALSO_DEVELOPER=true değilse)
+ * panelin varlığını gizlemek için 404 döndürür.
+ */
+async function requireFreshCommunityOfficial(req, res, next) {
+  markNoIndex(req, res);
+  if (!req.session || !req.session.user || !req.session.user.id) {
+    return next('router');
+  }
+  const actorId = String(req.session.user.id);
+  try {
+    const freshRolesData = await botApiClient.getMemberRoles(actorId);
+    const roles = freshRolesData.roles || [];
+    const level = freshRolesData.level || 'unregistered';
+
+    req.session.user.roles = roles;
+    req.session.user.level = level;
+    req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.registered = typeof freshRolesData.registered === 'boolean' ? freshRolesData.registered : undefined;
+    req.session.user.inGuild = true;
+    req.session.user.rolesSyncedAt = Date.now();
+
+    const allowed =
+      isCommunityOfficial(roles) ||
+      (chatConfig.isModPanelAlsoDeveloper() && isDeveloper(roles, level));
+
+    if (!allowed) {
+      return next('router');
+    }
+
+    req.freshActorRoles = freshRolesData;
+    return next();
+  } catch (err) {
+    if (err && err.statusCode === 404) {
+      return next('router');
+    }
+    return next(err);
+  }
+}
+
+/**
+ * Parça 4: Denetim kaydı (salt okunur /sohbet/moderasyon/denetim) için taze rol doğrulaması.
+ * Community Official veya Developer erişebilir; diğer herkese 404 döner.
+ */
+async function requireFreshModAuditViewer(req, res, next) {
+  markNoIndex(req, res);
+  if (!req.session || !req.session.user || !req.session.user.id) {
+    return next('router');
+  }
+  const actorId = String(req.session.user.id);
+  try {
+    const freshRolesData = await botApiClient.getMemberRoles(actorId);
+    const roles = freshRolesData.roles || [];
+    const level = freshRolesData.level || 'unregistered';
+
+    req.session.user.roles = roles;
+    req.session.user.level = level;
+    req.session.user.inGuild = true;
+    req.session.user.rolesSyncedAt = Date.now();
+
+    const isOfficial = isCommunityOfficial(roles);
+    const isDev = isDeveloper(roles, level);
+    if (!isOfficial && !isDev) {
+      return next('router');
+    }
+    req.freshActorRoles = freshRolesData;
+    req.modAuditReadOnly = !isOfficial && !chatConfig.isModPanelAlsoDeveloper();
+    return next();
+  } catch (err) {
+    if (err && err.statusCode === 404) {
+      return next('router');
+    }
+    return next(err);
+  }
+}
+
 module.exports = {
   syncRolesMiddleware,
   requireLogin,
   requireRegisteredMember,
   requireManagement,
   requireFreshManagement,
+  requireFreshCommunityOfficial,
+  requireFreshModAuditViewer,
 };

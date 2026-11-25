@@ -12,7 +12,8 @@
  */
 
 const appConfig = require('./app.config');
-const { hasMinLevel, isRegisteredMember, isManagement, isDeveloper } = require('./roles.config');
+const chatConfig = require('./chat.config');
+const { hasMinLevel, isRegisteredMember, isManagement, isDeveloper, isCommunityOfficial } = require('./roles.config');
 
 const MENU_ITEMS = [
   // ==========================================
@@ -142,6 +143,23 @@ const MENU_ITEMS = [
     description: 'Üye arama, profil detayları ve sicil geçmişi görüntüleme',
     descriptionEn: 'Search members, inspect profiles, and review disciplinary history',
   },
+  {
+    id: 'chat-moderation',
+    title: '🛡️ Moderasyon',
+    titleEn: '🛡️ Moderation',
+    path: '/sohbet/moderasyon',
+    icon: 'shield',
+    section: 'admin',
+    minLevel: 'community_official',
+    showWhenLoggedIn: true,
+    showWhenLoggedOut: false,
+    requiresChatEnabled: true,
+    badge: 'Sohbet',
+    badgeEn: 'Chat',
+    badgeClass: 'badge-primary',
+    description: 'Sohbet rapor vakaları, yaptırımlar ve denetim kaydı',
+    descriptionEn: 'Chat report cases, sanctions, and audit log',
+  },
 ];
 
 /**
@@ -157,6 +175,7 @@ function getVisibleMenuItems(user, lang = 'tr') {
   const registered = isLogged && isRegisteredMember(userRoles, userLevel, user?.registered);
   const management = isLogged && isManagement(userRoles, userLevel);
   const developer = isLogged && isDeveloper(userRoles, userLevel);
+  const communityOfficial = isLogged && isCommunityOfficial(userRoles);
   const isEn = lang === 'en';
 
   const chatEnabled = appConfig.isChatEnabled();
@@ -175,6 +194,10 @@ function getVisibleMenuItems(user, lang = 'tr') {
 
     if (item.minLevel === 'registered') {
       return registered;
+    }
+
+    if (item.minLevel === 'community_official') {
+      return communityOfficial || (chatConfig.isModPanelAlsoDeveloper() && developer);
     }
 
     if (item.minLevel === 'yonetmenlik') {

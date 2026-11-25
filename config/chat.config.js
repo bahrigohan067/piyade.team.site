@@ -4,7 +4,7 @@
  * arayüzün geri kalan tüm renkleri public/css/theme.css değişkenlerinden gelir.
  */
 
-const POLICY_VERSION = '1.0';
+const POLICY_VERSION = '2.0';
 const RETENTION_DAYS = 30;
 
 const LIMITS = Object.freeze({

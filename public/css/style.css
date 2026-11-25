@@ -6741,7 +6741,9 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   border-radius: var(--radius-xs);
   border: none;
   background: transparent;
-  font-size: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -7434,7 +7436,8 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   overflow: hidden;
   background: var(--bg-input);
   min-height: 120px;
-  max-width: 340px;
+  width: 100%;
+  max-width: min(340px, 100%);
   border: 1px solid var(--border-subtle);
 }
 
@@ -7481,7 +7484,9 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   border-radius: var(--radius-sm);
   background: var(--chat-chip-bg);
   border: 1px solid var(--border-color);
-  max-width: 360px;
+  width: 100%;
+  min-width: 0;
+  max-width: min(360px, 100%);
   color: var(--text-primary);
 }
 

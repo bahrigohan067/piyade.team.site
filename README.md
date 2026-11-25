@@ -35,6 +35,10 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `GET /yonetim/uyeler/:id` | Yönetmenlik / Developer | Tekil üye detay, kayıtlı oyunlar ve sicil geçmişi |
 | `GET /yonetim/uyari` / `POST /yonetim/uyari` | Yönetmenlik / Developer | Sözlü veya resmi disiplin uyarısı ve kanıt yükleme (Orbital Loader) |
 | `POST /geri-bildirim` | Sunucudaki Girişli Üyeler | Sağ alt Geri Bildirim hapı (Feedback Pill) |
+| `GET /sohbet` | Kayıtlı Üye+ (`CHAT_ENABLED=true`) | Birebir özel sohbet, dosya eki, emoji, 44 profil halkası (`noindex`) |
+| `GET /sohbet/gizlilik` | Herkese Açık (`CHAT_ENABLED=true`) | Sohbet gizlilik, 30 günlük saklama ve moderasyon politikası (`noindex`) |
+| `GET /sohbet/moderasyon` | Yalnızca Community Official (taze rol) | Rapor / otomatik işaret vakaları, yaptırımlar ve denetim kaydı (diğer rollere `404`) |
+| `GET /sohbet/moderasyon/denetim` | Community Official / Developer (taze rol) | Salt okunur denetim kaydı (Developer vaka içeriklerine erişemez) |
 | `GET /health` | Sistem | Sunucu, oturum deposu ve Bot API sağlık kontrolü |
 
 ---
@@ -51,6 +55,7 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `GET /api/member/:id/activity` | Giriş yapmış üyenin yalnızca kendi aylık etkinlik verisi (bot tarafından gruplanmış) |
 | `GET /api/stats/summary` | Anonim `activeThisMonth`, `playingNow`, `uncertainCount`, `computedAt`, `families` (+ eski alanlar) |
 | `GET /api/stats/top-games` | Anonim aile bazlı en çok oynanan oyun sıralaması (`group=family`, 60 sn bellek önbellekli) |
+| `GET /api/directory` & `POST /api/directory/lookup` | Sohbet üye rehberi ve toplu profil/Roblox avatar çözümleme (60 sn bellek önbellekli) |
 | `GET /api/admin/members` & `/:id` | Yönetim üye listesi ve detayında oyun hesapları |
 
 ---
@@ -106,6 +111,11 @@ RAILWAY_VOLUME_MOUNT_PATH=/data
 DISCORD_INVITE_URL=https://discord.gg/davet_kodunuz
 GOOGLE_SITE_VERIFICATION=
 
+# Sohbet Sistemi Özellik Bayrakları (Varsayılan KAPALI)
+CHAT_ENABLED=false
+CHAT_FIRST_CONTACT_REQUEST=false
+MOD_PANEL_ALSO_DEVELOPER=false
+
 # Oyun Bazlı Discord Rol ID'leri (config/games.config.js)
 GAME_ROLE_ROBLOX=
 GAME_ROLE_CS2=
@@ -133,6 +143,24 @@ npm test
 # Railway temiz kurulum ve açılış doğrulama testini çalıştır
 npm run verify:clean
 ```
+
+---
+
+## 💬 Birebir Sohbet, Dosya Gönderme ve Moderasyon (4 Parçalı Mimari)
+
+- **Özellik Bayrağı (`CHAT_ENABLED`):** Varsayılan olarak **KAPALI (`false`)** durumdadır. Kapalıyken tüm `/sohbet*` ve `/sohbet/moderasyon*` adresleri `404` döner ve menüde sohbet/moderasyon öğeleri görünmez. Hazır olduğunuzda Railway Variables üzerinden `CHAT_ENABLED=true` yaparak açabilirsiniz.
+- **Kalıcı Depolama (Railway Volume):** Sohbet verileri `${RAILWAY_VOLUME_MOUNT_PATH}/chat/` altında saklanır (`conversations/*.jsonl`, `conversations/*.state.json`, `users.json`, `files/`, `tmp/`, `moderation/`, `modlog.jsonl`). Volume tanımlı değilse yerel `.chat-data/` klasörü kullanılır ve tek satırlık uyarı verilir. Depolama katmanı (`services/chatStore.js`) değiştirilebilir arayüzle yazılmıştır; ileride SQLite/PostgreSQL'e geçilebilir.
+- **Gerçek Zamanlı Akış (SSE) ve Tek Kopya Notu:** `/sohbet/akis` uç noktası harici WebSocket paketi olmadan yerleşik SSE (25 sn heartbeat, `X-Accel-Buffering: no`, `Last-Event-ID`, kullanıcı başına maks. 5 bağlantı) kullanır. Abone listesi süreç içi bellekte tutulur; ileride birden fazla sunucu kopyası (multi-instance / yatay ölçekleme) çalıştırılırsa ortak bir Pub/Sub kanalı (örn. Redis Pub/Sub) eklenmelidir.
+- **Tarayıcı Bildirimleri & Gelecek Web Push Notu:** Sekme açıkken/arka plandayken isteğe bağlı `Notification` API bildirimi (önizleme varsayılan kapalı) ve Web Audio sesi desteklenir. Sekme tamamen kapalıyken anlık itme bildirimi (Web Push) bu sürümde yoktur; ileride Service Worker ve VAPID anahtarlarıyla eklenebilir.
+- **30 Günlük Otomatik Saklama ve Dosya Güvenliği:**
+  - Tüm mesajlar ve ek dosyalar **30 gün** sonra günlük otomatik temizlik göreviyle (TSİ 03:00 + açılış telafisi) kalıcı olarak silinir; sahipsiz disk dosyaları ve 1 saati geçen yarım `tmp/` dosyaları da temizlenir.
+  - Yalnızca magic-byte doğrulamasından geçen `PNG, JPG/JPEG, GIF, WEBP` (8 MB), `PDF` (10 MB; `/JavaScript` ve `/Launch` reddedilir), `TXT` (1 MB; geçerli UTF-8, NUL yok) ve `MP4/WEBM` (50 MB; HTTP `Range` destekli) kabul edilir. Bir mesaja en çok 5 dosya, kullanıcı başına dakikada 10 yükleme ve günde 200 MB kota uygulanır; disk doluluğu `%90` eşiğini aşarsa yeni yüklemeler reddedilir.
+  - Yüklenen JPEG fotoğraflardaki konum/kamera verileri (EXIF/APP1 ve APP13) sunucuya kaydedilmeden önce bağımlılıksız bayt ayrıştırıcısıyla otomatik silinir.
+- **Moderasyon ve Gizlilik İlkesi:**
+  - **Sohbetler rutin olarak izlenmez.** Moderatör panelinde sohbet listesi gezme veya kullanıcı adıyla sohbet arama uç noktası kesinlikle yoktur.
+  - `Community Official` (`1570767625188016259`) rolü her istekte Bot API'den **taze** doğrulanır; rolü olmayan herkese (Developer dahil, `MOD_PANEL_ALSO_DEVELOPER=true` olmadıkça) `404` döner. Developer yalnızca salt okunur `/sohbet/moderasyon/denetim` kaydını görebilir.
+  - Yerel otomatik filtre yalnızca metinleri tarar ve **mesajları asla engellemez**; görsel ve videolar otomatik taranmaz (uygunsuz medya için kullanıcı rapor yolu kullanılır).
+  - Raporlanan/işaretlenen vakaların kopyalanmış anlık görüntüleri ve korunan ekleri vaka kapandıktan sonra en geç **7 gün** içinde (açık vakalar en çok **90 gün** sonunda otomatik kapatılarak) silinir. İçeriksiz yaptırım ve denetim kayıtları (`modlog.jsonl`) **1 yıl** saklanır.
 
 ---
 

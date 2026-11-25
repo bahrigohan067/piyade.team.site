@@ -375,6 +375,12 @@
           img.alt = att.originalName || 'Görsel';
           img.loading = 'lazy';
           img.decoding = 'async';
+          img.addEventListener('load', () => {
+            const scroller = chatApp.els && chatApp.els.messagesScroll;
+            if (scroller && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 360) {
+              chatApp.scrollThreadToBottom(false);
+            }
+          });
           img.addEventListener('click', () => openLightbox(att.url));
           frame.appendChild(img);
           wrap.appendChild(frame);

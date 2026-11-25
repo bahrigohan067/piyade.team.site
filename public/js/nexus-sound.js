@@ -181,6 +181,52 @@
         });
       },
 
+      playWhoosh() {
+        if (!isSoundAllowed(cfg) || !canPlayNamed('whoosh', 60)) return;
+        const ctx = ensureContext();
+        if (!ctx || !masterGain) return;
+        const duration = 0.2;
+        const sampleCount = Math.max(256, Math.floor(ctx.sampleRate * duration));
+        const buffer = ctx.createBuffer(1, sampleCount, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < sampleCount; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.Q.value = 1.6;
+        const t0 = ctx.currentTime;
+        filter.frequency.setValueAtTime(400, t0);
+        filter.frequency.exponentialRampToValueAtTime(3200, t0 + 0.16);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.14, t0 + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+        src.connect(filter);
+        filter.connect(g);
+        g.connect(masterGain);
+        src.start(t0);
+        src.stop(t0 + duration + 0.01);
+        safeDisconnect([src, filter, g], duration + 0.02);
+      },
+
+      playPing() {
+        if (!isSoundAllowed(cfg) || !canPlayNamed('ping', 90)) return;
+        playTone({
+          type: 'sine',
+          startFreq: 1760,
+          endFreq: 1760,
+          glideSec: 0,
+          decaySec: 0.45,
+          peakGain: 0.16,
+        });
+      },
+
       playTap() {
         if (!isSoundAllowed(cfg) || !canPlayNamed('tap', 30)) return;
         playTone({

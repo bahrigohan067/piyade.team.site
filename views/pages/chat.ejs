@@ -1,0 +1,517 @@
+<%- include('../layouts/header') %>
+
+<%
+  const chatBootstrap = {
+    needsConsent: Boolean(needsConsent),
+    policyVersion: String(policyVersion || '1.0'),
+    csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
+    lang: typeof lang !== 'undefined' ? lang : 'tr',
+    selfId: currentUser ? String(currentUser.id) : '',
+    selfName: chatProfile ? chatProfile.displayName : (currentUser ? currentUser.displayName : ''),
+    selfAvatarUrl: chatProfile ? chatProfile.avatarUrl : (currentUser ? currentUser.avatarUrl : ''),
+    profile: chatProfile || {},
+    ringCategories: Array.isArray(ringCategories) ? ringCategories : [],
+    ringPresets: Array.isArray(ringPresets) ? ringPresets : [],
+    retentionInfo: retentionInfo || { retentionDays: 30, nextCleanupAt: Date.now() },
+    requestedOtherId: requestedOtherId || '',
+    limits: chatLimits || { maxMessageLength: 4000, maxAnimatedDirectoryRings: 12, retentionDays: 30 },
+    i18n: {
+      searchPlaceholder: t('chat.searchPlaceholder'),
+      searchResultsTitle: t('chat.searchResultsTitle'),
+      conversationsTitle: t('chat.conversationsTitle'),
+      noConversationsTitle: t('chat.noConversationsTitle'),
+      noConversationsDesc: t('chat.noConversationsDesc'),
+      noDirectoryResults: t('chat.noDirectoryResults'),
+      directoryError: t('chat.directoryError'),
+      retryBtn: t('chat.retryBtn'),
+      emptyThreadTitle: t('chat.emptyThreadTitle'),
+      emptyThreadDesc: t('chat.emptyThreadDesc'),
+      retentionTooltipTitle: t('chat.retentionTooltipTitle'),
+      retentionTooltipDesc: t('chat.retentionTooltipDesc'),
+      expiresInDays: t('chat.expiresInDays'),
+      expiresToday: t('chat.expiresToday'),
+      reconnectingBanner: t('chat.reconnectingBanner'),
+      robloxLabel: t('chat.robloxLabel'),
+      typingIndicator: t('chat.typingIndicator'),
+      blockUser: t('chat.blockUser'),
+      unblockUser: t('chat.unblockUser'),
+      blockedBannerMe: t('chat.blockedBannerMe'),
+      blockedBannerOther: t('chat.blockedBannerOther'),
+      closedDmBanner: t('chat.closedDmBanner'),
+      deleteMsgBtn: t('chat.deleteMsgBtn'),
+      deleteConfirm: t('chat.deleteConfirm'),
+      blockConfirm: t('chat.blockConfirm'),
+      msgDeleted: t('chat.msgDeleted'),
+      msgModRemoved: t('chat.msgModRemoved'),
+      loadOlderBtn: t('chat.loadOlderBtn'),
+      loadingOlder: t('chat.loadingOlder'),
+      dateToday: t('chat.dateToday'),
+      dateYesterday: t('chat.dateYesterday'),
+      unreadDivider: t('chat.unreadDivider'),
+      statusSending: t('chat.statusSending'),
+      statusSent: t('chat.statusSent'),
+      statusDelivered: t('chat.statusDelivered'),
+      statusSeen: t('chat.statusSeen'),
+      newMsgToastTitle: t('chat.newMsgToastTitle'),
+      newMsgBrowserBody: t('chat.newMsgBrowserBody'),
+      emojiRecentTitle: t('chat.emojiRecentTitle'),
+      emojiEmpty: t('chat.emojiEmpty'),
+      ringSavedToast: t('chat.ringSavedToast'),
+      ringRemoveColor: t('chat.ringRemoveColor'),
+      notifyBrowserBtn: t('chat.notifyBrowserBtn'),
+      notifyBrowserEnabled: t('chat.notifyBrowserEnabled'),
+      notifyBrowserDenied: t('chat.notifyBrowserDenied'),
+      notifyBrowserUnsupported: t('chat.notifyBrowserUnsupported'),
+      blockedEmpty: t('chat.blockedEmpty'),
+      errConsentCheckbox: t('chat.errConsentCheckbox'),
+      errSendFailed: t('chat.errSendFailed'),
+      errEmptyMessage: t('chat.errEmptyMessage'),
+      errTextTooLong: t('chat.errTextTooLong'),
+      confirmBtn: t('chat.confirmBtn'),
+      cancelBtn: t('chat.cancelBtn'),
+    },
+  };
+  const safeBootstrapJson = JSON.stringify(chatBootstrap).replace(/</g, '\\u003c');
+%>
+
+<script id="chatBootstrapData" type="application/json"><%- safeBootstrapJson %></script>
+
+<div class="chat-page-backdrop" id="chatPageRoot">
+  <% if (needsConsent) { %>
+    <!-- ==================================================================
+         ZORUNLU İLK KULLANIM BİLGİLENDİRME VE ONAY EKRANI
+         ================================================================== -->
+    <section class="chat-consent-shell" aria-labelledby="chatConsentTitle">
+      <div class="chat-consent-card">
+        <div class="chat-consent-header">
+          <div class="chat-consent-icon" aria-hidden="true">💬</div>
+          <div>
+            <span class="badge badge-primary"><%= t('chat.consentBadge') %></span>
+            <h1 id="chatConsentTitle" class="chat-consent-title"><%= t('chat.consentTitle') %></h1>
+          </div>
+        </div>
+
+        <p class="chat-consent-intro"><%= t('chat.consentIntro') %></p>
+
+        <ol class="chat-consent-list">
+          <li>
+            <span class="chat-consent-bullet" aria-hidden="true">🗑️</span>
+            <span><%= t('chat.consentPoint1') %></span>
+          </li>
+          <li>
+            <span class="chat-consent-bullet" aria-hidden="true">🔒</span>
+            <span><%= t('chat.consentPoint2') %></span>
+          </li>
+          <li>
+            <span class="chat-consent-bullet" aria-hidden="true">🛡️</span>
+            <span><%= t('chat.consentPoint3') %></span>
+          </li>
+          <li>
+            <span class="chat-consent-bullet" aria-hidden="true">🚫</span>
+            <span><%= t('chat.consentPoint4') %></span>
+          </li>
+          <li>
+            <span class="chat-consent-bullet" aria-hidden="true">🤝</span>
+            <span><%= t('chat.consentPoint5') %></span>
+          </li>
+        </ol>
+
+        <div class="chat-consent-meta">
+          <a href="/sohbet/gizlilik" class="chat-consent-privacy-link" target="_blank" rel="noopener">
+            📄 <%= t('chat.consentPrivacyLink') %> ↗
+          </a>
+          <span class="chat-consent-version"><%= t('chat.consentPolicyVersion') %>: v<%= policyVersion %></span>
+        </div>
+
+        <form id="chatConsentForm" class="chat-consent-form" novalidate>
+          <label class="chat-consent-checkbox-label">
+            <input type="checkbox" id="chatConsentCheckbox" name="accepted" required />
+            <span><%= t('chat.consentCheckbox') %></span>
+          </label>
+          <div id="chatConsentError" class="chat-inline-error" role="alert" hidden></div>
+          <div class="chat-consent-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="chatConsentSubmitBtn">
+              <span><%= t('chat.consentAcceptBtn') %></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  <% } else { %>
+    <!-- ==================================================================
+         ANA BİREBİR SOHBET ARAYÜZÜ (İKİ PANEL MASAÜSTÜ / TEK PANEL MOBİL)
+         ================================================================== -->
+    <div id="chatReconnectBanner" class="chat-reconnect-banner" role="status" aria-live="polite" hidden>
+      <span class="chat-reconnect-dot" aria-hidden="true"></span>
+      <span><%= t('chat.reconnectingBanner') %></span>
+    </div>
+
+    <div class="chat-app" id="chatApp">
+      <!-- SOL PANEL: Arama + Sohbet Listesi + 30 Gün Alt Bilgisi -->
+      <aside class="chat-list-pane" id="chatListPane" aria-label="<%= t('chat.conversationsTitle') %>">
+        <div class="chat-list-topbar">
+          <div class="chat-list-title-row">
+            <h1 class="chat-list-heading">💬 <%= t('chat.heading') %></h1>
+            <div class="chat-list-top-actions">
+              <button
+                type="button"
+                class="chat-icon-btn"
+                id="chatOpenSettingsBtn"
+                title="<%= t('chat.settingsBtn') %>"
+                aria-label="<%= t('chat.settingsBtn') %>"
+              >
+                <span aria-hidden="true">⚙️</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="chat-search-wrap">
+            <span class="chat-search-icon" aria-hidden="true">🔍</span>
+            <input
+              type="search"
+              id="chatDirectorySearch"
+              class="chat-search-input"
+              placeholder="<%= t('chat.searchPlaceholder') %>"
+              aria-label="<%= t('chat.searchPlaceholder') %>"
+              autocomplete="off"
+              maxlength="64"
+            />
+            <button type="button" id="chatSearchClearBtn" class="chat-search-clear" aria-label="<%= t('chat.closeBtn') %>" hidden>✕</button>
+          </div>
+        </div>
+
+        <div class="chat-list-scroll" id="chatListScroll">
+          <!-- Rehber Arama Sonuçları (Arama yapılınca görünür) -->
+          <div id="chatDirectorySection" class="chat-list-section" hidden>
+            <div class="chat-list-section-title"><%= t('chat.searchResultsTitle') %></div>
+            <div id="chatDirectoryList" class="chat-items-container"></div>
+          </div>
+
+          <!-- Sohbet Listesi -->
+          <div id="chatConversationsSection" class="chat-list-section">
+            <div class="chat-list-section-title"><%= t('chat.conversationsTitle') %></div>
+            <div id="chatConversationsList" class="chat-items-container"></div>
+          </div>
+        </div>
+
+        <div class="chat-list-footer">
+          <a href="/sohbet/gizlilik" class="chat-retention-footer-link">
+            <span><%= t('chat.retentionFooter') %></span>
+          </a>
+        </div>
+      </aside>
+
+      <!-- SAĞ PANEL: Seçili Konuşma -->
+      <section class="chat-thread-pane" id="chatThreadPane" aria-label="<%= t('chat.heading') %>">
+        <!-- Boş durum (hiç sohbet seçilmemişken) -->
+        <div class="chat-thread-empty" id="chatThreadEmpty">
+          <div class="chat-thread-empty-icon" aria-hidden="true">💬</div>
+          <h2 class="chat-thread-empty-title"><%= t('chat.emptyThreadTitle') %></h2>
+          <p class="chat-thread-empty-desc"><%= t('chat.emptyThreadDesc') %></p>
+        </div>
+
+        <!-- Aktif Konuşma Kapsayıcısı -->
+        <div class="chat-thread-active" id="chatThreadActive" hidden>
+          <!-- Konuşma Başlığı -->
+          <header class="chat-thread-header">
+            <div class="chat-thread-header-left">
+              <button
+                type="button"
+                class="chat-icon-btn chat-back-btn"
+                id="chatMobileBackBtn"
+                aria-label="<%= t('chat.backToList') %>"
+                title="<%= t('chat.backToList') %>"
+              >
+                ←
+              </button>
+              <div id="chatHeaderAvatarSlot" class="chat-header-avatar-slot"></div>
+              <div class="chat-header-identity">
+                <div class="chat-header-name" id="chatHeaderName"></div>
+                <div class="chat-header-sub" id="chatHeaderSub"></div>
+              </div>
+            </div>
+
+            <div class="chat-thread-header-right">
+              <button
+                type="button"
+                class="chat-retention-pill"
+                id="chatRetentionInfoBtn"
+                title="<%= t('chat.retentionTooltipTitle') %>"
+                aria-label="<%= t('chat.retentionTooltipTitle') %>"
+              >
+                <span aria-hidden="true">🗑️</span>
+                <span class="chat-retention-pill-text">30g</span>
+              </button>
+
+              <div class="chat-menu-wrap">
+                <button
+                  type="button"
+                  class="chat-icon-btn"
+                  id="chatHeaderMenuBtn"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-label="<%= t('chat.moreMenuBtn') %>"
+                  title="<%= t('chat.moreMenuBtn') %>"
+                >
+                  ⋮
+                </button>
+                <div class="chat-dropdown-menu" id="chatHeaderMenu" role="menu" hidden>
+                  <button type="button" class="chat-dropdown-item chat-dropdown-item--danger" id="chatMenuBlockBtn" role="menuitem">
+                    🚫 <span id="chatMenuBlockLabel"><%= t('chat.blockUser') %></span>
+                  </button>
+                  <a href="/sohbet/gizlilik" class="chat-dropdown-item" role="menuitem" target="_blank" rel="noopener">
+                    📄 <%= t('chat.consentPrivacyLink') %>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <!-- 30 Günlük Temizlik Açıklama Kutusu (İpucu tıklandığında açılır) -->
+          <div class="chat-retention-popover" id="chatRetentionPopover" hidden>
+            <strong id="chatRetentionPopoverTitle"><%= t('chat.retentionTooltipTitle') %></strong>
+            <p id="chatRetentionPopoverBody"></p>
+          </div>
+
+          <!-- Mesaj Akışı -->
+          <div class="chat-messages-scroll" id="chatMessagesScroll" role="log" aria-live="polite" aria-relevant="additions">
+            <div class="chat-load-older-wrap" id="chatLoadOlderWrap" hidden>
+              <button type="button" class="btn btn-secondary btn-xs" id="chatLoadOlderBtn">
+                <%= t('chat.loadOlderBtn') %>
+              </button>
+            </div>
+            <div class="chat-messages-list" id="chatMessagesList"></div>
+            <!-- Karşı taraf yazıyor göstergesi -->
+            <div class="chat-typing-row" id="chatTypingRow" hidden>
+              <div class="chat-typing-bubble" aria-label="<%= t('chat.typingIndicator') %>">
+                <span class="chat-typing-dot"></span>
+                <span class="chat-typing-dot"></span>
+                <span class="chat-typing-dot"></span>
+              </div>
+              <span class="chat-typing-label" id="chatTypingLabel"><%= t('chat.typingIndicator') %></span>
+            </div>
+          </div>
+
+          <!-- Engel / Kapalı DM Uyarı Şeridi -->
+          <div class="chat-status-bar" id="chatBlockedBar" hidden>
+            <span id="chatBlockedBarText"></span>
+            <button type="button" class="btn btn-secondary btn-xs" id="chatQuickUnblockBtn" hidden>
+              <%= t('chat.unblockUser') %>
+            </button>
+          </div>
+
+          <!-- Alt Mesaj Yazma Kutusu (Composer) -->
+          <div class="chat-composer-shell" id="chatComposerShell">
+            <!-- Emoji Paneli (Açılır Popover / Mobilde Bottom Sheet) -->
+            <div class="chat-emoji-popover" id="chatEmojiPopover" role="dialog" aria-label="<%= t('chat.emojiBtn') %>" hidden>
+              <div class="chat-emoji-top">
+                <input
+                  type="search"
+                  id="chatEmojiSearch"
+                  class="chat-emoji-search"
+                  placeholder="<%= t('chat.emojiSearchPlaceholder') %>"
+                  aria-label="<%= t('chat.emojiSearchPlaceholder') %>"
+                  autocomplete="off"
+                />
+                <button type="button" class="chat-icon-btn chat-emoji-close" id="chatEmojiCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+              </div>
+              <div class="chat-emoji-tabs" id="chatEmojiTabs" role="tablist"></div>
+              <div class="chat-emoji-grid-wrap" id="chatEmojiGridWrap">
+                <div class="chat-emoji-grid" id="chatEmojiGrid" role="grid"></div>
+              </div>
+            </div>
+
+            <form id="chatComposerForm" class="chat-composer-form" novalidate>
+              <button
+                type="button"
+                class="chat-composer-btn"
+                id="chatEmojiToggleBtn"
+                title="<%= t('chat.emojiBtn') %>"
+                aria-label="<%= t('chat.emojiBtn') %>"
+                aria-expanded="false"
+                aria-controls="chatEmojiPopover"
+              >
+                😊
+              </button>
+
+              <!-- Parça 3 (Dosya Gönderme) için hazır ek buton yuvası -->
+              <div id="chatAttachmentControlsSlot" class="chat-attachment-controls-slot"></div>
+
+              <div class="chat-textarea-wrap">
+                <textarea
+                  id="chatMessageInput"
+                  class="chat-message-input"
+                  rows="1"
+                  maxlength="<%= chatLimits ? chatLimits.maxMessageLength : 4000 %>"
+                  placeholder="<%= t('chat.composerPlaceholder') %>"
+                  aria-label="<%= t('chat.composerPlaceholder') %>"
+                ></textarea>
+                <span class="chat-char-counter" id="chatCharCounter" hidden></span>
+              </div>
+
+              <button
+                type="submit"
+                class="chat-send-btn"
+                id="chatSendBtn"
+                title="<%= t('chat.sendBtn') %>"
+                aria-label="<%= t('chat.sendBtn') %>"
+                disabled
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ==================================================================
+         AYARLAR VE PROFİL HALKASI SEÇİCİ MODALI
+         ================================================================== -->
+    <div class="chat-modal-backdrop" id="chatSettingsModal" hidden aria-hidden="true">
+      <div class="chat-modal-card chat-settings-modal" role="dialog" aria-modal="true" aria-labelledby="chatSettingsTitle">
+        <div class="chat-modal-header">
+          <h2 id="chatSettingsTitle" class="chat-modal-title">⚙️ <%= t('chat.settingsTitle') %></h2>
+          <button type="button" class="chat-icon-btn" id="chatSettingsCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+        </div>
+
+        <div class="chat-settings-tabs" role="tablist">
+          <button type="button" class="chat-settings-tab active" data-settings-tab="ring" role="tab" aria-selected="true">
+            🎨 <%= t('chat.settingsTabRing') %>
+          </button>
+          <button type="button" class="chat-settings-tab" data-settings-tab="privacy" role="tab" aria-selected="false">
+            🔒 <%= t('chat.settingsTabPrivacy') %>
+          </button>
+          <button type="button" class="chat-settings-tab" data-settings-tab="blocked" role="tab" aria-selected="false">
+            🚫 <%= t('chat.settingsTabBlocked') %>
+          </button>
+        </div>
+
+        <div class="chat-modal-body">
+          <!-- SEKME 1: PROFİL HALKASI -->
+          <div class="chat-settings-panel" id="chatSettingsPanelRing">
+            <div class="chat-ring-preview-box">
+              <div id="chatRingLivePreviewSlot"></div>
+              <div class="chat-ring-preview-info">
+                <div class="chat-ring-preview-label"><%= t('chat.ringPreviewLabel') %></div>
+                <strong id="chatRingPreviewName"></strong>
+                <div class="chat-ring-preview-user"><%= chatProfile.displayName %></div>
+              </div>
+            </div>
+
+            <div class="chat-ring-cat-tabs" id="chatRingCategoryTabs" role="tablist"></div>
+            <div class="chat-ring-grid" id="chatRingPresetGrid"></div>
+
+            <!-- Kendi Halkanı Yap -->
+            <div class="chat-custom-ring-box">
+              <h3 class="chat-custom-ring-title">✨ <%= t('chat.ringCustomTitle') %></h3>
+              <p class="chat-custom-ring-desc"><%= t('chat.ringCustomDesc') %></p>
+              <div class="chat-custom-colors-row" id="chatCustomColorsRow"></div>
+              <div class="chat-custom-ring-actions">
+                <button type="button" class="btn btn-secondary btn-xs" id="chatCustomAddColorBtn">
+                  <%= t('chat.ringAddColor') %>
+                </button>
+                <label class="chat-toggle-inline">
+                  <input type="checkbox" id="chatCustomSpinCheck" />
+                  <span><%= t('chat.ringSpinToggle') %></span>
+                </label>
+                <button type="button" class="btn btn-primary btn-xs" id="chatCustomApplyBtn">
+                  <%= t('chat.ringApplyCustom') %>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEKME 2: GİZLİLİK VE BİLDİRİMLER -->
+          <div class="chat-settings-panel" id="chatSettingsPanelPrivacy" hidden>
+            <div class="chat-setting-row">
+              <label class="chat-setting-toggle-label">
+                <input type="checkbox" id="chatSetReadReceipts" />
+                <div>
+                  <strong><%= t('chat.privacyReadReceipts') %></strong>
+                  <p><%= t('chat.privacyReadReceiptsDesc') %></p>
+                </div>
+              </label>
+            </div>
+
+            <div class="chat-setting-row">
+              <label class="chat-setting-select-label" for="chatSetWhoCanMessage">
+                <strong><%= t('chat.privacyWhoCanMessage') %></strong>
+              </label>
+              <select id="chatSetWhoCanMessage" class="form-control">
+                <option value="everyone"><%= t('chat.privacyWhoEveryone') %></option>
+                <option value="nobody"><%= t('chat.privacyWhoNobody') %></option>
+              </select>
+            </div>
+
+            <hr class="chat-setting-divider" />
+            <h3 class="chat-setting-subtitle">🔔 <%= t('chat.notifySectionTitle') %></h3>
+
+            <div class="chat-setting-row">
+              <button type="button" class="btn btn-secondary btn-sm" id="chatEnableBrowserNotifyBtn">
+                <%= t('chat.notifyBrowserBtn') %>
+              </button>
+              <div class="chat-setting-hint" id="chatBrowserNotifyStatus"></div>
+            </div>
+
+            <div class="chat-setting-row">
+              <label class="chat-setting-toggle-label">
+                <input type="checkbox" id="chatSetNotifyPreview" />
+                <div>
+                  <strong><%= t('chat.notifyPreviewToggle') %></strong>
+                  <p><%= t('chat.notifyPreviewDesc') %></p>
+                </div>
+              </label>
+            </div>
+
+            <div class="chat-setting-row">
+              <label class="chat-setting-toggle-label">
+                <input type="checkbox" id="chatSetNotifySound" />
+                <div>
+                  <strong><%= t('chat.notifySoundToggle') %></strong>
+                  <p><%= t('chat.notifySoundDesc') %></p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- SEKME 3: ENGELLENENLER -->
+          <div class="chat-settings-panel" id="chatSettingsPanelBlocked" hidden>
+            <div id="chatBlockedListContainer" class="chat-blocked-list"></div>
+          </div>
+        </div>
+
+        <div class="chat-modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="chatSettingsCancelBtn"><%= t('chat.closeBtn') %></button>
+          <button type="button" class="btn btn-primary btn-sm" id="chatSettingsSaveBtn"><%= t('chat.ringSaveBtn') %></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         ONAY DİYALOĞU (Mesaj Sil / Engelle)
+         ================================================================== -->
+    <div class="chat-modal-backdrop" id="chatConfirmModal" hidden aria-hidden="true">
+      <div class="chat-modal-card chat-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="chatConfirmTitle">
+        <div class="chat-modal-header">
+          <h3 id="chatConfirmTitle" class="chat-modal-title"></h3>
+        </div>
+        <div class="chat-modal-body">
+          <p id="chatConfirmText" class="chat-confirm-text"></p>
+        </div>
+        <div class="chat-modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="chatConfirmCancelBtn"><%= t('chat.cancelBtn') %></button>
+          <button type="button" class="btn btn-danger btn-sm" id="chatConfirmOkBtn"><%= t('chat.confirmBtn') %></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bildirim Toast Kutusu -->
+    <div class="chat-toast-stack" id="chatToastStack" aria-live="polite" aria-atomic="true"></div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>

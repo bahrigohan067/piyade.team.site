@@ -368,4 +368,43 @@
   --topgames-row-bg: rgba(15, 19, 32, 0.72);
   --topgames-row-hover-bg: rgba(23, 28, 46, 0.92);
   --topgames-bar-track: rgba(255, 255, 255, 0.07);
+
+  /* ============================================================================
+   * 12. SOHBET (CHAT) VE MODERASYON YÜZEY DEĞİŞKENLERİ (WCAG AA + Ek Karartma)
+   * ============================================================================ */
+  --chat-dim: rgba(7, 8, 12, 0.76);
+  --chat-dim-fallback: rgba(7, 8, 12, 0.95);
+  --chat-panel-bg: rgba(11, 13, 22, 0.84);
+  --chat-panel-fallback: rgba(11, 13, 22, 0.97);
+  --chat-sidebar-bg: rgba(9, 11, 19, 0.88);
+  --chat-header-bg: rgba(12, 15, 25, 0.92);
+  --chat-composer-bg: rgba(12, 15, 25, 0.94);
+  --chat-item-hover: rgba(139, 92, 246, 0.14);
+  --chat-item-active: rgba(139, 92, 246, 0.24);
+  --chat-item-active-border: rgba(168, 85, 247, 0.48);
+  --chat-bubble-self: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
+  --chat-bubble-self-text: #ffffff;
+  --chat-bubble-self-meta: rgba(255, 255, 255, 0.78);
+  --chat-bubble-other: rgba(24, 29, 46, 0.92);
+  --chat-bubble-other-border: rgba(255, 255, 255, 0.10);
+  --chat-bubble-other-text: #f1f5f9;
+  --chat-bubble-other-meta: #94a3b8;
+  --chat-bubble-deleted-bg: rgba(255, 255, 255, 0.04);
+  --chat-bubble-deleted-border: rgba(255, 255, 255, 0.12);
+  --chat-bubble-system-bg: rgba(245, 158, 11, 0.14);
+  --chat-bubble-system-border: rgba(245, 158, 11, 0.42);
+  --chat-bubble-system-text: #fde68a;
+  --chat-divider-bg: rgba(17, 21, 35, 0.92);
+  --chat-divider-text: #cbd5e1;
+  --chat-unread-divider: #a855f7;
+  --chat-ring-inner-bg: #0b0d16;
+  --chat-popover-bg: rgba(13, 16, 28, 0.97);
+  --chat-modal-backdrop: rgba(4, 5, 10, 0.78);
+  --chat-lightbox-backdrop: rgba(3, 4, 8, 0.94);
+  --chat-chip-bg: rgba(22, 27, 44, 0.94);
+  --chat-progress-track: rgba(255, 255, 255, 0.14);
+  --chat-progress-fill: #a855f7;
+  --chat-seen-color: #c4b5fd;
+  --chat-toast-bg: rgba(16, 20, 34, 0.96);
+  --chat-blur-overlay: rgba(8, 10, 18, 0.72);
 }

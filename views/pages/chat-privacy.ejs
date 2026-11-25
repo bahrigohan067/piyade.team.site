@@ -1,0 +1,58 @@
+<%- include('../layouts/header') %>
+
+<%
+  const nextCleanupStr = retentionInfo && retentionInfo.nextCleanupAt
+    ? new Date(retentionInfo.nextCleanupAt).toLocaleString((typeof lang !== 'undefined' && lang === 'en') ? 'en-US' : 'tr-TR', {
+        timeZone: 'Europe/Istanbul',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : '';
+%>
+
+<section class="chat-privacy-page">
+  <div class="chat-privacy-card">
+    <div class="chat-privacy-top">
+      <span class="badge badge-primary">🔒 <%= t('chat.consentPolicyVersion') %> v<%= policyVersion %></span>
+      <a href="/sohbet" class="btn btn-secondary btn-sm">← <%= t('chat.privacyBackToChat') %></a>
+    </div>
+
+    <h1 class="chat-privacy-heading"><%= t('chat.privacyHeading') %></h1>
+    <p class="chat-privacy-intro"><%= t('chat.privacyIntro') %></p>
+
+    <div class="chat-privacy-sections">
+      <article class="chat-privacy-block">
+        <h2><%= t('chat.privacySection1Title') %></h2>
+        <p><%= t('chat.privacySection1Body') %></p>
+        <% if (nextCleanupStr) { %>
+          <div class="chat-privacy-cleanup-pill">
+            <span>🗑️ <%= t('chat.privacyNextCleanup') %></span>
+            <strong><%= nextCleanupStr %></strong>
+          </div>
+        <% } %>
+      </article>
+
+      <article class="chat-privacy-block">
+        <h2><%= t('chat.privacySection2Title') %></h2>
+        <p><%= t('chat.privacySection2Body') %></p>
+      </article>
+
+      <article class="chat-privacy-block">
+        <h2><%= t('chat.privacySection3Title') %></h2>
+        <p><%= t('chat.privacySection3Body') %></p>
+      </article>
+
+      <article class="chat-privacy-block">
+        <h2><%= t('chat.privacySection4Title') %></h2>
+        <p><%= t('chat.privacySection4Body') %></p>
+      </article>
+    </div>
+
+    <div class="chat-privacy-footer">
+      <a href="/sohbet" class="btn btn-primary">💬 <%= t('chat.privacyBackToChat') %></a>
+      <a href="/kurallar" class="btn btn-secondary">📜 <%= t('nav.rules') %></a>
+    </div>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

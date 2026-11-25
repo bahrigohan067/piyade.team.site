@@ -72,9 +72,12 @@
   <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text, NexusSpring) -->
   <script src="/js/nexus-components.js?v=<%= assetVer %>" defer></script>
 
-  <% if (showFeedbackPill) { %>
+  <% if (showFeedbackPill || (typeof isChatPage !== 'undefined' && isChatPage)) { %>
     <!-- Ortak Web Audio Sentezleyici -->
     <script src="/js/nexus-sound.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (showFeedbackPill) { %>
     <!-- Feedback Pill Mantığı -->
     <script src="/js/feedback-pill.js?v=<%= assetVer %>" defer></script>
   <% } %>
@@ -87,6 +90,11 @@
     <script src="/js/activity-panel.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
+  <% if (typeof chatEnabled !== 'undefined' && chatEnabled && typeof currentUser !== 'undefined' && currentUser && currentUser.id && typeof isRegistered !== 'undefined' && isRegistered) { %>
+    <!-- Sol Menü Sohbet Okunmamış Rozeti (SSE + 30sn Yoklama Yedeği) -->
+    <script src="/js/chat-badge.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
   <% if (typeof isHomePage !== 'undefined' && isHomePage) { %>
     <!-- Anasayfa "Sunucuda En Çok Oynanan Oyunlar" Sıralama ve Animasyon Mantığı -->
     <script src="/js/top-games.js?v=<%= assetVer %>" defer></script>
@@ -94,6 +102,14 @@
 
   <% if (typeof isRegisterPage !== 'undefined' && isRegisterPage) { %>
     <script src="/js/register.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isChatPage !== 'undefined' && isChatPage) { %>
+    <script src="/js/chat.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isChatModPage !== 'undefined' && isChatModPage) { %>
+    <script src="/js/chat-mod.js?v=<%= assetVer %>" defer></script>
   <% } %>
 </body>
 </html>

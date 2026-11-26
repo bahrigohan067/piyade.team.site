@@ -12,6 +12,7 @@ node_modules/
 .legal-data/
 .reports-data/
 .members-data/
+.warnings-data/
 /data/
 
 # Loglar ve Geçici Dosyalar

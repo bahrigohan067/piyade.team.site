@@ -776,24 +776,88 @@ class SiteWarningStore {
     const memberId = rec.memberId;
     const unifiedId = toUnifiedGoogleId(memberId);
 
-    // 1) Bu uyarıdan doğan sohbet susturmasını kaldır (başka bir aktif susturma varsa chatModStore'da kalmaya devam eder)
+    // Kalan aktif (iptal edilmemiş) uyarıları ve aktif af döngüsü puanını yeniden hesapla
+    const remainingActive = this._getMemberRecordsRaw(memberId).filter((r) => !r.cancelled);
+    const remainingCyclePointRecords = remainingActive.filter(
+      (r) => !r.pardonedAt && (Number(r.pointsAdded) || 0) > 0
+    );
+    const remainingCyclePoints = remainingCyclePointRecords.reduce(
+      (sum, r) => sum + (Number(r.pointsAdded) || 0),
+      0
+    );
+    const t10Min = warningsConfig.POINT_THRESHOLDS.CHAT_MUTE_10.minPoints;
+    const t15Min = warningsConfig.POINT_THRESHOLDS.ACCOUNT_SUSPEND_15.minPoints;
+
+    // 1) Sohbet susturmasını yeniden değerlendir:
+    //    - İptal edilen kayıt doğrudan kural susturmasıysa (M4/M10/M11/M13) yalnız kendi yaptırımını kaldır;
+    //      başka aktif bir kural/eşik susturması varsa chatModStore'da kalmaya devam eder.
+    //    - Puan kaydı iptal edildiyse ve aktif puan 10'un altına düştüyse, aktif döngüdeki 10-puan eşiği
+    //      susturmalarını kaldır ve eşik bayrağını temizle (tekrar 10'a çıkarsa yeniden uygulanabilsin).
     if (chatModStore) {
-      chatModStore.liftSanctionsByWarningId(cleanWarnId, {
-        modId: actorId,
-        modName: actorName,
-        note: `Uyarı iptali (${cleanWarnId})`,
-        nowTs: now,
-        skipAudit: true,
-      });
+      if (rec.sanctionKind === 'chat_mute' && !rec.triggeredThreshold10) {
+        chatModStore.liftSanctionsByWarningId(cleanWarnId, {
+          modId: actorId,
+          modName: actorName,
+          note: `Uyarı iptali (${cleanWarnId})`,
+          nowTs: now,
+          skipAudit: true,
+        });
+      }
+      if ((Number(rec.pointsAdded) || 0) > 0 && remainingCyclePoints < t10Min) {
+        const threshold10WarnIds = new Set();
+        if (rec.triggeredThreshold10) threshold10WarnIds.add(cleanWarnId);
+        for (const r of remainingCyclePointRecords) {
+          if (r.triggeredThreshold10) {
+            threshold10WarnIds.add(r.id);
+            r.triggeredThreshold10 = false;
+          }
+        }
+        for (const wid of threshold10WarnIds) {
+          chatModStore.liftSanctionsByWarningId(wid, {
+            modId: actorId,
+            modName: actorName,
+            note: `Puan 10 eşiğinin altına düştü (${cleanWarnId})`,
+            nowTs: now,
+            skipAudit: true,
+          });
+        }
+      } else if (
+        rec.triggeredThreshold10 &&
+        remainingCyclePoints >= t10Min &&
+        remainingCyclePointRecords.length > 0 &&
+        !remainingCyclePointRecords.some((r) => r.triggeredThreshold10)
+      ) {
+        // Kalan aktif puan hala 10+ ise eşik geçişi bayrağını en son aktif kayda taşı (çift tetiklemeyi önler)
+        remainingCyclePointRecords[remainingCyclePointRecords.length - 1].triggeredThreshold10 = true;
+      }
     }
 
-    // 2) Kalan aktif (iptal edilmemiş) uyarılara göre askı ve kalıcı yasağı yeniden hesapla
-    const remainingActive = this._getMemberRecordsRaw(memberId).filter((r) => !r.cancelled);
+    // 2) Kalan aktif uyarılara göre kalıcı yasak ve 15+ puan hesap askısını yeniden değerlendir
     const hasOtherActiveBan = remainingActive.some((r) => r.sanctionKind === 'permanent_ban');
-    const remainingSuspUntil = remainingActive.reduce((maxTs, r) => {
-      const u = Number(r.suspensionAppliedUntil) || 0;
-      return u > now ? Math.max(maxTs, u) : maxTs;
-    }, 0);
+    const stillMeetsSuspendThreshold = remainingCyclePoints >= t15Min;
+    if (!stillMeetsSuspendThreshold) {
+      for (const r of remainingCyclePointRecords) {
+        if (r.triggeredThreshold15) {
+          r.triggeredThreshold15 = false;
+        }
+      }
+    } else if (
+      rec.triggeredThreshold15 &&
+      remainingCyclePointRecords.length > 0 &&
+      !remainingCyclePointRecords.some((r) => r.triggeredThreshold15)
+    ) {
+      remainingCyclePointRecords[remainingCyclePointRecords.length - 1].triggeredThreshold15 = true;
+      if (rec.suspensionAppliedUntil) {
+        remainingCyclePointRecords[remainingCyclePointRecords.length - 1].suspensionAppliedUntil =
+          rec.suspensionAppliedUntil;
+      }
+    }
+    const remainingSuspUntil = stillMeetsSuspendThreshold
+      ? remainingActive.reduce((maxTs, r) => {
+          const u = Number(r.suspensionAppliedUntil) || 0;
+          return u > now ? Math.max(maxTs, u) : maxTs;
+        }, 0)
+      : 0;
 
     if (memberStore) {
       const member = memberStore.findById(memberId);
@@ -803,13 +867,28 @@ class SiteWarningStore {
             memberStore.unbanGoogleSub(member.googleSub);
           }
 
-          if (remainingSuspUntil > now) {
-            memberStore.updateMember(memberId, {
-              status: 'suspended',
-              statusExpiresAt: remainingSuspUntil,
-            });
+          if (stillMeetsSuspendThreshold) {
+            const keepUntil = Math.max(
+              remainingSuspUntil,
+              member.status === 'suspended' && Number(member.statusExpiresAt) > now
+                ? Number(member.statusExpiresAt)
+                : 0
+            );
+            if (keepUntil > now) {
+              memberStore.updateMember(memberId, {
+                status: 'suspended',
+                statusExpiresAt: keepUntil,
+              });
+            } else if (rec.sanctionKind === 'permanent_ban' && member.status === 'banned') {
+              memberStore.updateMember(memberId, {
+                status: 'active',
+                statusExpiresAt: null,
+                statusReason: '',
+              });
+            }
           } else if (
             (rec.sanctionKind === 'permanent_ban' && member.status === 'banned') ||
+            ((Number(rec.pointsAdded) || 0) > 0 && member.status === 'suspended') ||
             (rec.suspensionAppliedUntil && member.status === 'suspended')
           ) {
             memberStore.updateMember(memberId, {

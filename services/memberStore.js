@@ -225,6 +225,16 @@ class MemberStore {
     return true;
   }
 
+  unbanGoogleSub(googleSub) {
+    const hash = sha256Hex(googleSub);
+    const st = this._loadState();
+    if (!st.bannedSubHashes[hash]) return false;
+    delete st.bannedSubHashes[hash];
+    this._saveState();
+    this.appendAudit({ action: 'google_sub_unbanned' });
+    return true;
+  }
+
   // ==========================================================================
   // 2) GOOGLE <-> DISCORD KALICI BAĞ YÖNETİMİ
   // ==========================================================================
@@ -333,6 +343,13 @@ class MemberStore {
     const st = this._loadState();
     return Object.values(st.members)
       .filter((m) => m && m.status === 'active')
+      .map((m) => this._cloneMember(m));
+  }
+
+  listAllMembers() {
+    const st = this._loadState();
+    return Object.values(st.members)
+      .filter(Boolean)
       .map((m) => this._cloneMember(m));
   }
 
@@ -480,6 +497,12 @@ class MemberStore {
 
     if (typeof patch.statusReason === 'string') {
       rec.statusReason = patch.statusReason.slice(0, 300);
+    }
+
+    if (patch.statusExpiresAt === null) {
+      rec.statusExpiresAt = null;
+    } else if (typeof patch.statusExpiresAt === 'number' && Number.isFinite(patch.statusExpiresAt)) {
+      rec.statusExpiresAt = patch.statusExpiresAt;
     }
 
     this._saveState();

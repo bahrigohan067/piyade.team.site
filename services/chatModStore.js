@@ -19,6 +19,9 @@ const REPORT_CATEGORIES = Object.freeze([
 const MUTE_DURATIONS_MS = Object.freeze({
   '1h': 1 * HOUR_MS,
   '24h': 24 * HOUR_MS,
+  '1d': 1 * DAY_MS,
+  '2d': 2 * DAY_MS,
+  '3d': 3 * DAY_MS,
   '7d': 7 * DAY_MS,
   '30d': 30 * DAY_MS,
 });
@@ -628,17 +631,24 @@ class ChatModStore {
     userId,
     type, // 'mute' | 'ban'
     durationKey = null,
+    durationMs = null,
     reasonCategory = 'other',
     note = '',
     modId,
     modName = '',
     caseId = null,
+    source = 'moderation', // 'moderation' | 'site_warning'
+    sourceWarningId = null,
+    ruleCode = null,
+    reasonText = '',
+    skipAudit = false,
     nowTs = Date.now(),
   }) {
     const uid = String(userId || '').trim();
     let expiresAt = null;
     if (type === 'mute') {
-      const durMs = MUTE_DURATIONS_MS[durationKey];
+      const durMs =
+        Number.isFinite(durationMs) && durationMs > 0 ? durationMs : MUTE_DURATIONS_MS[durationKey];
       if (!durMs) {
         const err = new Error('Geçersiz susturma süresi.');
         err.code = 'INVALID_DURATION';
@@ -653,9 +663,13 @@ class ChatModStore {
       id: generateId('sanc'),
       userId: uid,
       type,
-      durationKey: type === 'mute' ? durationKey : null,
+      durationKey: type === 'mute' ? durationKey || `${Math.round((expiresAt - nowTs) / HOUR_MS)}h` : null,
       reasonCategory: String(reasonCategory || 'other'),
       note: String(note || '').trim().slice(0, 300),
+      source: source === 'site_warning' ? 'site_warning' : 'moderation',
+      sourceWarningId: sourceWarningId ? String(sourceWarningId) : null,
+      ruleCode: ruleCode ? String(ruleCode).toUpperCase().slice(0, 12) : null,
+      reasonText: String(reasonText || '').trim().slice(0, 300),
       caseId: caseId ? String(caseId) : null,
       createdBy: String(modId),
       createdByName: String(modName || modId),
@@ -669,18 +683,50 @@ class ChatModStore {
     this.sanctions.set(sanction.id, sanction);
     this._saveSanctionsSync();
 
-    this.appendAuditLog({
-      modId,
-      modName,
-      caseId: sanction.caseId,
-      action: type === 'ban' ? 'ban_user' : `mute_user_${durationKey}`,
-      category: sanction.reasonCategory,
-      targetId: uid,
-      note: sanction.note,
-      nowTs,
-    });
+    if (!skipAudit) {
+      this.appendAuditLog({
+        modId,
+        modName,
+        caseId: sanction.caseId,
+        action: type === 'ban' ? 'ban_user' : `mute_user_${sanction.durationKey}`,
+        category: sanction.reasonCategory,
+        targetId: uid,
+        note: sanction.note,
+        nowTs,
+      });
+    }
 
     return { ...sanction };
+  }
+
+  liftSanctionsByWarningId(warningId, { modId, modName = '', note = '', nowTs = Date.now(), skipAudit = false } = {}) {
+    const cleanWarnId = String(warningId || '').trim();
+    if (!cleanWarnId) return [];
+    const lifted = [];
+    let changed = false;
+    for (const s of this.sanctions.values()) {
+      if (s && s.sourceWarningId === cleanWarnId && !s.liftedAt) {
+        s.liftedAt = nowTs;
+        s.liftedBy = String(modId || 'system');
+        s.liftedNote = String(note || '').trim().slice(0, 300);
+        lifted.push({ ...s });
+        changed = true;
+        if (!skipAudit) {
+          this.appendAuditLog({
+            modId: s.liftedBy,
+            modName,
+            caseId: s.caseId,
+            action: 'lift_sanction',
+            category: s.type,
+            targetId: s.userId,
+            note: s.liftedNote,
+            nowTs,
+          });
+        }
+      }
+    }
+    if (changed) this._saveSanctionsSync();
+    return lifted;
   }
 
   liftSanction(sanctionId, { modId, modName = '', note = '', nowTs = Date.now() }) {

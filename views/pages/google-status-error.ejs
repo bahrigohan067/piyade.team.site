@@ -1,0 +1,66 @@
+<%- include('../layouts/header') %>
+
+<%
+  const errType = typeof errorType === 'string' ? errorType : 'token_invalid';
+  const reasonText = typeof statusReason === 'string' ? statusReason.trim() : '';
+  const isBlocked = errType === 'account_suspended' || errType === 'account_banned';
+  const isConflict = errType === 'discord_link_conflict';
+  const iconMap = {
+    cancelled: '↩️',
+    state_mismatch: '🛡️',
+    missing_code: '⚠️',
+    email_not_verified: '✉️',
+    token_invalid: '⚠️',
+    reauth_mismatch: '🔐',
+    account_suspended: '⏸️',
+    account_banned: '⛔',
+    discord_link_conflict: '🔗',
+    google_disabled: '⚙️',
+  };
+  const descKeyMap = {
+    cancelled: 'googleAuth.errCancelledDesc',
+    state_mismatch: 'googleAuth.errStateDesc',
+    missing_code: 'googleAuth.errTokenDesc',
+    email_not_verified: 'googleAuth.errEmailUnverifiedDesc',
+    token_invalid: 'googleAuth.errTokenDesc',
+    reauth_mismatch: 'googleAuth.errReauthMismatchDesc',
+    account_suspended: 'googleAuth.accountSuspendedDesc',
+    account_banned: 'googleAuth.accountBannedDesc',
+    discord_link_conflict: 'googleAuth.linkConflictDesc',
+    google_disabled: 'googleAuth.errDisabledDesc',
+  };
+%>
+
+<section class="auth-center-shell" aria-labelledby="googleErrorHeading">
+  <div class="glass-card auth-center-card auth-error-card">
+    <div class="auth-error-icon" aria-hidden="true"><%= iconMap[errType] || '⚠️' %></div>
+    <h1 id="googleErrorHeading" class="auth-center-title"><%= title %></h1>
+    <p class="auth-center-desc"><%= t(descKeyMap[errType] || 'googleAuth.errTokenDesc') %></p>
+
+    <% if (isBlocked && reasonText) { %>
+      <div class="auth-reason-box">
+        <span class="auth-reason-label"><%= t('googleAuth.accountReasonLabel') %></span>
+        <p class="auth-reason-text"><%= reasonText %></p>
+      </div>
+    <% } %>
+
+    <div class="auth-error-actions">
+      <% if (isBlocked) { %>
+        <a href="/yasal/kvkk-basvuru" class="btn btn-primary btn-sm"><%= t('googleAuth.btnLegalAppeal') %></a>
+        <a href="/bildir" class="btn btn-secondary btn-sm"><%= t('googleAuth.btnReportLink') %></a>
+        <a href="/" class="btn btn-secondary btn-sm"><%= t('nav.home') %></a>
+      <% } else if (errType === 'reauth_mismatch') { %>
+        <a href="/profil#hesap-sil" class="btn btn-primary btn-sm"><%= t('googleAuth.btnBackToProfile') %></a>
+        <a href="/auth/google?purpose=reauth_delete" class="btn btn-secondary btn-sm"><%= t('googleAuth.btnTryAgain') %></a>
+      <% } else if (isConflict) { %>
+        <a href="/auth/discord" class="btn btn-discord btn-sm"><%= t('googleAuth.btnDiscordLogin') %></a>
+        <a href="/giris" class="btn btn-secondary btn-sm"><%= t('googleAuth.backToLoginCenter') %></a>
+      <% } else { %>
+        <a href="/giris" class="btn btn-primary btn-sm"><%= t('googleAuth.backToLoginCenter') %></a>
+        <a href="/" class="btn btn-secondary btn-sm"><%= t('nav.home') %></a>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

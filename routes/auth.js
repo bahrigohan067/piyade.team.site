@@ -1,10 +1,19 @@
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
+const authConfig = require('../config/auth.config');
 const discordAuthService = require('../services/discordAuthService');
 const botApiClient = require('../services/botApiClient');
+const { getMemberStore } = require('../services/memberStore');
+const { parseCookie, clearRememberCookie } = require('../middlewares/auth');
 const { authLimiter } = require('../middlewares/rateLimiter');
 const { chatSseHub } = require('../services/chatSseHub');
+
+function isSafeRelativeRedirect(target) {
+  if (typeof target !== 'string') return false;
+  const trimmed = target.trim();
+  return trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes('\r') && !trimmed.includes('\n');
+}
 
 /**
  * GET /auth/discord
@@ -25,11 +34,15 @@ router.get('/discord', authLimiter, (req, res) => {
  * GET /auth/discord/callback
  * Discord'dan dönen "code" ve "state" parametrelerini alır.
  * Madde 4: "state" oturumdaki değerle eşleşmezse veya eksikse HTTP 403 döndürür.
+ * Google -> "Evet, Discord hesabım var" akışı varsa googleSub <-> discordId kalıcı bağını kurar.
  */
 router.get('/discord/callback', authLimiter, async (req, res, next) => {
   const { code, state, error } = req.query;
 
   if (error) {
+    if (req.session && req.session.pendingGoogle) {
+      req.session.pendingGoogle.linkToDiscord = false;
+    }
     return res.redirect('/?error=discord_auth_cancelled');
   }
 
@@ -66,6 +79,34 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
     // 2. Access Token ile Discord kullanıcı kimliğini çek
     const discordUser = await discordAuthService.fetchDiscordUser(tokenData.access_token);
 
+    // 2.5) Google -> Discord kalıcı bağlama akışı varsa çakışma kontrolü yap ve bağı kaydet
+    const pendingGoogle = req.session && req.session.pendingGoogle;
+    if (pendingGoogle && pendingGoogle.linkToDiscord && pendingGoogle.sub) {
+      const isFreshPending =
+        Date.now() - (Number(pendingGoogle.createdAt) || 0) <= authConfig.PENDING_GOOGLE_TTL_MS;
+      delete req.session.pendingGoogle;
+
+      if (isFreshPending) {
+        const memberStore = getMemberStore();
+        const linkRes = memberStore.linkGoogleToDiscord(pendingGoogle.sub, discordUser.id);
+        if (!linkRes.ok) {
+          res.locals.disableFeedbackPill = true;
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+          if (typeof req.applySeo === 'function') {
+            req.applySeo({ noindex: true, isPublic: false });
+          }
+          return req.session.save(() => {
+            return res.status(409).render('pages/google-status-error', {
+              title: req.t('googleAuth.linkConflictTitle'),
+              errorType: 'discord_link_conflict',
+              statusReason: '',
+            });
+          });
+        }
+        req.session.authNotice = 'google_linked_success';
+      }
+    }
+
     // 3. Kullanıcının sunucudaki rollerini Bot REST API'den çek (/api/member/:id/roles)
     let roles = [];
     let level = 'none';
@@ -94,8 +135,13 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
     }
 
     // 4. Oturuma kullanıcı bilgilerini kaydet (Access token istemciye asla gönderilmez)
+    req.session.identity = {
+      kind: 'discord',
+      discordId: String(discordUser.id),
+    };
     req.session.user = {
       id: discordUser.id,
+      kind: 'discord',
       username: discordUser.username,
       displayName,
       avatarUrl: discordAuthService.buildAvatarUrl(discordUser),
@@ -107,7 +153,8 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
       rolesSyncedAt: Date.now(),
     };
 
-    const returnTo = req.session.returnTo || '/';
+    const rawReturnTo = req.session.returnTo || '/';
+    const returnTo = isSafeRelativeRedirect(rawReturnTo) ? rawReturnTo : '/';
     delete req.session.returnTo;
 
     return req.session.save(() => {
@@ -120,15 +167,27 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
 
 /**
  * GET /auth/logout
- * Kullanıcının oturumunu güvenli şekilde sonlandırır.
+ * Kullanıcının oturumunu (ve varsa Google pw_remember çerezini/kaydını) güvenli şekilde sonlandırır.
  */
 router.get('/logout', (req, res) => {
   const uid = req.session && req.session.user && req.session.user.id;
   if (uid) {
     chatSseHub.disconnectUser(uid, 'logout');
   }
+
+  try {
+    const memberStore = getMemberStore();
+    const rawRemember = parseCookie(req, authConfig.REMEMBER_COOKIE_NAME);
+    if (rawRemember) {
+      memberStore.revokeRememberTokenByCookieValue(rawRemember);
+    } else if (req.session && req.session.rememberSelector) {
+      memberStore.revokeRememberSelector(req.session.rememberSelector);
+    }
+  } catch (_) {}
+
   req.session.destroy(() => {
     res.clearCookie('piyade.sid');
+    clearRememberCookie(res);
     res.redirect('/');
   });
 });

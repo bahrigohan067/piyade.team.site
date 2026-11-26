@@ -1,0 +1,44 @@
+<%- include('../layouts/header') %>
+
+<section class="auth-center-shell" aria-labelledby="hasDiscordHeading">
+  <div class="glass-card auth-center-card">
+    <div class="auth-center-head">
+      <span class="badge badge-primary"><%= t('googleAuth.hasDiscordBadge') %></span>
+      <h1 id="hasDiscordHeading" class="auth-center-title"><%= t('googleAuth.hasDiscordTitle') %></h1>
+      <p class="auth-center-desc"><%= t('googleAuth.hasDiscordDesc') %></p>
+      <% if (typeof pendingEmailMasked !== 'undefined' && pendingEmailMasked) { %>
+        <div class="auth-pending-pill">
+          <span>✓</span>
+          <span><%= t('googleAuth.googleVerifiedAs') %> <strong><%= pendingEmailMasked %></strong></span>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="auth-choice-grid">
+      <!-- Seçenek 1: Evet, Discord hesabım var -->
+      <form method="POST" action="/giris/discord-var-mi/bagla" class="auth-choice-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <button type="submit" class="glass-card auth-choice-card auth-choice-card--discord">
+          <div class="auth-choice-icon" aria-hidden="true">🔗</div>
+          <h2 class="auth-choice-title"><%= t('googleAuth.hasDiscordYesTitle') %></h2>
+          <p class="auth-choice-desc"><%= t('googleAuth.hasDiscordYesDesc') %></p>
+          <span class="btn btn-discord btn-sm auth-choice-cta"><%= t('googleAuth.hasDiscordYesBtn') %></span>
+        </button>
+      </form>
+
+      <!-- Seçenek 2: Hayır, Discord hesabım yok -->
+      <a href="/uye-ol" class="glass-card auth-choice-card auth-choice-card--site">
+        <div class="auth-choice-icon" aria-hidden="true">✨</div>
+        <h2 class="auth-choice-title"><%= t('googleAuth.hasDiscordNoTitle') %></h2>
+        <p class="auth-choice-desc"><%= t('googleAuth.hasDiscordNoDesc') %></p>
+        <span class="btn btn-primary btn-sm auth-choice-cta"><%= t('googleAuth.hasDiscordNoBtn') %></span>
+      </a>
+    </div>
+
+    <div class="auth-center-footer">
+      <a href="/giris" class="btn btn-secondary btn-sm"><%= t('googleAuth.backToLoginCenter') %></a>
+    </div>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

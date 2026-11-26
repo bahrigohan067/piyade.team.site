@@ -4,19 +4,21 @@ const crypto = require('crypto');
 const chatConfig = require('../config/chat.config');
 
 const DISCORD_ID_RE = /^\d{15,25}$/;
+const CHAT_USER_ID_RE = /^(?:\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
+const CONV_ID_RE = /^(\d{15,25}|g_m_[A-Za-z0-9]{6,48})_(\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let idSeqCounter = 0;
 let lastIdTs = 0;
 
 /**
- * İki Discord kullanıcı kimliğinden deterministik sohbet kimliği üretir.
+ * İki kullanıcı kimliğinden (Discord ID veya Google üye kimliği g_m_...) deterministik sohbet kimliği üretir.
  * URL'den gelen ham convId değerine asla güvenilmez; her zaman bu fonksiyonla türetilir.
  */
 function makeConvId(idA, idB) {
   const a = String(idA || '').trim();
   const b = String(idB || '').trim();
-  if (!DISCORD_ID_RE.test(a) || !DISCORD_ID_RE.test(b) || a === b) {
+  if (!CHAT_USER_ID_RE.test(a) || !CHAT_USER_ID_RE.test(b) || a === b) {
     return null;
   }
   return a < b ? `${a}_${b}` : `${b}_${a}`;
@@ -24,16 +26,20 @@ function makeConvId(idA, idB) {
 
 function parseConvId(convId) {
   if (typeof convId !== 'string') return null;
-  const parts = convId.split('_');
-  if (parts.length !== 2) return null;
-  if (!DISCORD_ID_RE.test(parts[0]) || !DISCORD_ID_RE.test(parts[1]) || parts[0] === parts[1]) {
-    return null;
-  }
-  return parts[0] < parts[1] ? parts : [parts[1], parts[0]];
+  const match = CONV_ID_RE.exec(convId);
+  if (!match) return null;
+  const a = match[1];
+  const b = match[2];
+  if (a === b) return null;
+  return a < b ? [a, b] : [b, a];
 }
 
 function isValidDiscordId(id) {
   return typeof id === 'string' && DISCORD_ID_RE.test(id.trim());
+}
+
+function isValidChatUserId(id) {
+  return typeof id === 'string' && CHAT_USER_ID_RE.test(id.trim());
 }
 
 /**
@@ -158,7 +164,7 @@ function normalizeProfile(raw) {
 
   const notifyRaw = raw.notify && typeof raw.notify === 'object' ? raw.notify : {};
   const blocked = Array.isArray(raw.blocked)
-    ? [...new Set(raw.blocked.map((x) => String(x || '').trim()).filter((id) => DISCORD_ID_RE.test(id)))]
+    ? [...new Set(raw.blocked.map((x) => String(x || '').trim()).filter((id) => CHAT_USER_ID_RE.test(id)))]
     : [];
 
   let consent = null;
@@ -217,7 +223,7 @@ function normalizeConvState(convId, raw) {
   const lastRead = {};
   if (raw.lastRead && typeof raw.lastRead === 'object') {
     for (const [k, v] of Object.entries(raw.lastRead)) {
-      if (DISCORD_ID_RE.test(k) && Number.isFinite(Number(v))) {
+      if (CHAT_USER_ID_RE.test(k) && Number.isFinite(Number(v))) {
         lastRead[k] = Number(v);
       }
     }
@@ -225,7 +231,7 @@ function normalizeConvState(convId, raw) {
   const lastDelivered = {};
   if (raw.lastDelivered && typeof raw.lastDelivered === 'object') {
     for (const [k, v] of Object.entries(raw.lastDelivered)) {
-      if (DISCORD_ID_RE.test(k) && Number.isFinite(Number(v))) {
+      if (CHAT_USER_ID_RE.test(k) && Number.isFinite(Number(v))) {
         lastDelivered[k] = Number(v);
       }
     }
@@ -235,11 +241,11 @@ function normalizeConvState(convId, raw) {
     lastRead,
     lastDelivered,
     createdAt: Number(raw.createdAt) || 0,
-    createdBy: typeof raw.createdBy === 'string' && DISCORD_ID_RE.test(raw.createdBy) ? raw.createdBy : null,
+    createdBy: typeof raw.createdBy === 'string' && CHAT_USER_ID_RE.test(raw.createdBy) ? raw.createdBy : null,
     requestStatus:
       raw.requestStatus === 'pending' || raw.requestStatus === 'declined' ? raw.requestStatus : 'accepted',
     requestFrom:
-      typeof raw.requestFrom === 'string' && DISCORD_ID_RE.test(raw.requestFrom) ? raw.requestFrom : null,
+      typeof raw.requestFrom === 'string' && CHAT_USER_ID_RE.test(raw.requestFrom) ? raw.requestFrom : null,
   };
 }
 
@@ -370,7 +376,7 @@ class ChatStore {
     this.users.clear();
     if (data && typeof data === 'object') {
       for (const [uid, raw] of Object.entries(data)) {
-        if (DISCORD_ID_RE.test(uid)) {
+        if (CHAT_USER_ID_RE.test(uid)) {
           this.users.set(uid, normalizeProfile(raw));
         }
       }
@@ -568,7 +574,7 @@ class ChatStore {
 
   getProfile(userId) {
     const uid = String(userId || '').trim();
-    if (!DISCORD_ID_RE.test(uid)) return defaultProfile();
+    if (!CHAT_USER_ID_RE.test(uid)) return defaultProfile();
     const existing = this.users.get(uid);
     if (!existing) return defaultProfile();
     return {
@@ -583,7 +589,7 @@ class ChatStore {
 
   setProfile(userId, patch = {}) {
     const uid = String(userId || '').trim();
-    if (!DISCORD_ID_RE.test(uid)) {
+    if (!CHAT_USER_ID_RE.test(uid)) {
       throw new Error('Geçersiz kullanıcı kimliği.');
     }
     const current = this.getProfile(uid);
@@ -646,7 +652,7 @@ class ChatStore {
 
   recordConsent(userId, version = chatConfig.POLICY_VERSION, nowTs = Date.now()) {
     const uid = String(userId || '').trim();
-    if (!DISCORD_ID_RE.test(uid)) throw new Error('Geçersiz kullanıcı kimliği.');
+    if (!CHAT_USER_ID_RE.test(uid)) throw new Error('Geçersiz kullanıcı kimliği.');
     const prof = this.getProfile(uid);
     prof.consent = { version: String(version), at: Number(nowTs) || Date.now() };
     prof.updatedAt = Date.now();
@@ -658,7 +664,7 @@ class ChatStore {
   blockUser(userId, targetId) {
     const uid = String(userId || '').trim();
     const tid = String(targetId || '').trim();
-    if (!DISCORD_ID_RE.test(uid) || !DISCORD_ID_RE.test(tid) || uid === tid) {
+    if (!CHAT_USER_ID_RE.test(uid) || !CHAT_USER_ID_RE.test(tid) || uid === tid) {
       throw new Error('Geçersiz engelleme hedefi.');
     }
     const prof = this.getProfile(uid);
@@ -674,7 +680,7 @@ class ChatStore {
   unblockUser(userId, targetId) {
     const uid = String(userId || '').trim();
     const tid = String(targetId || '').trim();
-    if (!DISCORD_ID_RE.test(uid) || !DISCORD_ID_RE.test(tid)) {
+    if (!CHAT_USER_ID_RE.test(uid) || !CHAT_USER_ID_RE.test(tid)) {
       throw new Error('Geçersiz kullanıcı kimliği.');
     }
     const prof = this.getProfile(uid);
@@ -1091,7 +1097,7 @@ class ChatStore {
 
   listConversations(userId) {
     const uid = String(userId || '').trim();
-    if (!DISCORD_ID_RE.test(uid)) return [];
+    if (!CHAT_USER_ID_RE.test(uid)) return [];
     const results = [];
 
     for (const entry of this.convIndex.values()) {
@@ -1115,7 +1121,7 @@ class ChatStore {
 
   getTotalUnreadCount(userId) {
     const uid = String(userId || '').trim();
-    if (!DISCORD_ID_RE.test(uid)) return 0;
+    if (!CHAT_USER_ID_RE.test(uid)) return 0;
     const myProf = this.getProfile(uid);
     const blockedSet = new Set(myProf.blocked || []);
     let total = 0;
@@ -1476,6 +1482,136 @@ class ChatStore {
     };
   }
 
+  /**
+   * Hesap silme (KVKK / Hesabımı Sil) işlemi için kullanıcının sohbet profilini,
+   * diğer kullanıcıların engelleme listelerindeki izini, gönderdiği tüm mesajları ve
+   * moderasyon vakalarınca korunmayan dosyalarını kalıcı olarak temizler.
+   * Moderasyon vakalarındaki anlık görüntüler ve korunan ekler vaka saklama süresi
+   * boyunca dokunulmadan kalır.
+   */
+  purgeUserData(userId) {
+    const uid = String(userId || '').trim();
+    const summary = {
+      removedProfile: false,
+      removedFromBlocklists: 0,
+      removedMessages: 0,
+      removedConversations: 0,
+      removedFiles: 0,
+    };
+    if (!CHAT_USER_ID_RE.test(uid)) return summary;
+
+    // 1) Kendi sohbet profilini ve diğer kullanıcıların engelleme listelerindeki izini sil
+    let usersChanged = false;
+    if (this.users.delete(uid)) {
+      summary.removedProfile = true;
+      usersChanged = true;
+    }
+    for (const [otherUid, prof] of this.users.entries()) {
+      if (prof && Array.isArray(prof.blocked) && prof.blocked.includes(uid)) {
+        prof.blocked = prof.blocked.filter((id) => id !== uid);
+        this.users.set(otherUid, prof);
+        summary.removedFromBlocklists += 1;
+        usersChanged = true;
+      }
+    }
+    if (usersChanged) {
+      this._saveUsersSync();
+    }
+
+    // 2) Katılımcı olduğu tüm sohbetlerde kendi mesajlarını ve korunmayan eklerini sil
+    let entries = [];
+    try {
+      entries = fs.readdirSync(this.conversationsDir);
+    } catch (_) {
+      entries = [];
+    }
+
+    for (const name of entries) {
+      if (!name.endsWith('.jsonl')) continue;
+      const convId = name.slice(0, -6);
+      const participants = parseConvId(convId);
+      if (!participants || !participants.includes(uid)) continue;
+
+      const jsonlPath = this._getConvJsonlPath(convId);
+      const all = this._readAllMessagesFromDisk(convId);
+      const kept = [];
+
+      for (const msg of all) {
+        if (msg.from === uid) {
+          summary.removedMessages += 1;
+          if (Array.isArray(msg.attachments)) {
+            for (const att of msg.attachments) {
+              const attId = typeof att === 'string' ? att : att && att.id;
+              if (attId && this.deleteFileIfUnpreserved(attId)) {
+                summary.removedFiles += 1;
+              }
+            }
+          }
+        } else {
+          kept.push(msg);
+        }
+      }
+
+      if (kept.length === 0) {
+        for (const p of [
+          jsonlPath,
+          this._getConvStatePath(convId),
+          `${this._getConvStatePath(convId)}.bak`,
+        ]) {
+          try {
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+          } catch (_) {}
+        }
+        this.convCache.delete(convId);
+        this.convIndex.delete(convId);
+        this.convStates.delete(convId);
+        summary.removedConversations += 1;
+      } else {
+        const tmpPath = `${jsonlPath}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+        const content =
+          kept
+            .map((m) =>
+              JSON.stringify({
+                kind: 'msg',
+                id: m.id,
+                from: m.from,
+                ts: m.ts,
+                text: m.text,
+                attachments: m.attachments,
+                replyTo: m.replyTo,
+                clientId: m.clientId,
+                deleted: Boolean(m.deleted),
+                modRemoved: Boolean(m.modRemoved),
+                system: Boolean(m.system),
+                systemType: m.systemType || null,
+              })
+            )
+            .join('\n') + '\n';
+        fs.writeFileSync(tmpPath, content, { encoding: 'utf8', mode: 0o600 });
+        fs.renameSync(tmpPath, jsonlPath);
+
+        const state = this._loadConvState(convId);
+        delete state.lastRead[uid];
+        delete state.lastDelivered[uid];
+        if (state.createdBy === uid) state.createdBy = null;
+        if (state.requestFrom === uid) state.requestFrom = null;
+        this._saveConvStateSync(convId, state);
+        this._updateConvCacheAndIndex(convId, kept);
+      }
+    }
+
+    // 3) Kullanıcının yüklediği ancak henüz mesaja bağlanmamış korunmayan dosyaları sil
+    for (const [fid, meta] of [...this.fileMeta.entries()]) {
+      if (meta && meta.uploaderId === uid && !meta.preserved) {
+        if (this.deleteFileIfUnpreserved(fid)) {
+          summary.removedFiles += 1;
+        }
+      }
+    }
+
+    return summary;
+  }
+
   flush() {
     this.stopCleanupScheduler();
     try {
@@ -1516,6 +1652,7 @@ module.exports = {
   makeConvId,
   parseConvId,
   isValidDiscordId,
+  isValidChatUserId,
   generateMessageId,
   sanitizeChatText,
   getIstanbulDateParts,

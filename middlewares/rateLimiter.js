@@ -265,6 +265,30 @@ const statusLookupLimiter = rateLimit({
   },
 });
 
+/**
+ * Google Yeni Site Üyeliği Limiter'ı (IP başına saatte en fazla 3 yeni üyelik)
+ */
+const googleSignupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => `google_signup_ip:${ipKeyGenerator(req.ip)}`,
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('googleSignup.errRateLimited')
+      : 'Saatlik yeni üyelik sınırına (3) ulaştınız. Lütfen daha sonra tekrar deneyiniz.';
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.status(429).json({ ok: false, code: 'RATE_LIMITED', error: msg });
+    }
+    return res.status(429).render('errors/403', {
+      title: req.t ? req.t('legal.rateLimitedTitle') : 'İşlem Sınırı Aşıldı (429)',
+      message: msg,
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
@@ -280,4 +304,5 @@ module.exports = {
   kvkkSubmitLimiter,
   abuseReportLimiter,
   statusLookupLimiter,
+  googleSignupLimiter,
 };

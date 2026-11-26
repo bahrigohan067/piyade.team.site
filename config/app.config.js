@@ -30,6 +30,9 @@ const OPTIONAL_ENV_KEYS = [
   'LEGAL_REVIEWED',
   'LEGAL_KVKK_RETENTION_DAYS',
   'LEGAL_REPORT_RETENTION_DAYS',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'NEW_MEMBER_RESTRICTION_HOURS',
 ];
 
 function isValidHttpUrl(value) {
@@ -143,6 +146,12 @@ const appConfig = {
       .trim()
       .toLowerCase();
     return raw === 'true' || raw === '1' || raw === 'yes';
+  },
+
+  isGoogleAuthEnabled(envObj = process.env) {
+    const id = String((envObj && envObj.GOOGLE_CLIENT_ID) || '').trim();
+    const secret = String((envObj && envObj.GOOGLE_CLIENT_SECRET) || '').trim();
+    return Boolean(id && secret);
   },
 
   // Ortam Değişkeni Anahtar Listeleri ve Doğrulama Yardımcıları

@@ -303,6 +303,8 @@ async function executeSingleRequest(endpoint, options = {}) {
       const isVersionedFeatureEndpoint =
         endpoint === '/api/games' ||
         endpoint.startsWith('/api/roblox/lookup') ||
+        endpoint.startsWith('/api/roblox/site-claims/') ||
+        endpoint === '/api/roblox/avatars' ||
         endpoint === '/api/register' ||
         endpoint.startsWith('/api/register/status/') ||
         endpoint.startsWith('/api/stats/top-games') ||
@@ -1076,9 +1078,14 @@ async function getGames(options = {}) {
     };
   }
 
+  const reqHeaders = {};
+  if (options && options.actorType) reqHeaders['X-Actor-Type'] = String(options.actorType);
+  if (options && options.actorId) reqHeaders['X-Actor-Id'] = String(options.actorId);
+
   try {
     const data = await requestBotApi('/api/games', {
       method: 'GET',
+      headers: reqHeaders,
       retries: 0,
     });
 
@@ -1112,7 +1119,7 @@ async function getGames(options = {}) {
   };
 }
 
-async function lookupRobloxAccount(query) {
+async function lookupRobloxAccount(query, options = {}) {
   const cleanQuery = typeof query === 'string' ? query.trim() : '';
   if (!cleanQuery) {
     return {
@@ -1122,9 +1129,23 @@ async function lookupRobloxAccount(query) {
     };
   }
 
+  const params = new URLSearchParams({ query: cleanQuery });
+  if (options && options.ignoreOwnerRef) {
+    params.set('ignoreOwnerRef', String(options.ignoreOwnerRef).trim());
+  }
+
+  const headers = {};
+  if (options && options.actorType) {
+    headers['X-Actor-Type'] = String(options.actorType);
+  }
+  if (options && options.actorId) {
+    headers['X-Actor-Id'] = String(options.actorId);
+  }
+
   try {
-    const data = await requestBotApi(`/api/roblox/lookup?query=${encodeURIComponent(cleanQuery)}`, {
+    const data = await requestBotApi(`/api/roblox/lookup?${params.toString()}`, {
       method: 'GET',
+      headers,
       retries: 0,
     });
 
@@ -1165,7 +1186,91 @@ async function lookupRobloxAccount(query) {
       status: 'TEMPORARY_ERROR',
       user: null,
       alreadyRegistered: false,
+      offline: Boolean(err && err.isOffline),
+      rateLimited: Boolean(err && err.statusCode === 429),
     };
+  }
+}
+
+/**
+ * Bot API'de Google site üyesi için Roblox ID benzersizlik sahiplenmesi (site-service aktörü).
+ * 409 dönerse { ok: false, conflict: true, code: 'ROBLOX_ALREADY_REGISTERED' } döner.
+ * Bot kapalıysa/ulaşılamazsa hata fırlatır (üyelik oluşturulmaz!).
+ */
+async function claimSiteRobloxId(robloxId, ownerRef) {
+  try {
+    const data = await requestBotApi(`/api/roblox/site-claims/${encodeURIComponent(String(robloxId))}`, {
+      method: 'PUT',
+      headers: {
+        'X-Actor-Type': 'site-service',
+        'X-Actor-Id': 'site',
+      },
+      body: { ownerRef: String(ownerRef) },
+      retries: 0,
+    });
+    return { ok: true, data };
+  } catch (err) {
+    if (err instanceof BotApiError && err.statusCode === 409) {
+      return {
+        ok: false,
+        conflict: true,
+        code: (err.details && err.details.code) || 'ROBLOX_ALREADY_REGISTERED',
+      };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Bot API'de Google site üyesinin Roblox ID sahiplenmesini bırakır (profil düzenleme / hesap silme).
+ */
+async function releaseSiteRobloxClaim(robloxId, ownerRef) {
+  return requestBotApi(`/api/roblox/site-claims/${encodeURIComponent(String(robloxId))}`, {
+    method: 'DELETE',
+    headers: {
+      'X-Actor-Type': 'site-service',
+      'X-Actor-Id': 'site',
+    },
+    body: { ownerRef: String(ownerRef) },
+    retries: 0,
+  });
+}
+
+/**
+ * Bot API'den toplu Roblox avatar headshot URL'leri çeker (POST /api/roblox/avatars, site-service).
+ */
+async function fetchRobloxAvatarsAsService(ids = []) {
+  const cleanIds = [...new Set((Array.isArray(ids) ? ids : []).map((x) => String(x || '').trim()).filter((x) => /^\d{1,20}$/.test(x)))].slice(0, 100);
+  if (cleanIds.length === 0) return {};
+  try {
+    const raw = await requestBotApi('/api/roblox/avatars', {
+      method: 'POST',
+      headers: {
+        'X-Actor-Type': 'site-service',
+        'X-Actor-Id': 'site',
+      },
+      body: { ids: cleanIds },
+      retries: 0,
+    });
+    const out = {};
+    for (const id of cleanIds) {
+      out[id] = raw && raw[id] ? sanitizeHttpUrl(raw[id]) : null;
+    }
+    return out;
+  } catch (_) {
+    return {};
+  }
+}
+
+/**
+ * Üyelik oluşturma öncesinde botun ayakta olduğunu doğrular (benzersizlik garantisi için).
+ */
+async function isBotReachable(timeoutMs = 3000) {
+  try {
+    const data = await requestBotApi('/api/health', { method: 'GET', retries: 0, timeoutMs });
+    return Boolean(data && data.status === 'ok');
+  } catch (_) {
+    return false;
   }
 }
 
@@ -1609,6 +1714,14 @@ function sanitizeDirectoryItem(raw) {
       : null;
   const robloxAvatarUrl = sanitizeHttpUrl(raw.robloxAvatarUrl) || null;
   const hasRoblox = Boolean(raw.hasRoblox && (robloxId || robloxUsername));
+  const games = Array.isArray(raw.games)
+    ? raw.games
+        .filter((g) => g && g.id && g.username)
+        .map((g) => ({
+          id: String(g.id).trim().toLowerCase(),
+          username: String(g.username).trim().slice(0, 64),
+        }))
+    : undefined;
   return {
     id,
     displayName,
@@ -1617,22 +1730,23 @@ function sanitizeDirectoryItem(raw) {
     robloxUsername,
     robloxAvatarUrl,
     hasRoblox,
+    ...(games !== undefined ? { games } : {}),
   };
 }
 
 /**
  * Bot rehberini sorgular (60 sn bellek önbelleği).
- * @param {string} actorId - İsteyen üyenin Discord ID'si (X-Actor-Id)
- * @param {{ query?: string, limit?: number, cursor?: string, excludeSelf?: boolean }} [opts]
+ * @param {string} actorId - İsteyen üyenin Discord ID'si (veya asService=true ise 'site')
+ * @param {{ query?: string, limit?: number, cursor?: string, excludeSelf?: boolean, asService?: boolean }} [opts]
  */
-async function getDirectory(actorId, { query = '', limit = 50, cursor = '', excludeSelf = true } = {}) {
-  const cleanActor = String(actorId || '').trim();
+async function getDirectory(actorId, { query = '', limit = 50, cursor = '', excludeSelf = true, asService = false } = {}) {
+  const cleanActor = asService ? 'site' : String(actorId || '').trim();
   const cleanQuery = typeof query === 'string' ? query.trim().slice(0, 64) : '';
   const safeLimit = Math.min(100, Math.max(1, Number.parseInt(String(limit || 50), 10) || 50));
   const cleanCursor = typeof cursor === 'string' ? cursor.trim().slice(0, 120) : '';
-  const excludeFlag = excludeSelf ? '1' : '0';
+  const excludeFlag = asService ? '0' : (excludeSelf ? '1' : '0');
 
-  const cacheKey = `${cleanActor}|${cleanQuery.toLowerCase()}|${safeLimit}|${cleanCursor}|${excludeFlag}`;
+  const cacheKey = `${asService ? 'svc' : cleanActor}|${cleanQuery.toLowerCase()}|${safeLimit}|${cleanCursor}|${excludeFlag}`;
   const now = Date.now();
   const cached = directorySearchCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
@@ -1650,11 +1764,12 @@ async function getDirectory(actorId, { query = '', limit = 50, cursor = '', excl
   if (cleanCursor) params.set('cursor', cleanCursor);
   params.set('excludeSelf', excludeFlag);
 
+  const reqHeaders = { 'X-Actor-Id': cleanActor };
+  if (asService) reqHeaders['X-Actor-Type'] = 'site-service';
+
   const raw = await requestBotApi(`/api/directory?${params.toString()}`, {
     method: 'GET',
-    headers: {
-      'X-Actor-Id': cleanActor,
-    },
+    headers: reqHeaders,
     retries: 1,
   });
 
@@ -1695,8 +1810,10 @@ async function getDirectory(actorId, { query = '', limit = 50, cursor = '', excl
  * @param {string[]} ids
  * @returns {Promise<{ items: Array, byId: Map<string, object> }>}
  */
-async function lookupDirectoryMembers(actorId, ids = []) {
-  const cleanActor = String(actorId || '').trim();
+async function lookupDirectoryMembers(actorId, ids = [], options = {}) {
+  const asService = Boolean(options && (options.asService || options.includeGames));
+  const includeGames = Boolean(options && options.includeGames);
+  const cleanActor = asService ? 'site' : String(actorId || '').trim();
   const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((x) => String(x || '').trim()))].filter((id) =>
     /^\d{15,25}$/.test(id)
   );
@@ -1708,7 +1825,8 @@ async function lookupDirectoryMembers(actorId, ids = []) {
   const now = Date.now();
   const missing = [];
   for (const id of uniqueIds) {
-    const cached = directoryMemberCache.get(id);
+    const cacheKey = includeGames ? `${id}:games` : id;
+    const cached = directoryMemberCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       byId.set(id, { ...cached.item });
     } else {
@@ -1720,12 +1838,13 @@ async function lookupDirectoryMembers(actorId, ids = []) {
   for (let i = 0; i < missing.length; i += 100) {
     const chunk = missing.slice(i, i + 100);
     try {
+      const reqHeaders = { 'X-Actor-Id': cleanActor };
+      if (asService) reqHeaders['X-Actor-Type'] = 'site-service';
+      const reqBody = includeGames ? { ids: chunk, includeGames: true } : { ids: chunk };
       const raw = await requestBotApi('/api/directory/lookup', {
         method: 'POST',
-        headers: {
-          'X-Actor-Id': cleanActor,
-        },
-        body: { ids: chunk },
+        headers: reqHeaders,
+        body: reqBody,
         retries: 1,
       });
       const expiresAt = Date.now() + DIRECTORY_CACHE_TTL_MS;
@@ -1734,7 +1853,8 @@ async function lookupDirectoryMembers(actorId, ids = []) {
         const clean = sanitizeDirectoryItem(entry);
         if (clean) {
           byId.set(clean.id, clean);
-          directoryMemberCache.set(clean.id, { item: clean, expiresAt });
+          const cacheKey = includeGames ? `${clean.id}:games` : clean.id;
+          directoryMemberCache.set(cacheKey, { item: clean, expiresAt });
         }
       }
     } catch (_) {
@@ -1770,6 +1890,10 @@ module.exports = {
   normalizeServerStatsSummaryPayload,
   getGames,
   lookupRobloxAccount,
+  claimSiteRobloxId,
+  releaseSiteRobloxClaim,
+  fetchRobloxAvatarsAsService,
+  isBotReachable,
   getMemberRoles,
   getMemberProfile,
   getMemberActivity,

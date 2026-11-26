@@ -27,6 +27,7 @@ const MENU_ITEMS = [
     icon: 'home',
     section: 'public',
     minLevel: 'public',
+    identities: ['discord', 'google'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: true,
     description: 'Topluluk anasayfası ve canlı aktif üye istatistikleri',
@@ -40,6 +41,7 @@ const MENU_ITEMS = [
     icon: 'book',
     section: 'public',
     minLevel: 'public',
+    identities: ['discord', 'google'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: true,
     description: 'Sunucu katılım, düzen ve yetkili kuralları',
@@ -53,6 +55,7 @@ const MENU_ITEMS = [
     icon: 'sparkles',
     section: 'public',
     minLevel: 'public',
+    identities: ['discord', 'google'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: true,
     badge: 'Yeni',
@@ -69,6 +72,7 @@ const MENU_ITEMS = [
     icon: 'user-plus',
     section: 'public',
     minLevel: 'public',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: true,
     hideIfAlreadyRegistered: true,
@@ -77,7 +81,7 @@ const MENU_ITEMS = [
   },
 
   // ==========================================
-  // 2. KAYITLI ÜYE MENÜLERİ (1559604702143062016+)
+  // 2. KAYITLI ÜYE / SİTE ÜYESİ MENÜLERİ
   // ==========================================
   {
     id: 'profile',
@@ -87,10 +91,11 @@ const MENU_ITEMS = [
     icon: 'user',
     section: 'member',
     minLevel: 'registered',
+    identities: ['discord', 'google'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
-    description: 'Kişisel topluluk profiliniz, kayıt bilgileriniz ve sicil puanınız',
-    descriptionEn: 'Your personal community profile, registration info, and disciplinary record',
+    description: 'Kişisel topluluk profiliniz ve oyun hesaplarınız',
+    descriptionEn: 'Your personal community profile and game accounts',
   },
   {
     id: 'chat',
@@ -100,6 +105,7 @@ const MENU_ITEMS = [
     icon: 'message-circle',
     section: 'member',
     minLevel: 'registered',
+    identities: ['discord', 'google'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     requiresChatEnabled: true,
@@ -109,7 +115,7 @@ const MENU_ITEMS = [
   },
 
   // ==========================================
-  // 3. YÖNETİM MENÜLERİ (Yönetmenlik + Developer)
+  // 3. YÖNETİM MENÜLERİ (YALNIZCA DISCORD + İLGİLİ ROL)
   // ==========================================
   {
     id: 'admin-warn',
@@ -119,6 +125,7 @@ const MENU_ITEMS = [
     icon: 'shield-alert',
     section: 'admin',
     minLevel: 'yonetmenlik',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     badge: 'Yönetim',
@@ -135,6 +142,7 @@ const MENU_ITEMS = [
     icon: 'users',
     section: 'admin',
     minLevel: 'yonetmenlik',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     badge: 'Yönetim',
@@ -151,6 +159,7 @@ const MENU_ITEMS = [
     icon: 'shield',
     section: 'admin',
     minLevel: 'community_official',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     requiresChatEnabled: true,
@@ -168,6 +177,7 @@ const MENU_ITEMS = [
     icon: 'shield-alert',
     section: 'admin',
     minLevel: 'yonetmenlik',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     badge: 'Yasal',
@@ -184,6 +194,7 @@ const MENU_ITEMS = [
     icon: 'shield',
     section: 'admin',
     minLevel: 'developer',
+    identities: ['discord'],
     showWhenLoggedIn: true,
     showWhenLoggedOut: false,
     badge: 'Developer',
@@ -195,19 +206,21 @@ const MENU_ITEMS = [
 ];
 
 /**
- * Kullanıcının mevcut oturum ve rol bilgilerine göre görebileceği menü öğelerini seçili dilde filtreler.
+ * Kullanıcının mevcut oturum, kimlik türü (discord | google) ve rol bilgilerine göre görebileceği menü öğelerini seçili dilde filtreler.
  * @param {object|null} user - Oturumdaki kullanıcı nesnesi (req.session.user)
  * @param {string} [lang='tr'] - Dil kodu ('tr' | 'en')
  * @returns {Array} Görünür menü öğeleri
  */
 function getVisibleMenuItems(user, lang = 'tr') {
   const isLogged = Boolean(user && user.id);
+  const identityKind = isLogged ? (user.kind === 'google' ? 'google' : 'discord') : null;
+  const isGoogle = identityKind === 'google';
   const userLevel = user?.level || 'none';
-  const userRoles = user?.roles || [];
-  const registered = isLogged && isRegisteredMember(userRoles, userLevel, user?.registered);
-  const management = isLogged && isManagement(userRoles, userLevel);
-  const developer = isLogged && isDeveloper(userRoles, userLevel);
-  const communityOfficial = isLogged && isCommunityOfficial(userRoles);
+  const userRoles = isGoogle ? [] : (user?.roles || []);
+  const registered = isLogged && (isGoogle ? true : isRegisteredMember(userRoles, userLevel, user?.registered));
+  const management = isLogged && !isGoogle && isManagement(userRoles, userLevel);
+  const developer = isLogged && !isGoogle && isDeveloper(userRoles, userLevel);
+  const communityOfficial = isLogged && !isGoogle && isCommunityOfficial(userRoles);
   const isEn = lang === 'en';
 
   const chatEnabled = appConfig.isChatEnabled();
@@ -216,6 +229,10 @@ function getVisibleMenuItems(user, lang = 'tr') {
     if (item.requiresChatEnabled && !chatEnabled) return false;
     if (isLogged && !item.showWhenLoggedIn) return false;
     if (!isLogged && !item.showWhenLoggedOut) return false;
+
+    if (isLogged && Array.isArray(item.identities) && !item.identities.includes(identityKind)) {
+      return false;
+    }
 
     if (item.hideIfAlreadyRegistered && registered) {
       return false;
@@ -227,6 +244,9 @@ function getVisibleMenuItems(user, lang = 'tr') {
     if (item.minLevel === 'registered') {
       return registered;
     }
+
+    // Yönetim / moderasyon öğeleri SADECE Discord kimliğine açılır
+    if (isGoogle) return false;
 
     if (item.minLevel === 'community_official') {
       return communityOfficial || (chatConfig.isModPanelAlsoDeveloper() && developer);

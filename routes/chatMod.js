@@ -38,6 +38,12 @@ router.use(chatModLimiter);
 
 // Parça 3 dosya sunumuna taze rollü vaka bazlı yetki kancası
 chatRoutes.setModFileAccessAuthorizer(async (req, fileId, caseId) => {
+  if (
+    (req.session && req.session.identity && req.session.identity.kind === 'google') ||
+    (req.session && req.session.user && req.session.user.kind === 'google')
+  ) {
+    return false;
+  }
   const actorId = req.session && req.session.user && String(req.session.user.id);
   if (!actorId || !caseId) return false;
   try {

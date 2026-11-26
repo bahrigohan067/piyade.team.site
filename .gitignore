@@ -11,6 +11,7 @@ node_modules/
 .chat-data/
 .legal-data/
 .reports-data/
+.members-data/
 /data/
 
 # Loglar ve Geçici Dosyalar

@@ -4,16 +4,20 @@
  * arayüzün geri kalan tüm renkleri public/css/theme.css değişkenlerinden gelir.
  */
 
-const POLICY_VERSION = '2.0';
+const POLICY_VERSION = '3.0';
 const RETENTION_DAYS = 30;
 
 const LIMITS = Object.freeze({
   MAX_MESSAGE_LENGTH: 4000,
   MAX_MESSAGES_PER_MIN: 30,
+  MAX_GROUP_MESSAGES_PER_MIN: 12,
+  GROUP_DUPLICATE_WINDOW_MS: 15 * 1000,
   MAX_NEW_CONVERSATIONS_PER_DAY: 10,
   MAX_SSE_CONNECTIONS_PER_USER: 5,
   SSE_HEARTBEAT_MS: 25 * 1000,
   DIRECTORY_CACHE_TTL_MS: 60 * 1000,
+  PROFILE_CARD_CACHE_TTL_MS: 60 * 1000,
+  ROBLOX_AVATAR_REFRESH_MS: 6 * 60 * 60 * 1000,
   MAX_ANIMATED_DIRECTORY_RINGS: 12,
   DEFAULT_PAGE_LIMIT: 40,
   MAX_PAGE_LIMIT: 100,
@@ -22,6 +26,49 @@ const LIMITS = Object.freeze({
   MAX_REPORTS_PER_DAY: 10,
   TYPING_THROTTLE_MS: 3000,
 });
+
+// Zorunlu ortak sohbet grupları (listede en üstte sabit, ayrılamaz)
+const GROUPS = Object.freeze([
+  Object.freeze({
+    id: 'genel',
+    icon: '🌐',
+    name: Object.freeze({
+      tr: 'Genel Sohbet',
+      en: 'General Chat',
+    }),
+    description: Object.freeze({
+      tr: 'Tüm kayıtlı Discord ve site üyelerinin ortak sohbet odası. Burada yazılanlar sohbete erişimi olan herkese görünür.',
+      en: 'Shared chat room for all registered Discord and site members. Messages here are visible to everyone with chat access.',
+    }),
+    allowAttachments: true,
+  }),
+]);
+
+const DEFAULT_GROUP_ID = 'genel';
+const GROUP_MAP = new Map(GROUPS.map((g) => [g.id, g]));
+
+function getGroupById(groupId) {
+  if (typeof groupId !== 'string') return null;
+  return GROUP_MAP.get(groupId.trim().toLowerCase()) || null;
+}
+
+function makeGroupConvId(groupId) {
+  const grp = getGroupById(groupId);
+  return grp ? `group:${grp.id}` : null;
+}
+
+function parseGroupConvId(convId) {
+  if (typeof convId !== 'string') return null;
+  const trimmed = convId.trim();
+  if (!trimmed.startsWith('group:')) return null;
+  const rawId = trimmed.slice('group:'.length);
+  const grp = getGroupById(rawId);
+  return grp ? grp.id : null;
+}
+
+function isGroupConvId(convId) {
+  return Boolean(parseGroupConvId(convId));
+}
 
 // Parça 3 (Dosya Gönderme) sınırları ve yapılandırması
 const FILES = Object.freeze({
@@ -62,13 +109,59 @@ function isChatEnabled(envObj = process.env) {
   return raw === 'true' || raw === '1' || raw === 'yes';
 }
 
-function isFirstContactRequestEnabled(envObj = process.env) {
+function isChatGoogleMembersEnabled(envObj = process.env) {
   const raw = String(
-    envObj && envObj.CHAT_FIRST_CONTACT_REQUEST !== undefined ? envObj.CHAT_FIRST_CONTACT_REQUEST : ''
+    envObj && envObj.CHAT_GOOGLE_MEMBERS_ENABLED !== undefined ? envObj.CHAT_GOOGLE_MEMBERS_ENABLED : ''
   )
     .trim()
     .toLowerCase();
-  return raw === 'true' || raw === '1';
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  return true;
+}
+
+/**
+ * Ortam değişkeninden (CHAT_GROUP_ADMIN_DISCORD_IDS) grup yöneticisi Discord ID listesini okur.
+ * Hiçbir Discord kimliği kod içine sabit yazılmaz.
+ */
+function getChatGroupAdminDiscordIds(envObj = process.env) {
+  const raw = String(
+    envObj && envObj.CHAT_GROUP_ADMIN_DISCORD_IDS !== undefined ? envObj.CHAT_GROUP_ADMIN_DISCORD_IDS : ''
+  ).trim();
+  const ids = new Set();
+  if (!raw) return ids;
+  for (const part of raw.split(',')) {
+    const clean = part.trim();
+    if (/^\d{15,25}$/.test(clean)) {
+      ids.add(clean);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Bir kullanıcının Discord kimliği grup yöneticisi listesinde mi kontrol eder (rozet gösterimi için).
+ */
+function isDiscordIdGroupAdmin(userId, envObj = process.env) {
+  const clean = String(userId || '').trim();
+  if (!/^\d{15,25}$/.test(clean)) return false;
+  return getChatGroupAdminDiscordIds(envObj).has(clean);
+}
+
+/**
+ * Aktif oturumun grup yöneticisi olup olmadığını YALNIZCA Discord oturumu ve Discord ID ile doğrular.
+ * Google oturumları veya kullanıcı adı eşleşmesi ASLA grup yöneticisi sayılmaz.
+ */
+function isChatGroupAdmin(req, envObj = process.env) {
+  if (!req || !req.session || !req.session.user) return false;
+  if (req.session.identity && req.session.identity.kind === 'google') return false;
+  if (req.session.user.kind === 'google') return false;
+  const uid = String(req.session.user.id || '').trim();
+  if (!/^\d{15,25}$/.test(uid)) return false;
+  if (req.session.identity && req.session.identity.kind === 'discord') {
+    const identId = String(req.session.identity.discordId || '').trim();
+    if (identId && identId !== uid) return false;
+  }
+  return getChatGroupAdminDiscordIds(envObj).has(uid);
 }
 
 function isModPanelAlsoDeveloper(envObj = process.env) {
@@ -505,20 +598,59 @@ function resolveEffectiveRing(profile) {
   };
 }
 
+/**
+ * Nebula Glass Card için üyenin kendi profil halkasından 3 nebula rengi türetir.
+ * Halka 3'ten az renk içeriyorsa (veya tek renkliyse) verilen tema yedek renkleriyle tamamlar.
+ */
+function extractNebulaHuesFromRing(ring, fallbackHues = null) {
+  const defaults =
+    Array.isArray(fallbackHues) && fallbackHues.length >= 3
+      ? fallbackHues.slice(0, 3)
+      : ['var(--color-accent)', 'var(--color-primary)', 'var(--dart-bullseye-start)'];
+
+  const rawColors = ring && Array.isArray(ring.colors) ? ring.colors : [];
+  const picked = [];
+  for (const c of rawColors) {
+    if (isValidHexColor(c)) {
+      const norm = c.trim().toUpperCase();
+      if (!picked.includes(norm)) {
+        picked.push(norm);
+        if (picked.length === 3) break;
+      }
+    }
+  }
+  let fbIdx = 0;
+  while (picked.length < 3) {
+    picked.push(defaults[fbIdx % defaults.length]);
+    fbIdx += 1;
+  }
+  return picked;
+}
+
 module.exports = {
   POLICY_VERSION,
   RETENTION_DAYS,
   LIMITS,
   FILES,
   MODERATION,
+  GROUPS,
+  DEFAULT_GROUP_ID,
   RING_CATEGORIES,
   RING_PRESETS,
   DEFAULT_RING_ID,
+  getGroupById,
+  makeGroupConvId,
+  parseGroupConvId,
+  isGroupConvId,
   isChatEnabled,
-  isFirstContactRequestEnabled,
+  isChatGoogleMembersEnabled,
+  getChatGroupAdminDiscordIds,
+  isDiscordIdGroupAdmin,
+  isChatGroupAdmin,
   isModPanelAlsoDeveloper,
   isValidHexColor,
   getRingPresetById,
   validateRingSelection,
   resolveEffectiveRing,
+  extractNebulaHuesFromRing,
 };

@@ -145,6 +145,32 @@ const chatMessageLimiter = rateLimit({
 });
 
 /**
+ * Sohbet Grup Mesaj Gönderme Limiter'ı (Kullanıcı başına 1 dakikada max 12 mesaj)
+ */
+const chatGroupMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: chatConfig.LIMITS.MAX_GROUP_MESSAGES_PER_MIN || 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `chat_group_msg_user:${String(uid)}`;
+    return `chat_group_msg_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('chat.errGroupRateLimited')
+      : 'Genel Sohbet grubunda dakikada en fazla 12 mesaj gönderebilirsiniz. Lütfen biraz bekleyin.';
+    return res.status(429).json({
+      ok: false,
+      code: 'GROUP_RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
+/**
  * Sohbet Dosya Yükleme Limiter'ı (Kullanıcı başına 1 dakikada max 10 yükleme)
  */
 const chatUploadLimiter = rateLimit({
@@ -300,6 +326,7 @@ module.exports = {
   activityApiLimiter,
   publicStatsLimiter,
   chatMessageLimiter,
+  chatGroupMessageLimiter,
   chatUploadLimiter,
   chatModLimiter,
   kvkkSubmitLimiter,

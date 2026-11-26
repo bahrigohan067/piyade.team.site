@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const chatConfig = require('../config/chat.config');
-const { parseConvId, writeJsonAtomic, readJsonWithBackupRecovery } = require('./chatStore');
+const { parseConvId, isGroupConvId, writeJsonAtomic, readJsonWithBackupRecovery } = require('./chatStore');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -186,8 +186,12 @@ class ChatModStore {
     chatStore = null,
     nowTs = Date.now(),
   }) {
-    const participants = parseConvId(convId);
-    if (!participants) throw new Error('Geçersiz sohbet kimliği.');
+    const dmParticipants = parseConvId(convId);
+    const isGroup = isGroupConvId(convId);
+    if (!dmParticipants && !isGroup) throw new Error('Geçersiz sohbet kimliği.');
+    const participants = dmParticipants
+      ? dmParticipants
+      : [...new Set([String(reporterId || ''), String(reportedUserId || '')].filter(Boolean))];
     if (!REPORT_CATEGORIES.includes(category)) {
       const err = new Error('Geçersiz rapor kategorisi.');
       err.code = 'INVALID_CATEGORY';
@@ -217,6 +221,7 @@ class ChatModStore {
       category,
       autoCategories: [],
       convId,
+      isGroupCase: Boolean(isGroup),
       participants,
       reporterId: String(reporterId),
       reportedUserId: String(reportedUserId),
@@ -240,6 +245,7 @@ class ChatModStore {
       caseId,
       capturedAt: nowTs,
       convId,
+      isGroupCase: Boolean(isGroup),
       participants,
       targetMsgId: caseMeta.targetMsgId,
       messages: snapshotMessages.map((m) => ({
@@ -274,8 +280,10 @@ class ChatModStore {
     chatStore = null,
     nowTs = Date.now(),
   }) {
-    const participants = parseConvId(convId);
-    if (!participants) return null;
+    const dmParticipants = parseConvId(convId);
+    const isGroup = isGroupConvId(convId);
+    if (!dmParticipants && !isGroup) return null;
+    const participants = dmParticipants ? dmParticipants : [String(offendingUserId || '')].filter(Boolean);
     const mergeWindowMs = 30 * 60 * 1000;
 
     // Birleştirilecek mevcut açık otomatik vaka ara
@@ -351,6 +359,7 @@ class ChatModStore {
       autoCategories: [...new Set(categories)],
       flagCount: 1,
       convId,
+      isGroupCase: Boolean(isGroup),
       participants,
       reporterId: null,
       reportedUserId: String(offendingUserId),
@@ -374,6 +383,7 @@ class ChatModStore {
       caseId,
       capturedAt: nowTs,
       convId,
+      isGroupCase: Boolean(isGroup),
       participants,
       targetMsgId: caseMeta.targetMsgId,
       messages: snapshotMessages.map((m) => ({
@@ -753,6 +763,23 @@ class ChatModStore {
     this._ensureDirs();
     fs.appendFileSync(this.modlogFile, `${JSON.stringify(entry)}\n`, { encoding: 'utf8', mode: 0o600 });
     return entry;
+  }
+
+  /**
+   * Grup yöneticisi mesaj silme eylemini MESAJ İÇERİĞİ OLMADAN denetim kaydına (modlog.jsonl) yazar.
+   */
+  recordGroupAdminDeleteAudit({ adminId, adminName = '', convId, msgId, targetUserId = null, nowTs = Date.now() }) {
+    return this.appendAuditLog({
+      modId: adminId,
+      modName: adminName,
+      caseId: null,
+      action: 'group_admin_delete',
+      category: String(convId || 'group:genel'),
+      targetId: targetUserId ? String(targetUserId) : null,
+      note: `msg:${String(msgId || '').slice(0, 64)}`,
+      nowTs,
+      countAsView: false,
+    });
   }
 
   readAuditLogs({ limit = 100, page = 1 } = {}) {

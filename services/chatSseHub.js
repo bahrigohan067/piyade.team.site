@@ -207,6 +207,22 @@ class ChatSseHub {
   }
 
   /**
+   * Grup sohbeti olaylarını (yeni mesaj, yönetici silme vb.) tüm bağlı sohbet üyelerine canlı yayar.
+   */
+  broadcastGroupEvent(type, data = {}, { excludeUserId = null, buffer = true, computePerUserData = null } = {}) {
+    const exclude = excludeUserId ? String(excludeUserId).trim() : null;
+    let recipients = 0;
+    for (const targetUid of [...this.clientsByUser.keys()]) {
+      if (exclude && targetUid === exclude) continue;
+      const payload = typeof computePerUserData === 'function' ? computePerUserData(targetUid, data) : data;
+      if (payload === null || payload === undefined) continue;
+      const sent = this.sendToUser(targetUid, type, payload, { buffer });
+      if (sent > 0) recipients += 1;
+    }
+    return recipients;
+  }
+
+  /**
    * Yazıyor göstergesini 3 saniye hız sınırıyla (sunucuda saklamadan) iletir.
    */
   emitTyping(fromUserId, toUserId, convId) {

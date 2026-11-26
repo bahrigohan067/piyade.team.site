@@ -550,6 +550,33 @@ class MemberStore {
   }
 
   /**
+   * Aktif Google üyelerinin Roblox avatar URL'lerini (bot POST /api/roblox/avatars yanıtından)
+   * toplu günceller ve 6 saatlik yenileme zaman damgasını kaydeder.
+   */
+  updateRobloxAvatarsByRobloxId(avatarMap = {}, nowMs = Date.now()) {
+    if (!avatarMap || typeof avatarMap !== 'object') return 0;
+    const st = this._loadState();
+    let updatedCount = 0;
+    for (const rec of Object.values(st.members)) {
+      if (!rec || rec.status !== 'active' || !Array.isArray(rec.games)) continue;
+      const rbGame = rec.games.find((g) => g && g.id === 'roblox' && g.robloxId);
+      if (!rbGame) continue;
+      const rid = String(rbGame.robloxId).trim();
+      if (!Object.prototype.hasOwnProperty.call(avatarMap, rid)) continue;
+      const nextUrl = typeof avatarMap[rid] === 'string' && avatarMap[rid].trim() ? avatarMap[rid].trim() : null;
+      if (nextUrl && rbGame.robloxAvatarUrl !== nextUrl) {
+        rbGame.robloxAvatarUrl = nextUrl;
+      }
+      rec.robloxAvatarRefreshedAt = Number(nowMs) || Date.now();
+      updatedCount += 1;
+    }
+    if (updatedCount > 0) {
+      this._saveState();
+    }
+    return updatedCount;
+  }
+
+  /**
    * Sohbet rehberi ve halka/kart gösterimi için güvenli genel görünüm üretir.
    * E-posta ve googleName ASLA bu nesnede yer almaz!
    */
@@ -573,9 +600,19 @@ class MemberStore {
       robloxId: rbGame && rbGame.robloxId ? String(rbGame.robloxId) : null,
       robloxUsername: rbGame && rbGame.username ? String(rbGame.username) : null,
       robloxAvatarUrl: rbGame && rbGame.robloxAvatarUrl ? String(rbGame.robloxAvatarUrl) : null,
+      robloxProfileUrl: rbGame && rbGame.robloxProfileUrl ? String(rbGame.robloxProfileUrl) : null,
+      robloxAvatarRefreshedAt: Number(member.robloxAvatarRefreshedAt) || Number(member.createdAt) || 0,
       hasRoblox: Boolean(rbGame && (rbGame.robloxId || rbGame.username)),
+      showGamesInChat: showGames,
       ...(showGames
-        ? { games: games.map((g) => ({ id: g.id, username: g.username })) }
+        ? {
+            games: games.map((g) => ({
+              id: g.id,
+              username: g.username,
+              ...(g.robloxId ? { robloxId: String(g.robloxId) } : {}),
+              ...(g.robloxProfileUrl ? { profileUrl: String(g.robloxProfileUrl) } : {}),
+            })),
+          }
         : { games: [] }),
     };
   }

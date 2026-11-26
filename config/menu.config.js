@@ -224,9 +224,11 @@ function getVisibleMenuItems(user, lang = 'tr') {
   const isEn = lang === 'en';
 
   const chatEnabled = appConfig.isChatEnabled();
+  const chatGoogleEnabled = chatConfig.isChatGoogleMembersEnabled();
 
   return MENU_ITEMS.filter((item) => {
     if (item.requiresChatEnabled && !chatEnabled) return false;
+    if (item.id === 'chat' && isGoogle && !chatGoogleEnabled) return false;
     if (isLogged && !item.showWhenLoggedIn) return false;
     if (!isLogged && !item.showWhenLoggedOut) return false;
 

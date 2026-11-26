@@ -156,6 +156,7 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.isCommunityOfficial = false;
   res.locals.googleAuthEnabled = authConfig.isGoogleEnabled();
   res.locals.chatEnabled = appConfig.isChatEnabled();
+  res.locals.chatGoogleMembersEnabled = chatConfig.isChatGoogleMembersEnabled();
   res.locals.legalFooterLinks = legalConfig.FOOTER_LEGAL_LINKS;
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;

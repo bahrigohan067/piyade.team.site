@@ -5,14 +5,17 @@ const chatConfig = require('../config/chat.config');
 
 const DISCORD_ID_RE = /^\d{15,25}$/;
 const CHAT_USER_ID_RE = /^(?:\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
-const CONV_ID_RE = /^(\d{15,25}|g_m_[A-Za-z0-9]{6,48})_(\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
+const CONV_SEP = '~';
+const CONV_ID_RE = /^(\d{15,25}|g_m_[A-Za-z0-9]{6,48})~(\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
+const LEGACY_CONV_ID_RE = /^(\d{15,25}|g_m_[A-Za-z0-9]{6,48})_(\d{15,25}|g_m_[A-Za-z0-9]{6,48})$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let idSeqCounter = 0;
 let lastIdTs = 0;
 
 /**
- * İki kullanıcı kimliğinden (Discord ID veya Google üye kimliği g_m_...) deterministik sohbet kimliği üretir.
+ * İki kullanıcı kimliğinden (Discord ID veya Google üye kimliği g_m_...) çakışmasız "~" ayracıyla
+ * deterministik birebir sohbet kimliği üretir.
  * URL'den gelen ham convId değerine asla güvenilmez; her zaman bu fonksiyonla türetilir.
  */
 function makeConvId(idA, idB) {
@@ -21,7 +24,7 @@ function makeConvId(idA, idB) {
   if (!CHAT_USER_ID_RE.test(a) || !CHAT_USER_ID_RE.test(b) || a === b) {
     return null;
   }
-  return a < b ? `${a}_${b}` : `${b}_${a}`;
+  return a < b ? `${a}${CONV_SEP}${b}` : `${b}${CONV_SEP}${a}`;
 }
 
 function parseConvId(convId) {
@@ -32,6 +35,53 @@ function parseConvId(convId) {
   const b = match[2];
   if (a === b) return null;
   return a < b ? [a, b] : [b, a];
+}
+
+function parseLegacyConvId(convId) {
+  if (typeof convId !== 'string') return null;
+  const match = LEGACY_CONV_ID_RE.exec(convId);
+  if (!match) return null;
+  const a = match[1];
+  const b = match[2];
+  if (a === b) return null;
+  return a < b ? [a, b] : [b, a];
+}
+
+function makeGroupConvId(groupId) {
+  return chatConfig.makeGroupConvId(groupId);
+}
+
+function parseGroupConvId(convId) {
+  return chatConfig.parseGroupConvId(convId);
+}
+
+function isGroupConvId(convId) {
+  return chatConfig.isGroupConvId(convId);
+}
+
+function isValidConvId(convId) {
+  return Boolean(parseConvId(convId) || isGroupConvId(convId));
+}
+
+/**
+ * Windows dosya sisteminde ":" karakteri geçersiz olduğu için "group:<id>" biçimini
+ * diskte güvenli "group__<id>" taban adına eşler; birebir "<idA>~<idB>" kimlikleri doğrudan kullanılır.
+ */
+function convIdToDiskBaseName(convId) {
+  const groupId = parseGroupConvId(convId);
+  if (groupId) return `group__${groupId}`;
+  return String(convId || '');
+}
+
+function diskBaseNameToConvId(baseName) {
+  if (typeof baseName !== 'string') return null;
+  if (baseName.startsWith('group__')) {
+    return makeGroupConvId(baseName.slice('group__'.length));
+  }
+  if (parseConvId(baseName)) {
+    return baseName;
+  }
+  return null;
 }
 
 function isValidDiscordId(id) {
@@ -137,13 +187,14 @@ function defaultProfile() {
     ringId: chatConfig.DEFAULT_RING_ID,
     ring: null,
     readReceipts: true,
+    showGamesInChat: true,
+    mutedGroups: [],
     notify: {
       browser: false,
       sound: false,
       preview: false,
     },
     whoCanMessage: 'everyone',
-    requireMessageRequest: false,
     blocked: [],
     consent: null,
     newConvDates: [],
@@ -166,6 +217,15 @@ function normalizeProfile(raw) {
   const blocked = Array.isArray(raw.blocked)
     ? [...new Set(raw.blocked.map((x) => String(x || '').trim()).filter((id) => CHAT_USER_ID_RE.test(id)))]
     : [];
+  const mutedGroups = Array.isArray(raw.mutedGroups)
+    ? [
+        ...new Set(
+          raw.mutedGroups
+            .map((x) => String(x || '').trim().toLowerCase())
+            .filter((gid) => Boolean(chatConfig.getGroupById(gid)))
+        ),
+      ]
+    : [];
 
   let consent = null;
   if (raw.consent && typeof raw.consent === 'object' && typeof raw.consent.version === 'string') {
@@ -179,13 +239,14 @@ function normalizeProfile(raw) {
     ringId: ringSelection.valid ? ringSelection.ringId : chatConfig.DEFAULT_RING_ID,
     ring: ringSelection.valid ? ringSelection.ring : null,
     readReceipts: raw.readReceipts !== false,
+    showGamesInChat: raw.showGamesInChat !== false,
+    mutedGroups,
     notify: {
       browser: Boolean(notifyRaw.browser),
       sound: Boolean(notifyRaw.sound),
       preview: Boolean(notifyRaw.preview),
     },
     whoCanMessage: raw.whoCanMessage === 'nobody' ? 'nobody' : 'everyone',
-    requireMessageRequest: Boolean(raw.requireMessageRequest),
     blocked,
     consent,
     newConvDates: Array.isArray(raw.newConvDates)
@@ -212,8 +273,6 @@ function defaultConvState(convId) {
     lastDelivered: {},
     createdAt: 0,
     createdBy: null,
-    requestStatus: 'accepted', // 'accepted' | 'pending' | 'declined'
-    requestFrom: null,
   };
 }
 
@@ -242,10 +301,6 @@ function normalizeConvState(convId, raw) {
     lastDelivered,
     createdAt: Number(raw.createdAt) || 0,
     createdBy: typeof raw.createdBy === 'string' && CHAT_USER_ID_RE.test(raw.createdBy) ? raw.createdBy : null,
-    requestStatus:
-      raw.requestStatus === 'pending' || raw.requestStatus === 'declined' ? raw.requestStatus : 'accepted',
-    requestFrom:
-      typeof raw.requestFrom === 'string' && CHAT_USER_ID_RE.test(raw.requestFrom) ? raw.requestFrom : null,
   };
 }
 
@@ -358,6 +413,9 @@ class ChatStore {
     this._loadUsers();
     this._loadMeta();
     this._loadFilesMeta();
+    if (!options.skipMigration) {
+      this.migrateLegacyConvIds({ silent: Boolean(options.silentWarning || options.baseDir) });
+    }
     this._indexExistingConversations();
   }
 
@@ -369,6 +427,325 @@ class ChatStore {
         }
       } catch (_) {}
     }
+  }
+
+  /**
+   * Eski "_" ayraçlı sohbet kimliklerini (<idA>_<idB>) çakışmasız "~" ayracına (<idA>~<idB>)
+   * tek seferlik, kayıpsız ve geri alınabilir biçimde taşır.
+   * İşlem öncesi etkilenen tüm dosyaların yedeği backups/ klasörüne alınır.
+   */
+  migrateLegacyConvIds({ silent = false } = {}) {
+    const legacyConvs = new Map(); // oldConvId -> { oldConvId, newConvId, files: [] }
+    let convDirEntries = [];
+    try {
+      convDirEntries = fs.readdirSync(this.conversationsDir);
+    } catch (_) {
+      convDirEntries = [];
+    }
+
+    for (const fname of convDirEntries) {
+      let base = null;
+      if (fname.endsWith('.jsonl')) {
+        base = fname.slice(0, -'.jsonl'.length);
+      } else if (fname.endsWith('.state.json.bak')) {
+        base = fname.slice(0, -'.state.json.bak'.length);
+      } else if (fname.endsWith('.state.json')) {
+        base = fname.slice(0, -'.state.json'.length);
+      }
+      if (!base) continue;
+      const legacyPair = parseLegacyConvId(base);
+      if (!legacyPair) continue;
+      const newConvId = makeConvId(legacyPair[0], legacyPair[1]);
+      if (!newConvId) continue;
+      let rec = legacyConvs.get(base);
+      if (!rec) {
+        rec = { oldConvId: base, newConvId, files: [] };
+        legacyConvs.set(base, rec);
+      }
+      rec.files.push(fname);
+    }
+
+    // fileMeta içinde eski convId var mı kontrol et
+    const legacyFileMetaIds = [];
+    for (const [fid, entry] of this.fileMeta.entries()) {
+      if (entry && typeof entry.convId === 'string' && parseLegacyConvId(entry.convId)) {
+        legacyFileMetaIds.push(fid);
+      }
+    }
+
+    // moderation/cases.json ve cases/*.json içinde eski convId var mı kontrol et
+    const modDir = path.join(this.baseDir, 'moderation');
+    const modCasesIndexPath = path.join(modDir, 'cases.json');
+    const modCasesDir = path.join(modDir, 'cases');
+    let modCasesObj = null;
+    let hasLegacyModCases = false;
+    if (fs.existsSync(modCasesIndexPath)) {
+      try {
+        modCasesObj = JSON.parse(fs.readFileSync(modCasesIndexPath, 'utf8'));
+        if (modCasesObj && typeof modCasesObj === 'object') {
+          for (const c of Object.values(modCasesObj)) {
+            if (c && typeof c.convId === 'string' && parseLegacyConvId(c.convId)) {
+              hasLegacyModCases = true;
+              break;
+            }
+          }
+        }
+      } catch (_) {
+        modCasesObj = null;
+      }
+    }
+
+    const legacyModSnapFiles = [];
+    if (fs.existsSync(modCasesDir)) {
+      try {
+        for (const sf of fs.readdirSync(modCasesDir)) {
+          if (!sf.endsWith('.json')) continue;
+          const sp = path.join(modCasesDir, sf);
+          try {
+            const parsed = JSON.parse(fs.readFileSync(sp, 'utf8'));
+            if (parsed && typeof parsed.convId === 'string' && parseLegacyConvId(parsed.convId)) {
+              legacyModSnapFiles.push(sf);
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    if (
+      legacyConvs.size === 0 &&
+      legacyFileMetaIds.length === 0 &&
+      !hasLegacyModCases &&
+      legacyModSnapFiles.length === 0
+    ) {
+      return { migrated: false, conversationsMigrated: 0, filesMetaUpdated: 0, modCasesUpdated: 0, backupDir: null };
+    }
+
+    // 1) ÖNCE yedek klasörü ve geri alma manifestosu oluştur
+    const backupId = `conv-sep-migration-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const backupDir = path.join(this.baseDir, 'backups', backupId);
+    const backupFilesRoot = path.join(backupDir, 'files');
+    fs.mkdirSync(backupFilesRoot, { recursive: true, mode: 0o700 });
+
+    const copiedFiles = [];
+    const createdFiles = [];
+    const copyToBackup = (absSrc) => {
+      if (!fs.existsSync(absSrc)) return;
+      const rel = path.relative(this.baseDir, absSrc).replace(/\\/g, '/');
+      if (copiedFiles.includes(rel)) return;
+      const dst = path.join(backupFilesRoot, rel);
+      fs.mkdirSync(path.dirname(dst), { recursive: true, mode: 0o700 });
+      fs.copyFileSync(absSrc, dst);
+      copiedFiles.push(rel);
+    };
+
+    for (const rec of legacyConvs.values()) {
+      for (const fname of rec.files) {
+        copyToBackup(path.join(this.conversationsDir, fname));
+      }
+      // Hedef dosya zaten varsa onu da yedekle; yoksa createdFiles listesine ekle
+      for (const suffix of ['.jsonl', '.state.json', '.state.json.bak']) {
+        const targetAbs = path.join(this.conversationsDir, `${rec.newConvId}${suffix}`);
+        if (fs.existsSync(targetAbs)) {
+          copyToBackup(targetAbs);
+        } else {
+          const rel = path.relative(this.baseDir, targetAbs).replace(/\\/g, '/');
+          if (!createdFiles.includes(rel)) createdFiles.push(rel);
+        }
+      }
+    }
+    if (legacyFileMetaIds.length > 0) {
+      copyToBackup(this.filesMetaFile);
+      copyToBackup(`${this.filesMetaFile}.bak`);
+    }
+    if (hasLegacyModCases) {
+      copyToBackup(modCasesIndexPath);
+      copyToBackup(`${modCasesIndexPath}.bak`);
+    }
+    for (const sf of legacyModSnapFiles) {
+      copyToBackup(path.join(modCasesDir, sf));
+    }
+    copyToBackup(this.metaFile);
+
+    const manifest = {
+      version: 1,
+      createdAt: Date.now(),
+      fromSeparator: '_',
+      toSeparator: CONV_SEP,
+      copiedFiles,
+      createdFiles,
+      renamedPairs: [...legacyConvs.values()].map((r) => ({ from: r.oldConvId, to: r.newConvId })),
+    };
+    writeJsonAtomic(path.join(backupDir, 'manifest.json'), manifest, { keepBackup: false });
+
+    // 2) Sohbet dosyalarını kayıpsız taşı
+    let conversationsMigrated = 0;
+    for (const rec of legacyConvs.values()) {
+      const oldJsonl = path.join(this.conversationsDir, `${rec.oldConvId}.jsonl`);
+      const newJsonl = path.join(this.conversationsDir, `${rec.newConvId}.jsonl`);
+      if (fs.existsSync(oldJsonl)) {
+        if (!fs.existsSync(newJsonl)) {
+          fs.renameSync(oldJsonl, newJsonl);
+        } else {
+          // Her iki dosya da mevcutsa benzersiz satırları kayıpsız birleştir
+          const oldContent = fs.readFileSync(oldJsonl, 'utf8');
+          const newContent = fs.readFileSync(newJsonl, 'utf8');
+          const mergedLines = [];
+          const seen = new Set();
+          for (const line of `${oldContent}\n${newContent}`.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed || seen.has(trimmed)) continue;
+            seen.add(trimmed);
+            mergedLines.push(trimmed);
+          }
+          const tmpPath = `${newJsonl}.${process.pid}.mig.tmp`;
+          fs.writeFileSync(tmpPath, mergedLines.length > 0 ? `${mergedLines.join('\n')}\n` : '', {
+            encoding: 'utf8',
+            mode: 0o600,
+          });
+          fs.renameSync(tmpPath, newJsonl);
+          fs.unlinkSync(oldJsonl);
+        }
+      }
+
+      const oldStatePath = path.join(this.conversationsDir, `${rec.oldConvId}.state.json`);
+      const newStatePath = path.join(this.conversationsDir, `${rec.newConvId}.state.json`);
+      if (fs.existsSync(oldStatePath)) {
+        const { data: stData } = readJsonWithBackupRecovery(oldStatePath, null);
+        const normalizedSt = normalizeConvState(rec.newConvId, stData);
+        if (fs.existsSync(newStatePath)) {
+          const { data: existingNewSt } = readJsonWithBackupRecovery(newStatePath, null);
+          const mergedNew = normalizeConvState(rec.newConvId, existingNewSt);
+          for (const [k, v] of Object.entries(normalizedSt.lastRead)) {
+            mergedNew.lastRead[k] = Math.max(mergedNew.lastRead[k] || 0, v);
+          }
+          for (const [k, v] of Object.entries(normalizedSt.lastDelivered)) {
+            mergedNew.lastDelivered[k] = Math.max(mergedNew.lastDelivered[k] || 0, v);
+          }
+          if (!mergedNew.createdAt || (normalizedSt.createdAt && normalizedSt.createdAt < mergedNew.createdAt)) {
+            mergedNew.createdAt = normalizedSt.createdAt;
+            mergedNew.createdBy = normalizedSt.createdBy;
+          }
+          writeJsonAtomic(newStatePath, mergedNew, { keepBackup: true });
+        } else {
+          writeJsonAtomic(newStatePath, normalizedSt, { keepBackup: false });
+        }
+        try {
+          fs.unlinkSync(oldStatePath);
+        } catch (_) {}
+      }
+      const oldStateBak = `${oldStatePath}.bak`;
+      if (fs.existsSync(oldStateBak)) {
+        try {
+          fs.unlinkSync(oldStateBak);
+        } catch (_) {}
+      }
+      conversationsMigrated += 1;
+    }
+
+    // 3) Dosya metadata convId değerlerini güncelle
+    let filesMetaUpdated = 0;
+    if (legacyFileMetaIds.length > 0) {
+      for (const fid of legacyFileMetaIds) {
+        const entry = this.fileMeta.get(fid);
+        if (!entry || typeof entry.convId !== 'string') continue;
+        const pair = parseLegacyConvId(entry.convId);
+        if (pair) {
+          entry.convId = makeConvId(pair[0], pair[1]);
+          filesMetaUpdated += 1;
+        }
+      }
+      if (filesMetaUpdated > 0) {
+        this._saveFilesMetaSync();
+      }
+    }
+
+    // 4) Moderasyon vaka dosyalarındaki convId değerlerini güncelle
+    let modCasesUpdated = 0;
+    if (hasLegacyModCases && modCasesObj) {
+      for (const c of Object.values(modCasesObj)) {
+        if (c && typeof c.convId === 'string') {
+          const pair = parseLegacyConvId(c.convId);
+          if (pair) {
+            c.convId = makeConvId(pair[0], pair[1]);
+            modCasesUpdated += 1;
+          }
+        }
+      }
+      writeJsonAtomic(modCasesIndexPath, modCasesObj, { keepBackup: true });
+    }
+    for (const sf of legacyModSnapFiles) {
+      const sp = path.join(modCasesDir, sf);
+      try {
+        const snap = JSON.parse(fs.readFileSync(sp, 'utf8'));
+        const pair = snap && typeof snap.convId === 'string' ? parseLegacyConvId(snap.convId) : null;
+        if (pair) {
+          snap.convId = makeConvId(pair[0], pair[1]);
+          writeJsonAtomic(sp, snap, { keepBackup: false });
+        }
+      } catch (_) {}
+    }
+
+    // 5) Meta güncelle
+    this.meta.convSeparator = CONV_SEP;
+    this.meta.migratedAt = Date.now();
+    this.meta.lastMigrationBackup = path.relative(this.baseDir, backupDir).replace(/\\/g, '/');
+    this._saveMetaSync();
+
+    if (!silent) {
+      console.log(
+        `🔄 [CHAT GEÇİŞ] ${conversationsMigrated} sohbet, ${filesMetaUpdated} ek meta kaydı ve ${modCasesUpdated} moderasyon vakası "~" ayracına taşındı (yedek: ${backupId}).`
+      );
+    }
+
+    return {
+      migrated: true,
+      conversationsMigrated,
+      filesMetaUpdated,
+      modCasesUpdated,
+      backupDir,
+    };
+  }
+
+  /**
+   * Bir convId geçişini ilgili yedek klasöründeki manifest.json üzerinden birebir geri alır.
+   */
+  rollbackLegacyConvIdMigration(backupDir) {
+    if (!backupDir || !fs.existsSync(backupDir)) {
+      return { ok: false, code: 'BACKUP_NOT_FOUND' };
+    }
+    const manifestPath = path.join(backupDir, 'manifest.json');
+    if (!fs.existsSync(manifestPath)) {
+      return { ok: false, code: 'MANIFEST_NOT_FOUND' };
+    }
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const backupFilesRoot = path.join(backupDir, 'files');
+
+    // Yeni oluşturulan hedef dosyaları temizle
+    for (const rel of Array.isArray(manifest.createdFiles) ? manifest.createdFiles : []) {
+      const targetAbs = path.join(this.baseDir, rel);
+      try {
+        if (fs.existsSync(targetAbs)) fs.unlinkSync(targetAbs);
+      } catch (_) {}
+    }
+
+    // Yedeklenen tüm orijinal dosyaları geri yükle
+    let restoredFiles = 0;
+    for (const rel of Array.isArray(manifest.copiedFiles) ? manifest.copiedFiles : []) {
+      const srcAbs = path.join(backupFilesRoot, rel);
+      const dstAbs = path.join(this.baseDir, rel);
+      if (fs.existsSync(srcAbs)) {
+        fs.mkdirSync(path.dirname(dstAbs), { recursive: true, mode: 0o700 });
+        fs.copyFileSync(srcAbs, dstAbs);
+        restoredFiles += 1;
+      }
+    }
+
+    this.convStates.clear();
+    this._loadMeta();
+    this._loadFilesMeta();
+    this._indexExistingConversations();
+
+    return { ok: true, restoredFiles };
   }
 
   _loadUsers() {
@@ -397,6 +774,9 @@ class ChatStore {
     this.meta = {
       lastCleanupAt: Number(data && data.lastCleanupAt) || 0,
       lastCleanupDate: typeof (data && data.lastCleanupDate) === 'string' ? data.lastCleanupDate : '',
+      convSeparator: typeof (data && data.convSeparator) === 'string' ? data.convSeparator : CONV_SEP,
+      migratedAt: Number(data && data.migratedAt) || 0,
+      lastMigrationBackup: typeof (data && data.lastMigrationBackup) === 'string' ? data.lastMigrationBackup : '',
     };
   }
 
@@ -426,11 +806,11 @@ class ChatStore {
   }
 
   _getConvJsonlPath(convId) {
-    return path.join(this.conversationsDir, `${convId}.jsonl`);
+    return path.join(this.conversationsDir, `${convIdToDiskBaseName(convId)}.jsonl`);
   }
 
   _getConvStatePath(convId) {
-    return path.join(this.conversationsDir, `${convId}.state.json`);
+    return path.join(this.conversationsDir, `${convIdToDiskBaseName(convId)}.state.json`);
   }
 
   _loadConvState(convId) {
@@ -484,6 +864,7 @@ class ChatStore {
           target.deletedAt = Number(ev.ts) || Date.now();
           target.deletedBy = ev.by || target.from;
           target.modRemoved = Boolean(ev.modRemoved);
+          target.adminRemoved = Boolean(ev.adminRemoved);
           target.text = '';
           target.attachments = [];
         }
@@ -498,6 +879,7 @@ class ChatStore {
           clientId: typeof ev.clientId === 'string' ? ev.clientId : null,
           deleted: Boolean(ev.deleted),
           modRemoved: Boolean(ev.modRemoved),
+          adminRemoved: Boolean(ev.adminRemoved),
           system: Boolean(ev.system),
           systemType: ev.systemType || null,
         };
@@ -517,7 +899,8 @@ class ChatStore {
 
   _updateConvCacheAndIndex(convId, allMessages) {
     const participants = parseConvId(convId);
-    if (!participants) return;
+    const groupId = parseGroupConvId(convId);
+    if (!participants && !groupId) return;
     const maxCache = chatConfig.LIMITS.MAX_MEMORY_MESSAGES_PER_CONV || 120;
     const tail = allMessages.slice(-maxCache);
     const clientIds = new Map();
@@ -538,7 +921,9 @@ class ChatStore {
     if (allMessages.length > 0) {
       this.convIndex.set(convId, {
         convId,
-        participants,
+        isGroup: Boolean(groupId),
+        groupId: groupId || null,
+        participants: participants || [],
         lastMessage: lastMessage ? { ...lastMessage } : null,
         lastActivityAt,
         msgCount: allMessages.length,
@@ -560,8 +945,8 @@ class ChatStore {
 
     for (const name of entries) {
       if (!name.endsWith('.jsonl')) continue;
-      const convId = name.slice(0, -6);
-      if (!parseConvId(convId)) continue;
+      const convId = diskBaseNameToConvId(name.slice(0, -6));
+      if (!convId) continue;
       const all = this._readAllMessagesFromDisk(convId);
       this._loadConvState(convId);
       this._updateConvCacheAndIndex(convId, all);
@@ -581,6 +966,7 @@ class ChatStore {
       ...existing,
       notify: { ...existing.notify },
       blocked: [...existing.blocked],
+      mutedGroups: [...(existing.mutedGroups || [])],
       ring: existing.ring ? { ...existing.ring, colors: [...existing.ring.colors] } : null,
       consent: existing.consent ? { ...existing.consent } : null,
       dailyUpload: existing.dailyUpload ? { ...existing.dailyUpload } : { day: '', bytes: 0 },
@@ -616,6 +1002,16 @@ class ChatStore {
       merged.readReceipts = patch.readReceipts;
     }
 
+    if (typeof patch.showGamesInChat === 'boolean') {
+      merged.showGamesInChat = patch.showGamesInChat;
+    }
+
+    if (Array.isArray(patch.mutedGroups)) {
+      merged.mutedGroups = patch.mutedGroups
+        .map((x) => String(x || '').trim().toLowerCase())
+        .filter((gid) => Boolean(chatConfig.getGroupById(gid)));
+    }
+
     if (patch.notify && typeof patch.notify === 'object') {
       merged.notify = {
         browser:
@@ -630,14 +1026,29 @@ class ChatStore {
       merged.whoCanMessage = patch.whoCanMessage;
     }
 
-    if (typeof patch.requireMessageRequest === 'boolean') {
-      merged.requireMessageRequest = patch.requireMessageRequest;
-    }
-
     const normalized = normalizeProfile(merged);
     this.users.set(uid, normalized);
     this._saveUsersSync();
     return this.getProfile(uid);
+  }
+
+  isGroupMuted(userId, groupId) {
+    const gid = String(groupId || '').trim().toLowerCase();
+    const prof = this.getProfile(userId);
+    return Array.isArray(prof.mutedGroups) && prof.mutedGroups.includes(gid);
+  }
+
+  setGroupMuted(userId, groupId, muted) {
+    const uid = String(userId || '').trim();
+    const grp = chatConfig.getGroupById(groupId);
+    if (!CHAT_USER_ID_RE.test(uid) || !grp) {
+      throw new Error('Geçersiz grup veya kullanıcı kimliği.');
+    }
+    const prof = this.getProfile(uid);
+    const set = new Set(Array.isArray(prof.mutedGroups) ? prof.mutedGroups : []);
+    if (muted) set.add(grp.id);
+    else set.delete(grp.id);
+    return this.setProfile(uid, { mutedGroups: [...set] });
   }
 
   getPublicRingForUser(userId) {
@@ -747,18 +1158,8 @@ class ChatStore {
     return { ...this._loadConvState(convId) };
   }
 
-  setConvRequestStatus(convId, status, requestFrom = null) {
-    const state = this._loadConvState(convId);
-    state.requestStatus = status;
-    if (requestFrom !== undefined) {
-      state.requestFrom = requestFrom;
-    }
-    this._saveConvStateSync(convId, state);
-    return { ...state };
-  }
-
   /**
-   * Sohbete yeni bir mesaj satırı ekler (append-only JSONL).
+   * Sohbete veya zorunlu gruba yeni bir mesaj satırı ekler (append-only JSONL).
    * Aynı kullanıcıdan aynı clientId geldiyse çift gönderimi önler.
    */
   appendMessage(
@@ -766,12 +1167,19 @@ class ChatStore {
     { from, text = '', attachments = [], replyTo = null, clientId = null, ts = Date.now(), system = false, systemType = null }
   ) {
     const participants = parseConvId(convId);
-    if (!participants) {
+    const groupId = parseGroupConvId(convId);
+    if (!participants && !groupId) {
       throw new Error('Geçersiz sohbet kimliği.');
     }
     const cleanFrom = String(from || '').trim();
-    if (!system && !participants.includes(cleanFrom)) {
-      throw new Error('Kullanıcı bu sohbetin katılımcısı değil.');
+    if (!system) {
+      if (groupId) {
+        if (!CHAT_USER_ID_RE.test(cleanFrom)) {
+          throw new Error('Geçersiz gönderen kimliği.');
+        }
+      } else if (!participants.includes(cleanFrom)) {
+        throw new Error('Kullanıcı bu sohbetin katılımcısı değil.');
+      }
     }
 
     const cleanClientId =
@@ -820,6 +1228,7 @@ class ChatStore {
       clientId: cleanClientId,
       deleted: false,
       modRemoved: false,
+      adminRemoved: false,
       system: Boolean(system),
       systemType: systemType || null,
     };
@@ -838,7 +1247,9 @@ class ChatStore {
     if (!system) {
       // Gönderen kendi mesajını okumuş sayılır
       state.lastRead[cleanFrom] = Math.max(state.lastRead[cleanFrom] || 0, nowTs);
-      state.lastDelivered[cleanFrom] = Math.max(state.lastDelivered[cleanFrom] || 0, nowTs);
+      if (!groupId) {
+        state.lastDelivered[cleanFrom] = Math.max(state.lastDelivered[cleanFrom] || 0, nowTs);
+      }
     }
     this._saveConvStateSync(convId, state);
 
@@ -858,6 +1269,7 @@ class ChatStore {
       clientId: message.clientId,
       deleted: false,
       modRemoved: false,
+      adminRemoved: false,
       system: message.system,
       systemType: message.systemType,
     };
@@ -874,7 +1286,9 @@ class ChatStore {
     const prevIndex = this.convIndex.get(convId);
     this.convIndex.set(convId, {
       convId,
-      participants,
+      isGroup: Boolean(groupId),
+      groupId: groupId || null,
+      participants: participants || [],
       lastMessage: { ...storedMsg },
       lastActivityAt: nowTs,
       msgCount: (prevIndex ? prevIndex.msgCount : 0) + 1,
@@ -884,10 +1298,10 @@ class ChatStore {
   }
 
   /**
-   * Mesajı tombstone olayıyla siler (kullanıcı veya moderatör kaldırması).
+   * Mesajı tombstone olayıyla siler (kullanıcı, grup yöneticisi veya moderatör kaldırması).
    */
-  deleteMessage(convId, msgId, { by, modRemoved = false, nowTs = Date.now() } = {}) {
-    if (!parseConvId(convId)) {
+  deleteMessage(convId, msgId, { by, modRemoved = false, adminRemoved = false, nowTs = Date.now() } = {}) {
+    if (!isValidConvId(convId)) {
       return { ok: false, code: 'INVALID_CONV' };
     }
     const all = this._readAllMessagesFromDisk(convId);
@@ -895,10 +1309,14 @@ class ChatStore {
     if (!target) {
       return { ok: false, code: 'NOT_FOUND' };
     }
-    if (!modRemoved && target.from !== String(by || '')) {
+    if (!modRemoved && !adminRemoved && target.from !== String(by || '')) {
       return { ok: false, code: 'FORBIDDEN' };
     }
-    if (target.deleted && (!modRemoved || target.modRemoved)) {
+    const alreadySameOrStronger =
+      target.deleted &&
+      (!modRemoved || target.modRemoved) &&
+      (!adminRemoved || target.adminRemoved || target.modRemoved);
+    if (alreadySameOrStronger) {
       return { ok: true, alreadyDeleted: true, message: target, deletedAttachmentIds: [] };
     }
 
@@ -912,6 +1330,7 @@ class ChatStore {
       by: String(by || ''),
       ts: Number(nowTs) || Date.now(),
       modRemoved: Boolean(modRemoved),
+      adminRemoved: Boolean(adminRemoved),
     };
     fs.appendFileSync(this._getConvJsonlPath(convId), `${JSON.stringify(tombstone)}\n`, {
       encoding: 'utf8',
@@ -920,6 +1339,7 @@ class ChatStore {
 
     target.deleted = true;
     target.modRemoved = Boolean(modRemoved);
+    target.adminRemoved = Boolean(adminRemoved);
     target.deletedAt = tombstone.ts;
     target.deletedBy = tombstone.by;
     target.text = '';
@@ -1051,8 +1471,10 @@ class ChatStore {
 
   markRead(convId, userId, upToTs = Date.now()) {
     const participants = parseConvId(convId);
+    const isGroup = isGroupConvId(convId);
     const uid = String(userId || '').trim();
-    if (!participants || !participants.includes(uid)) return null;
+    if (!CHAT_USER_ID_RE.test(uid)) return null;
+    if (!isGroup && (!participants || !participants.includes(uid))) return null;
     const state = this._loadConvState(convId);
     const ts = Number(upToTs) || Date.now();
     let changed = false;
@@ -1060,7 +1482,7 @@ class ChatStore {
       state.lastRead[uid] = ts;
       changed = true;
     }
-    if (ts > (state.lastDelivered[uid] || 0)) {
+    if (!isGroup && ts > (state.lastDelivered[uid] || 0)) {
       state.lastDelivered[uid] = ts;
       changed = true;
     }
@@ -1095,12 +1517,31 @@ class ChatStore {
     return count;
   }
 
+  getGroupSummary(groupId, userId) {
+    const grp = chatConfig.getGroupById(groupId);
+    if (!grp) return null;
+    const convId = makeGroupConvId(grp.id);
+    const uid = String(userId || '').trim();
+    const entry = this.convIndex.get(convId) || null;
+    const unreadCount = CHAT_USER_ID_RE.test(uid) ? this.getUnreadCountForConv(convId, uid) : 0;
+    const muted = CHAT_USER_ID_RE.test(uid) ? this.isGroupMuted(uid, grp.id) : false;
+    return {
+      groupId: grp.id,
+      convId,
+      lastMessage: entry && entry.lastMessage ? { ...entry.lastMessage } : null,
+      lastActivityAt: entry ? entry.lastActivityAt || 0 : 0,
+      unreadCount,
+      muted,
+    };
+  }
+
   listConversations(userId) {
     const uid = String(userId || '').trim();
     if (!CHAT_USER_ID_RE.test(uid)) return [];
     const results = [];
 
     for (const entry of this.convIndex.values()) {
+      if (entry.isGroup) continue;
       if (!entry.participants.includes(uid)) continue;
       const otherId = entry.participants[0] === uid ? entry.participants[1] : entry.participants[0];
       const state = this._loadConvState(entry.convId);
@@ -1124,13 +1565,18 @@ class ChatStore {
     if (!CHAT_USER_ID_RE.test(uid)) return 0;
     const myProf = this.getProfile(uid);
     const blockedSet = new Set(myProf.blocked || []);
+    const mutedGroupSet = new Set(myProf.mutedGroups || []);
     let total = 0;
     for (const entry of this.convIndex.values()) {
+      if (entry.isGroup) {
+        if (!mutedGroupSet.has(entry.groupId)) {
+          total += this.getUnreadCountForConv(entry.convId, uid);
+        }
+        continue;
+      }
       if (!entry.participants.includes(uid)) continue;
       const otherId = entry.participants[0] === uid ? entry.participants[1] : entry.participants[0];
       if (blockedSet.has(otherId)) continue;
-      const state = this._loadConvState(entry.convId);
-      if (state.requestStatus === 'declined') continue;
       total += this.getUnreadCountForConv(entry.convId, uid);
     }
     return total;
@@ -1262,8 +1708,8 @@ class ChatStore {
 
       for (const name of entries) {
         if (!name.endsWith('.jsonl')) continue;
-        const convId = name.slice(0, -6);
-        if (!parseConvId(convId)) continue;
+        const convId = diskBaseNameToConvId(name.slice(0, -6));
+        if (!convId) continue;
         const jsonlPath = this._getConvJsonlPath(convId);
 
         try {
@@ -1329,6 +1775,7 @@ class ChatStore {
                       clientId: m.clientId,
                       deleted: Boolean(m.deleted),
                       modRemoved: Boolean(m.modRemoved),
+                      adminRemoved: Boolean(m.adminRemoved),
                       system: Boolean(m.system),
                       systemType: m.systemType || null,
                     })
@@ -1528,16 +1975,20 @@ class ChatStore {
 
     for (const name of entries) {
       if (!name.endsWith('.jsonl')) continue;
-      const convId = name.slice(0, -6);
+      const convId = diskBaseNameToConvId(name.slice(0, -6));
+      if (!convId) continue;
       const participants = parseConvId(convId);
-      if (!participants || !participants.includes(uid)) continue;
+      const isGroup = isGroupConvId(convId);
+      if (!isGroup && (!participants || !participants.includes(uid))) continue;
 
       const jsonlPath = this._getConvJsonlPath(convId);
       const all = this._readAllMessagesFromDisk(convId);
       const kept = [];
+      let touchedGroup = false;
 
       for (const msg of all) {
         if (msg.from === uid) {
+          touchedGroup = true;
           summary.removedMessages += 1;
           if (Array.isArray(msg.attachments)) {
             for (const att of msg.attachments) {
@@ -1550,6 +2001,15 @@ class ChatStore {
         } else {
           kept.push(msg);
         }
+      }
+
+      if (isGroup && !touchedGroup) {
+        const st = this._loadConvState(convId);
+        if (st.lastRead && st.lastRead[uid] !== undefined) {
+          delete st.lastRead[uid];
+          this._saveConvStateSync(convId, st);
+        }
+        continue;
       }
 
       if (kept.length === 0) {
@@ -1582,6 +2042,7 @@ class ChatStore {
                 clientId: m.clientId,
                 deleted: Boolean(m.deleted),
                 modRemoved: Boolean(m.modRemoved),
+                adminRemoved: Boolean(m.adminRemoved),
                 system: Boolean(m.system),
                 systemType: m.systemType || null,
               })
@@ -1594,7 +2055,6 @@ class ChatStore {
         delete state.lastRead[uid];
         delete state.lastDelivered[uid];
         if (state.createdBy === uid) state.createdBy = null;
-        if (state.requestFrom === uid) state.requestFrom = null;
         this._saveConvStateSync(convId, state);
         this._updateConvCacheAndIndex(convId, kept);
       }
@@ -1646,11 +2106,19 @@ function setDefaultChatStore(store) {
 }
 
 module.exports = {
+  CONV_SEP,
   ChatStore,
   getChatStore,
   setDefaultChatStore,
   makeConvId,
   parseConvId,
+  parseLegacyConvId,
+  makeGroupConvId,
+  parseGroupConvId,
+  isGroupConvId,
+  isValidConvId,
+  convIdToDiskBaseName,
+  diskBaseNameToConvId,
   isValidDiscordId,
   isValidChatUserId,
   generateMessageId,

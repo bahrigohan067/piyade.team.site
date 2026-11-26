@@ -126,7 +126,9 @@ NEW_MEMBER_RESTRICTION_HOURS=24
 
 # Sohbet Sistemi Özellik Bayrakları (Varsayılan KAPALI)
 CHAT_ENABLED=false
-CHAT_FIRST_CONTACT_REQUEST=false
+CHAT_GOOGLE_MEMBERS_ENABLED=true
+# Genel Sohbet grubu yöneticilerinin virgülle ayrılmış Discord ID listesi (koda sabit yazılmaz)
+CHAT_GROUP_ADMIN_DISCORD_IDS=
 MOD_PANEL_ALSO_DEVELOPER=false
 
 # Oyun Bazlı Discord Rol ID'leri (config/games.config.js)
@@ -172,9 +174,19 @@ npm run verify:clean
 
 ---
 
-## 💬 Birebir Sohbet, Dosya Gönderme ve Moderasyon (4 Parçalı Mimari)
+## 💬 Sohbet Sistemi: Genel Sohbet Grubu, Birebir Sohbet, Dosya Gönderme, Profil Kartı ve Moderasyon
 
-- **Özellik Bayrağı (`CHAT_ENABLED`):** Varsayılan olarak **KAPALI (`false`)** durumdadır. Kapalıyken tüm `/sohbet*` ve `/sohbet/moderasyon*` adresleri `404` döner ve menüde sohbet/moderasyon öğeleri görünmez. Hazır olduğunuzda Railway Variables üzerinden `CHAT_ENABLED=true` yaparak açabilirsiniz.
+- **Özellik Bayrağı (`CHAT_ENABLED` & `CHAT_GOOGLE_MEMBERS_ENABLED`):** `CHAT_ENABLED` varsayılan olarak **KAPALI (`false`)** durumdadır. Kapalıyken tüm `/sohbet*` ve `/sohbet/moderasyon*` adresleri `404` döner ve menüde sohbet/moderasyon öğeleri görünmez. `CHAT_GOOGLE_MEMBERS_ENABLED` varsayılan olarak `true`'dur; `false` yapıldığında Google site üyelerinin sohbete erişimi kapatılır.
+- **Zorunlu "Genel Sohbet" Grubu (`group:genel`) ve Grup Yöneticisi (`CHAT_GROUP_ADMIN_DISCORD_IDS`):**
+  - Sohbete erişimi olan tüm Discord ve site üyeleri otomatik olarak **🌐 Genel Sohbet** grubunun üyesidir; liste başında sabit durur, ayrılınamaz (yalnızca kullanıcı bazlı "Bildirimleri sessize al" ayarı vardır) ve ilk girişte açık gelir.
+  - Grupta "Görüldü" bilgisi yoktur; okunmamış sayacı, "Yeni mesajlar" ayırıcısı, ek dosyalar, raporlama ve moderasyon aynen çalışır. Aşırı yük koruması olarak kullanıcı başına dakikada en çok **12** grup mesajı ve kısa sürede aynı mesajın tekrarı engellenir.
+  - Grup yöneticileri yalnızca `CHAT_GROUP_ADMIN_DISCORD_IDS` (virgülle ayrılmış Discord ID listesi) ortam değişkeninden okunur (kodda sabit ID yoktur) ve **yalnızca Discord oturumu** ile doğrulanır. Grup yöneticisi gruptaki kurallara aykırı mesajları silebilir (yerinde *"Bu mesaj yönetici tarafından kaldırıldı"* izi kalır, ekler silinir ve içeriksiz denetim kaydı yazılır); DM'lere özel erişim **kazanmaz**.
+- **Profil Bilgi Kartı (Nebula Glass Card) ve Oyun Gizliliği:**
+  - Sohbetteki herhangi bir avatara veya isme tıklandığında tıklanan avatardan yaylanarak (`NexusSpring`) açılan **Nebula Glass Card** bilgi kartı (mobilde alttan açılan sayfa) gösterilir; kartın 3 bulutsu rengi üyenin kendi profil halkasındaki ilk 3 renkten türetilir.
+  - Kartta üyenin oyun kullanıcı adları, kopyalama düğmesi, Roblox profil bağlantısı ve `Mesaj Yaz` / `Engelle` / `Raporla` (kendi kartında `Profilimi düzenle`) bulunur. Üyenin **"Oyun kullanıcı adlarımı profilimde göster"** ayarı kapalıysa veriler sunucudan hiç gönderilmez.
+- **Kayıpsız `convId` Geçişi (`_` -> `~`) ve Mesaj İsteğinin Kaldırılması:**
+  - Discord (`\d+`) ve Google (`g_m_...`) kimliklerinin çakışmaması için birebir sohbet ayracı `~` olarak güncellenmiştir. Açılışta eski `_` ayraçlı dosyalar varsa `backups/` altına yedek alınarak tek seferlik, kayıpsız ve geri alınabilir (`rollbackLegacyConvIdMigration`) biçimde taşınır.
+  - Eski "mesaj isteği" özelliği ve `CHAT_FIRST_CONTACT_REQUEST` değişkeni tamamen kaldırılmıştır; engelleme ve *"bana kim yazabilir"* ayarları aynen korunur.
 - **Kalıcı Depolama (Railway Volume):** Sohbet verileri `${RAILWAY_VOLUME_MOUNT_PATH}/chat/` altında saklanır (`conversations/*.jsonl`, `conversations/*.state.json`, `users.json`, `files/`, `tmp/`, `moderation/`, `modlog.jsonl`). Volume tanımlı değilse yerel `.chat-data/` klasörü kullanılır ve tek satırlık uyarı verilir. Depolama katmanı (`services/chatStore.js`) değiştirilebilir arayüzle yazılmıştır; ileride SQLite/PostgreSQL'e geçilebilir.
 - **Gerçek Zamanlı Akış (SSE) ve Tek Kopya Notu:** `/sohbet/akis` uç noktası harici WebSocket paketi olmadan yerleşik SSE (25 sn heartbeat, `X-Accel-Buffering: no`, `Last-Event-ID`, kullanıcı başına maks. 5 bağlantı) kullanır. Abone listesi süreç içi bellekte tutulur; ileride birden fazla sunucu kopyası (multi-instance / yatay ölçekleme) çalıştırılırsa ortak bir Pub/Sub kanalı (örn. Redis Pub/Sub) eklenmelidir.
 - **Tarayıcı Bildirimleri & Gelecek Web Push Notu:** Sekme açıkken/arka plandayken isteğe bağlı `Notification` API bildirimi (önizleme varsayılan kapalı) ve Web Audio sesi desteklenir. Sekme tamamen kapalıyken anlık itme bildirimi (Web Push) bu sürümde yoktur; ileride Service Worker ve VAPID anahtarlarıyla eklenebilir.

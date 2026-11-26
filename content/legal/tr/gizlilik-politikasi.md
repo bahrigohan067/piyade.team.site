@@ -19,12 +19,14 @@ Web sitesi **"ince ön yüz" (thin client)** mimarisiyle çalışır:
 1. **Discord ile Giriş (OAuth2):** Giriş sırasında yalnızca `identify` izni istenir (Discord e-postanız istenmez). Oturumda Discord ID, kullanıcı adı, görünen ad, avatar URL’si ve sunucu rol seviyeleriniz tutulur; her 60 saniyede bir Bot API üzerinden taze rol kontrolü yapılır.
 2. **Discord Bot REST API:** Topluluk kayıt başvurunuz (isim/takma ad, cinsiyet, oyun kullanıcı adları, Roblox doğrulaması), disiplin/uyarı kayıtlarınız, aylık oyun etkinliğiniz ve üye rehberi botun korumalı API’sinden sunucu-içi gizli anahtarla çekilir.
 3. **Aylık Oyun Etkinliği ve Gizlilik Tercihi:** Oyun süreleri yalnızca bulunulan takvim ayı için toplanır ve her ayın 1’inde sıfırlanır. Discord’da oyun takibini kapatan (`tracking: false`) üyelerin süresi tutulmaz ve ne kişisel panelde ne de anonim sıralamada görünür.
-4. **GELECEK ÖZELLİK (Yakında):** Yakında eklenecek **Google ile giriş** (`sub`, e-posta, ad), **"beni hatırla" çerezi**, **doğrudan site üyesi kaydı**, **Google üye uyarı sicili** ve **sohbet profilinde oyun kullanıcı adlarının gösterilmesi** özellikleri devreye girdiğinde bu politika ilgili teknik akışları da yansıtacak şekilde güncellenecektir.
+4. **Google ile Giriş ve Doğrudan Site Üyeliği:** Discord hesabı olmayanlar için Google OpenID Connect (`sub`, e-posta, ad — Google profil fotoğrafı alınmaz), isteğe bağlı "beni hatırla" çerezi (`pw_remember`, en fazla 5 cihaz) ve oyun kullanıcı adlarının (isteğe bağlı olarak) sohbet profil kartında gösterilmesi aktiftir. *(GELECEK ÖZELLİK: Google üye uyarı sicili eklendiğinde bu bölüm ayrıca güncellenecektir.)*
 
-## 3. Birebir Sohbet Gizliliği (`CHAT_ENABLED`)
+## 3. Sohbet Gizliliği (`CHAT_ENABLED`: Genel Sohbet Grubu ve Birebir Sohbet)
 
-- **Rutin İzleme Yoktur:** Moderatörlerin tüm sohbetleri listelemesi veya kullanıcı adıyla sohbet araması teknik olarak imkânsızdır.
-- **30 Günlük Otomatik Silme:** Tüm sohbet mesajları ve ek dosyalar en fazla 30 gün saklanır; günlük otomatik temizlik göreviyle (TSİ 03:00) kalıcı olarak silinir.
+- **Genel Sohbet Grubu (Herkese Açık):** Sohbete erişimi olan tüm Discord ve site üyeleri zorunlu **Genel Sohbet** grubunun otomatik üyesidir. Bu grupta paylaşılan mesajlar sohbete erişimi olan herkese görünür; yalnızca ortam değişkeninde tanımlı grup yöneticisi kurallara aykırı mesajları kaldırabilir ve bu eylem mesaj içeriği olmadan denetim kaydına yazılır. Grup yöneticisi birebir özel mesajlara (DM) erişemez.
+- **Birebir Sohbetlerde Rutin İzleme Yoktur:** Moderatörlerin tüm özel sohbetleri listelemesi veya kullanıcı adıyla sohbet araması teknik olarak imkânsızdır.
+- **Profil Bilgi Kartı ve Oyun Kullanıcı Adları:** Sohbette bir üyenin profiline tıklandığında açılan kartta oyun kullanıcı adları üyenin gizlilik ayarına göre gösterilir; ayar kapatıldığında veriler sunucudan hiç gönderilmez.
+- **30 Günlük Otomatik Silme:** Hem Genel Sohbet hem de birebir sohbet mesajları ve ek dosyalar en fazla 30 gün saklanır; günlük otomatik temizlik göreviyle (TSİ 03:00) kalıcı olarak silinir.
 - **EXIF Temizliği:** Yüklenen JPEG fotoğraflardaki konum/kamera üstverileri (APP1 / APP13) diske kaydedilmeden önce otomatik olarak silinir.
 - **Yerel Otomatik Metin Filtresi:** Yalnızca metinlerde yüksek riskli örüntü tarar; hiçbir mesajı engellemez, görsel veya videoları otomatik taramaz.
 - **Rapor Anlık Görüntüsü:** Yalnızca rapor veya otomatik bayrak durumunda ilgili mesaj penceresi kopyalanır ve vaka kapandıktan sonra en geç 7 gün (açık vakalar en çok 90 gün) içinde silinir. Yaptırım ve içeriksiz denetim kayıtları 1 yıl saklanır.

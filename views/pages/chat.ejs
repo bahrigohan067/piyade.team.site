@@ -3,23 +3,29 @@
 <%
   const chatBootstrap = {
     needsConsent: Boolean(needsConsent),
-    policyVersion: String(policyVersion || '2.0'),
+    policyVersion: String(policyVersion || '3.0'),
     activeSanction: typeof activeSanction !== 'undefined' ? activeSanction : null,
     unreadNotices: typeof unreadNotices !== 'undefined' && Array.isArray(unreadNotices) ? unreadNotices : [],
     csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
     lang: typeof lang !== 'undefined' ? lang : 'tr',
     selfId: currentUser ? String(currentUser.id) : '',
+    selfKind: chatProfile && chatProfile.kind ? chatProfile.kind : (currentUser && currentUser.kind === 'google' ? 'google' : 'discord'),
     selfName: chatProfile ? chatProfile.displayName : (currentUser ? currentUser.displayName : ''),
     selfAvatarUrl: chatProfile ? chatProfile.avatarUrl : (currentUser ? currentUser.avatarUrl : ''),
+    isGroupAdmin: Boolean(typeof isGroupAdmin !== 'undefined' && isGroupAdmin),
+    groups: typeof chatGroups !== 'undefined' && Array.isArray(chatGroups) ? chatGroups : [],
+    defaultGroupId: typeof defaultGroupId !== 'undefined' ? defaultGroupId : 'genel',
+    brandIconUrl: typeof brandIconUrl !== 'undefined' ? brandIconUrl : '/img/brand/icon-192.png?v=1',
     profile: chatProfile || {},
     ringCategories: Array.isArray(ringCategories) ? ringCategories : [],
     ringPresets: Array.isArray(ringPresets) ? ringPresets : [],
     retentionInfo: retentionInfo || { retentionDays: 30, nextCleanupAt: Date.now() },
     requestedOtherId: requestedOtherId || '',
-    limits: chatLimits || { maxMessageLength: 4000, maxAnimatedDirectoryRings: 12, retentionDays: 30 },
+    limits: chatLimits || { maxMessageLength: 4000, maxGroupMessagesPerMin: 12, maxAnimatedDirectoryRings: 12, retentionDays: 30 },
     i18n: {
       searchPlaceholder: t('chat.searchPlaceholder'),
       searchResultsTitle: t('chat.searchResultsTitle'),
+      groupsSectionTitle: t('chat.groupsSectionTitle'),
       conversationsTitle: t('chat.conversationsTitle'),
       noConversationsTitle: t('chat.noConversationsTitle'),
       noConversationsDesc: t('chat.noConversationsDesc'),
@@ -42,9 +48,28 @@
       closedDmBanner: t('chat.closedDmBanner'),
       deleteMsgBtn: t('chat.deleteMsgBtn'),
       deleteConfirm: t('chat.deleteConfirm'),
+      adminDeleteConfirm: t('chat.adminDeleteConfirm'),
       blockConfirm: t('chat.blockConfirm'),
       msgDeleted: t('chat.msgDeleted'),
       msgModRemoved: t('chat.msgModRemoved'),
+      msgAdminRemoved: t('chat.msgAdminRemoved'),
+      groupMuteBtn: t('chat.groupMuteBtn'),
+      groupUnmuteBtn: t('chat.groupUnmuteBtn'),
+      groupMutedBadge: t('chat.groupMutedBadge'),
+      groupPinnedHint: t('chat.groupPinnedHint'),
+      groupEmptyMsg: t('chat.groupEmptyMsg'),
+      groupAdminBadge: t('chat.groupAdminBadge'),
+      identityBadgeSite: t('chat.identityBadgeSite'),
+      identityBadgeDiscord: t('chat.identityBadgeDiscord'),
+      profileCardLoading: t('chat.profileCardLoading'),
+      profileCardGamesTitle: t('chat.profileCardGamesTitle'),
+      profileCardGamesHidden: t('chat.profileCardGamesHidden'),
+      profileCardNoGames: t('chat.profileCardNoGames'),
+      profileCardCopyBtn: t('chat.profileCardCopyBtn'),
+      profileCardCopiedToast: t('chat.profileCardCopiedToast'),
+      profileCardRobloxLink: t('chat.profileCardRobloxLink'),
+      profileCardMessageBtn: t('chat.profileCardMessageBtn'),
+      profileCardEditOwnBtn: t('chat.profileCardEditOwnBtn'),
       loadOlderBtn: t('chat.loadOlderBtn'),
       loadingOlder: t('chat.loadingOlder'),
       dateToday: t('chat.dateToday'),
@@ -229,13 +254,19 @@
         </div>
 
         <div class="chat-list-scroll" id="chatListScroll">
+          <!-- Zorunlu Grup Sohbeti (En üstte sabit) -->
+          <div id="chatGroupsSection" class="chat-list-section chat-list-section--pinned">
+            <div class="chat-list-section-title">🌐 <%= t('chat.groupsSectionTitle') %></div>
+            <div id="chatGroupsList" class="chat-items-container"></div>
+          </div>
+
           <!-- Rehber Arama Sonuçları (Arama yapılınca görünür) -->
           <div id="chatDirectorySection" class="chat-list-section" hidden>
             <div class="chat-list-section-title"><%= t('chat.searchResultsTitle') %></div>
             <div id="chatDirectoryList" class="chat-items-container"></div>
           </div>
 
-          <!-- Sohbet Listesi -->
+          <!-- Birebir Sohbet Listesi -->
           <div id="chatConversationsSection" class="chat-list-section">
             <div class="chat-list-section-title"><%= t('chat.conversationsTitle') %></div>
             <div id="chatConversationsList" class="chat-items-container"></div>
@@ -279,11 +310,13 @@
               >
                 ←
               </button>
-              <div id="chatHeaderAvatarSlot" class="chat-header-avatar-slot"></div>
-              <div class="chat-header-identity">
-                <div class="chat-header-name" id="chatHeaderName"></div>
-                <div class="chat-header-sub" id="chatHeaderSub"></div>
-              </div>
+              <button type="button" class="chat-header-profile-trigger" id="chatHeaderProfileBtn" aria-label="<%= t('chat.profileCardOpenLabel') %>">
+                <div id="chatHeaderAvatarSlot" class="chat-header-avatar-slot"></div>
+                <div class="chat-header-identity">
+                  <div class="chat-header-name" id="chatHeaderName"></div>
+                  <div class="chat-header-sub" id="chatHeaderSub"></div>
+                </div>
+              </button>
             </div>
 
             <div class="chat-thread-header-right">
@@ -311,6 +344,10 @@
                   ⋮
                 </button>
                 <div class="chat-dropdown-menu" id="chatHeaderMenu" role="menu" hidden>
+                  <button type="button" class="chat-dropdown-item" id="chatMenuMuteGroupBtn" role="menuitem" hidden>
+                    <span id="chatMenuMuteGroupIcon" aria-hidden="true">🔕</span>
+                    <span id="chatMenuMuteGroupLabel"><%= t('chat.groupMuteBtn') %></span>
+                  </button>
                   <button type="button" class="chat-dropdown-item chat-dropdown-item--danger" id="chatMenuReportBtn" role="menuitem">
                     🚩 <span><%= t('chat.reportBtn') %></span>
                   </button>
@@ -347,19 +384,6 @@
                 <span class="chat-typing-dot"></span>
               </div>
               <span class="chat-typing-label" id="chatTypingLabel"><%= t('chat.typingIndicator') %></span>
-            </div>
-          </div>
-
-          <!-- Mesaj İsteği (İlk İletişim) Onay Şeridi -->
-          <div class="chat-request-bar" id="chatRequestBar" hidden>
-            <div class="chat-request-copy">
-              <strong>📩 <%= t('chat.requestBannerTitle') %></strong>
-              <p><%= t('chat.requestBannerDesc') %></p>
-            </div>
-            <div class="chat-request-actions">
-              <button type="button" class="btn btn-primary btn-xs" id="chatReqAcceptBtn"><%= t('chat.requestAcceptBtn') %></button>
-              <button type="button" class="btn btn-secondary btn-xs" id="chatReqDeclineBtn"><%= t('chat.requestDeclineBtn') %></button>
-              <button type="button" class="btn btn-danger btn-xs" id="chatReqBlockBtn"><%= t('chat.requestBlockBtn') %></button>
             </div>
           </div>
 
@@ -546,10 +570,10 @@
 
             <div class="chat-setting-row">
               <label class="chat-setting-toggle-label">
-                <input type="checkbox" id="chatSetRequireRequest" />
+                <input type="checkbox" id="chatSetShowGames" />
                 <div>
-                  <strong><%= t('chat.privacyRequireRequest') %></strong>
-                  <p><%= t('chat.privacyRequireRequestDesc') %></p>
+                  <strong><%= t('chat.privacyShowGames') %></strong>
+                  <p><%= t('chat.privacyShowGamesDesc') %></p>
                 </div>
               </label>
             </div>
@@ -658,6 +682,40 @@
             <button type="submit" class="btn btn-danger btn-sm" id="chatReportSubmitBtn">🚩 <%= t('chat.reportSubmitBtn') %></button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         PROFİL BİLGİ KARTI (Nebula Glass Card / Mobilde Bottom Sheet)
+         ================================================================== -->
+    <div class="nebula-card-overlay" id="chatProfileCardOverlay" hidden aria-hidden="true">
+      <div class="nebula-card-stage" id="chatProfileCardStage">
+        <div
+          class="nebula-card"
+          id="chatProfileCard"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="chatProfileCardTitle"
+        >
+          <div class="nebula-sheet-handle" aria-hidden="true"></div>
+          <div class="nebula-bg" aria-hidden="true">
+            <span class="nebula-orb nebula-orb--1"></span>
+            <span class="nebula-orb nebula-orb--2"></span>
+            <span class="nebula-orb nebula-orb--3"></span>
+          </div>
+          <div class="nebula-rim" aria-hidden="true"></div>
+          <div class="nebula-glass-surface">
+            <button
+              type="button"
+              class="chat-icon-btn nebula-close-btn"
+              id="chatProfileCardCloseBtn"
+              aria-label="<%= t('chat.closeBtn') %>"
+            >
+              ✕
+            </button>
+            <div id="chatProfileCardContent" class="nebula-card-content"></div>
+          </div>
+        </div>
       </div>
     </div>
 

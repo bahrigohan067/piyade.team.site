@@ -87,10 +87,57 @@
     return !settled;
   }
 
-  // Diğer bileşenlerin (örn. Feedback Pill) yeniden kullanabilmesi için dışa aktar
+  function animateSpring({
+    from = 0,
+    to = 1,
+    stiffness = 340,
+    damping = 24,
+    mass = 0.85,
+    onUpdate = null,
+    onComplete = null,
+  } = {}) {
+    if (prefersReducedMotion() || typeof global.requestAnimationFrame !== 'function') {
+      if (typeof onUpdate === 'function') onUpdate(to);
+      if (typeof onComplete === 'function') onComplete();
+      return { cancel: () => {} };
+    }
+    const spring = createSpring(from, { stiffness, damping, mass });
+    spring.target = to;
+    let rafId = null;
+    let lastTs = performance.now();
+    let cancelled = false;
+
+    function tick(now) {
+      if (cancelled) return;
+      const dt = Math.min(0.05, Math.max(0.001, (now - lastTs) / 1000));
+      lastTs = now;
+      const moving = stepSpring(spring, dt);
+      if (typeof onUpdate === 'function') onUpdate(spring.value);
+      if (moving) {
+        rafId = global.requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+        if (typeof onComplete === 'function') onComplete();
+      }
+    }
+
+    rafId = global.requestAnimationFrame(tick);
+    return {
+      cancel() {
+        cancelled = true;
+        if (rafId !== null && typeof global.cancelAnimationFrame === 'function') {
+          global.cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      },
+    };
+  }
+
+  // Diğer bileşenlerin (örn. Feedback Pill, Sohbet, Nebula Profil Kartı) yeniden kullanabilmesi için dışa aktar
   global.NexusSpring = {
     create: createSpring,
     step: stepSpring,
+    animate: animateSpring,
   };
 
   // ============================================================================

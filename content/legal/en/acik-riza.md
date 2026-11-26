@@ -25,14 +25,14 @@ Summaries appear below; structured ID and version cards are displayed at the bot
 - **Scope:** Private chats are never routinely monitored. Only when a participant reports a message (30-message context) or the local text-only auto-filter flags a high-risk pattern (±5 messages) may a copied snapshot be inspected by authorized **Community Official** moderators.
 - **Safeguard:** Copied snapshots are permanently purged within **7 days** of case closure (and at most **90 days** for open cases). Images and videos are not automatically scanned.
 
-### Item B — Displaying Game Usernames on Your Chat Profile *(UPCOMING FEATURE)*
+### Item B — Displaying Game Usernames on Your Chat Profile Card
 
-- **Scope:** In an upcoming profile update, making the game usernames you submitted during registration (Roblox, CS2, Zula, Minecraft) visible on your chat profile card to other registered members.
-- **Status:** Not yet live (**UPCOMING FEATURE**). When launched, it will be strictly optional and toggleable at any time.
+- **Scope:** Making the game usernames you submitted during registration or on your profile (Roblox, CS2, Zula, Minecraft) visible on your chat profile info card to other members.
+- **Status:** Optional and toggleable anytime from Chat Settings or your Profile page. When turned off, the server never sends your game usernames to other users.
 
 ### Item C — Transfer of Data to International Hosting and Identity Providers
 
-- **Scope:** Transferring necessary technical and account data to cloud hosting infrastructure (Railway) and third-party services (Discord, Roblox, Google Fonts, and **UPCOMING FEATURE** Google OAuth) whose servers may be located outside Türkiye.
+- **Scope:** Transferring necessary technical and account data to cloud hosting infrastructure (Railway) and third-party services (Discord, Google OAuth, Roblox, Google Fonts) whose servers may be located outside Türkiye.
 - **Note:** Final KVKK Article 9 cross-border transfer safeguards *(legal review required)* will be finalized prior to production sign-off.
 
 ## 3. Withdrawing Consent

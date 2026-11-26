@@ -19,12 +19,14 @@ Our website runs on a **"thin client"** architecture:
 1. **Discord OAuth2 Login:** Requests `identify` scope only (we do not request your Discord email). Your session stores Discord ID, username, display name, avatar URL, and server role levels, synced fresh from the Bot API every 60 seconds.
 2. **Discord Bot REST API:** Your registration data (name/nickname, gender, game usernames, Roblox verification), disciplinary history, monthly game activity, and member directory are retrieved over an authenticated server-to-server connection.
 3. **Monthly Game Activity & Privacy Opt-Out:** Only current-month play duration is summed and reset on the 1st of every month. Members who disable tracking (`tracking: false`) in Discord are never counted or displayed.
-4. **UPCOMING FEATURE (Planned):** Planned additions — **Google Sign-In** (`sub`, email, name), **"remember me" cookie**, **direct site member registration**, **Google member warning history**, and **chat profile game username display** — are not yet active and will follow these same privacy principles when released.
+4. **Google Sign-In & Direct Site Membership:** Users without Discord may sign in with Google OpenID Connect (`sub`, email, name — Google profile photos are never stored), use the optional "remember me" cookie (`pw_remember`, max 5 devices), and optionally display game usernames on their chat profile card. *(UPCOMING FEATURE: Google member warning history will be documented here once released.)*
 
-## 3. Private Chat Privacy (`CHAT_ENABLED`)
+## 3. Chat Privacy (`CHAT_ENABLED`: General Chat Group & Private DMs)
 
-- **No Routine Monitoring:** Moderators have no technical endpoint to browse all chats or search conversations by username.
-- **30-Day Automatic Deletion:** All chat messages and attachments are deleted permanently after 30 days by a daily scheduled job (03:00 TRT).
+- **General Chat Group (Shared Room):** All registered Discord and site members with chat access are automatic members of the mandatory **General Chat** group. Messages posted there are visible to all chat members; only env-configured group admins may delete rule-breaking group messages (logged without message content in the audit log). Group admins gain zero special access to private DMs.
+- **No Routine DM Monitoring:** Moderators have no technical endpoint to browse all private chats or search conversations by username.
+- **Profile Info Card & Game Usernames:** Clicking a member's profile opens their info card showing game usernames only if their privacy toggle is enabled; hidden game usernames are never transmitted by the server.
+- **30-Day Automatic Deletion:** Both General Chat and private DM messages and attachments are deleted permanently after 30 days by a daily scheduled job (03:00 TRT).
 - **EXIF Stripping:** Location and camera metadata (APP1 / APP13) in uploaded JPEG images is stripped automatically before writing to disk.
 - **Local Text-Only Auto-Filter:** Scans text only for severe safety patterns, never blocks messages, and never scans images or videos.
 - **Case Snapshots:** Copied strictly on user report or auto-flag and purged within 7 days of closure (max 90 days open). Sanction and contentless audit logs are retained for 1 year.

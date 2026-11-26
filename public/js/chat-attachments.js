@@ -181,7 +181,7 @@
   }
 
   function enqueueFiles(fileList) {
-    if (!state.activeOtherId) return;
+    if (!state.activeOtherId && !state.activeGroupId) return;
     const files = Array.from(fileList || []).filter(Boolean);
     if (files.length === 0) return;
 

@@ -100,12 +100,15 @@
     reconnectBanner: document.getElementById('chatReconnectBanner'),
     searchInput: document.getElementById('chatDirectorySearch'),
     searchClearBtn: document.getElementById('chatSearchClearBtn'),
+    groupsSection: document.getElementById('chatGroupsSection'),
+    groupsList: document.getElementById('chatGroupsList'),
     directorySection: document.getElementById('chatDirectorySection'),
     directoryList: document.getElementById('chatDirectoryList'),
     conversationsList: document.getElementById('chatConversationsList'),
     threadEmpty: document.getElementById('chatThreadEmpty'),
     threadActive: document.getElementById('chatThreadActive'),
     mobileBackBtn: document.getElementById('chatMobileBackBtn'),
+    headerProfileBtn: document.getElementById('chatHeaderProfileBtn'),
     headerAvatarSlot: document.getElementById('chatHeaderAvatarSlot'),
     headerName: document.getElementById('chatHeaderName'),
     headerSub: document.getElementById('chatHeaderSub'),
@@ -114,13 +117,12 @@
     retentionPopoverBody: document.getElementById('chatRetentionPopoverBody'),
     headerMenuBtn: document.getElementById('chatHeaderMenuBtn'),
     headerMenu: document.getElementById('chatHeaderMenu'),
+    menuMuteGroupBtn: document.getElementById('chatMenuMuteGroupBtn'),
+    menuMuteGroupIcon: document.getElementById('chatMenuMuteGroupIcon'),
+    menuMuteGroupLabel: document.getElementById('chatMenuMuteGroupLabel'),
     menuBlockBtn: document.getElementById('chatMenuBlockBtn'),
     menuBlockLabel: document.getElementById('chatMenuBlockLabel'),
     menuReportBtn: document.getElementById('chatMenuReportBtn'),
-    requestBar: document.getElementById('chatRequestBar'),
-    reqAcceptBtn: document.getElementById('chatReqAcceptBtn'),
-    reqDeclineBtn: document.getElementById('chatReqDeclineBtn'),
-    reqBlockBtn: document.getElementById('chatReqBlockBtn'),
     muteBar: document.getElementById('chatMuteBar'),
     muteBarText: document.getElementById('chatMuteBarText'),
     reportModal: document.getElementById('chatReportModal'),
@@ -131,7 +133,7 @@
     reportCloseBtn: document.getElementById('chatReportCloseBtn'),
     reportCancelBtn: document.getElementById('chatReportCancelBtn'),
     reportSubmitBtn: document.getElementById('chatReportSubmitBtn'),
-    setRequireRequest: document.getElementById('chatSetRequireRequest'),
+    setShowGames: document.getElementById('chatSetShowGames'),
     messagesScroll: document.getElementById('chatMessagesScroll'),
     loadOlderWrap: document.getElementById('chatLoadOlderWrap'),
     loadOlderBtn: document.getElementById('chatLoadOlderBtn'),
@@ -193,14 +195,21 @@
         ring: null,
         effectiveRing: { id: DEFAULT_PRESET.id, type: DEFAULT_PRESET.type, colors: DEFAULT_PRESET.colors },
         readReceipts: true,
+        showGamesInChat: true,
+        mutedGroups: [],
         notify: { browser: false, sound: false, preview: false },
         whoCanMessage: 'everyone',
         blocked: [],
       },
       boot.profile || {}
     ),
+    groups: Array.isArray(boot.groups) ? boot.groups.slice() : [],
     conversations: [],
     directoryItems: [],
+    activeMode: null, // 'group' | 'dm'
+    activeGroupId: null,
+    activeGroup: null,
+    groupSenders: {},
     activeOtherId: null,
     activeConvId: null,
     activeOther: null,
@@ -213,10 +222,9 @@
     myInitialLastRead: 0,
     blockedState: { byMe: false, byOther: false, any: false },
     whoCanMessageOther: 'everyone',
-    requestStatus: 'accepted',
-    requestFrom: null,
+    isGroupAdmin: Boolean(boot.isGroupAdmin),
     activeSanction: boot.activeSanction || null,
-    reportTargetMsgId: null,
+    reportTarget: { otherId: null, groupId: null, msgId: null },
     drafts: new Map(),
     typingTimer: null,
     lastTypingSentAt: 0,
@@ -241,6 +249,32 @@
     readDebounceTimer: null,
     pendingReadTs: 0,
   };
+
+  function openMemberProfileCard(userId, triggerEl, hintMember = null) {
+    if (!userId) return;
+    if (window.PiyadeChatProfileCard && typeof window.PiyadeChatProfileCard.open === 'function') {
+      window.PiyadeChatProfileCard.open(userId, triggerEl, hintMember);
+    }
+  }
+
+  function createIdentityBadgeEl(kind) {
+    const span = document.createElement('span');
+    if (kind === 'google') {
+      span.className = 'chat-identity-badge chat-identity-badge--site';
+      span.textContent = i18n.identityBadgeSite || 'Site Üyesi';
+    } else {
+      span.className = 'chat-identity-badge chat-identity-badge--discord';
+      span.textContent = i18n.identityBadgeDiscord || 'Discord Üyesi';
+    }
+    return span;
+  }
+
+  function createGroupAdminBadgeEl() {
+    const span = document.createElement('span');
+    span.className = 'chat-identity-badge chat-identity-badge--admin';
+    span.textContent = i18n.groupAdminBadge || 'Yönetici';
+    return span;
+  }
 
   // Ses istemcisi (kullanıcı etkileşiminden sonra çalar)
   const soundClient =
@@ -575,6 +609,9 @@
     if (state.activeOther && state.activeOther.id === uid) {
       state.activeOther.ring = ring;
     }
+    if (state.groupSenders && state.groupSenders[uid]) {
+      state.groupSenders[uid].ring = ring;
+    }
   }
 
   // ==========================================================================
@@ -627,16 +664,118 @@
   }
 
   // ==========================================================================
-  // 6) SOHBET LİSTESİ VE REHBER ARAMASI
+  // 6) SOHBET LİSTESİ (SABİT GRUP + BİREBİR SOHBETLER) VE REHBER ARAMASI
   // ==========================================================================
+  function createGroupBrandAvatarEl(avatarUrl, sizePx = 44) {
+    const wrap = document.createElement('span');
+    wrap.className = 'chat-group-avatar';
+    wrap.style.width = `${sizePx}px`;
+    wrap.style.height = `${sizePx}px`;
+    const img = document.createElement('img');
+    img.className = 'chat-avatar-img';
+    img.src = avatarUrl || boot.brandIconUrl || '/img/brand/icon-192.png?v=1';
+    img.alt = 'Genel Sohbet';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    wrap.appendChild(img);
+    return wrap;
+  }
+
+  function renderGroupsList() {
+    const container = els.groupsList;
+    if (!container) return;
+    container.replaceChildren();
+
+    const groups = Array.isArray(state.groups) && state.groups.length > 0 ? state.groups : [];
+    if (els.groupsSection) {
+      els.groupsSection.hidden = groups.length === 0;
+    }
+
+    for (const grp of groups) {
+      const isActive = state.activeMode === 'group' && state.activeGroupId === grp.id;
+      const hasUnread = Number(grp.unreadCount) > 0;
+      const isMuted = Boolean(grp.muted);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chat-conv-item chat-conv-item--group${isActive ? ' is-active' : ''}${hasUnread && !isMuted ? ' has-unread' : ''}`;
+      btn.dataset.groupId = grp.id;
+
+      const avatarEl = createGroupBrandAvatarEl(grp.avatarUrl, 44);
+
+      const body = document.createElement('div');
+      body.className = 'chat-conv-body';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'chat-conv-top';
+      const nameWrap = document.createElement('span');
+      nameWrap.className = 'chat-conv-name chat-conv-name--group';
+      nameWrap.textContent = `${grp.icon || '🌐'} ${grp.name}`;
+      if (isMuted) {
+        const muteIcon = document.createElement('span');
+        muteIcon.className = 'chat-group-muted-icon';
+        muteIcon.title = i18n.groupMutedBadge || 'Sessizde';
+        muteIcon.textContent = ' 🔕';
+        nameWrap.appendChild(muteIcon);
+      }
+
+      const timeEl = document.createElement('span');
+      timeEl.className = 'chat-conv-time';
+      timeEl.textContent = grp.lastActivityAt ? formatListTime(grp.lastActivityAt) : '';
+      topRow.append(nameWrap, timeEl);
+
+      const botRow = document.createElement('div');
+      botRow.className = 'chat-conv-bottom';
+      const previewEl = document.createElement('span');
+      previewEl.className = 'chat-conv-preview';
+      if (grp.lastMessage) {
+        if (grp.lastMessage.deleted) {
+          previewEl.classList.add('is-italic');
+          previewEl.textContent = grp.lastMessage.text || i18n.msgDeleted;
+        } else {
+          const senderPrefix = grp.lastMessage.from === selfId
+            ? '✓ '
+            : grp.lastMessage.senderName
+              ? `${grp.lastMessage.senderName}: `
+              : '';
+          const attNote =
+            grp.lastMessage.attachmentCount > 0 && !grp.lastMessage.text
+              ? `📎 (${grp.lastMessage.attachmentCount})`
+              : '';
+          previewEl.textContent = `${senderPrefix}${grp.lastMessage.text || attNote}`;
+        }
+      } else {
+        previewEl.textContent = grp.description || i18n.groupEmptyMsg || '';
+      }
+      botRow.appendChild(previewEl);
+
+      if (hasUnread) {
+        const badge = document.createElement('span');
+        badge.className = `chat-unread-badge${isMuted ? ' chat-unread-badge--muted' : ''}`;
+        badge.textContent = grp.unreadCount > 99 ? '99+' : String(grp.unreadCount);
+        botRow.appendChild(badge);
+      }
+
+      body.append(topRow, botRow);
+      btn.append(avatarEl, body);
+      btn.addEventListener('click', () => openGroup(grp.id, grp));
+      container.appendChild(btn);
+    }
+  }
+
   async function loadConversations() {
     try {
       const data = await apiJson('/sohbet/api/sohbetler');
+      if (Array.isArray(data.groups)) {
+        state.groups = data.groups;
+      }
       state.conversations = Array.isArray(data.conversations) ? data.conversations : [];
       if (data.retentionInfo) boot.retentionInfo = data.retentionInfo;
       emitUnreadGlobal(data.totalUnread || 0);
+      renderGroupsList();
       renderConversationsList();
     } catch (_) {
+      renderGroupsList();
       renderConversationsList(true);
     }
   }
@@ -680,25 +819,36 @@
 
     for (const conv of state.conversations) {
       const other = conv.other || { id: conv.otherId, displayName: conv.otherId };
-      const isActive = state.activeOtherId === other.id;
+      const isActive = state.activeMode === 'dm' && state.activeOtherId === other.id;
       const hasUnread = Number(conv.unreadCount) > 0;
       const isAnimRing = other.ring && (other.ring.type === 'spin' || other.ring.type === 'pulse');
       const allowAnim = !isAnimRing || animCount < maxAnim;
       if (isAnimRing && allowAnim) animCount += 1;
 
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `chat-conv-item${isActive ? ' is-active' : ''}${hasUnread ? ' has-unread' : ''}`;
-      btn.dataset.otherId = other.id;
+      const rowWrap = document.createElement('div');
+      rowWrap.className = `chat-conv-item${isActive ? ' is-active' : ''}${hasUnread ? ' has-unread' : ''}`;
+      rowWrap.dataset.otherId = other.id;
+      rowWrap.setAttribute('role', 'button');
+      rowWrap.tabIndex = 0;
 
-      const avatarEl = createRingAvatarEl({
-        userId: other.id,
-        avatarUrl: other.avatarUrl,
-        displayName: other.displayName,
-        ring: other.ring,
-        sizePx: 44,
-        thicknessPx: 2,
-        allowAnimated: allowAnim,
+      const avatarBtn = document.createElement('button');
+      avatarBtn.type = 'button';
+      avatarBtn.className = 'chat-avatar-card-trigger';
+      avatarBtn.setAttribute('aria-label', other.displayName);
+      avatarBtn.appendChild(
+        createRingAvatarEl({
+          userId: other.id,
+          avatarUrl: other.avatarUrl,
+          displayName: other.displayName,
+          ring: other.ring,
+          sizePx: 44,
+          thicknessPx: 2,
+          allowAnimated: allowAnim,
+        })
+      );
+      avatarBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openMemberProfileCard(other.id, avatarBtn, other);
       });
 
       const body = document.createElement('div');
@@ -741,9 +891,15 @@
       }
 
       body.append(topRow, botRow);
-      btn.append(avatarEl, body);
-      btn.addEventListener('click', () => openConversation(other.id, other));
-      container.appendChild(btn);
+      rowWrap.append(avatarBtn, body);
+      rowWrap.addEventListener('click', () => openConversation(other.id, other));
+      rowWrap.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          openConversation(other.id, other);
+        }
+      });
+      container.appendChild(rowWrap);
     }
   }
 
@@ -799,22 +955,40 @@
       btn.type = 'button';
       btn.className = 'chat-conv-item chat-dir-item';
 
-      const avatarEl = createRingAvatarEl({
-        userId: member.id,
-        avatarUrl: member.avatarUrl,
-        displayName: member.displayName,
-        ring: member.ring,
-        sizePx: 40,
-        thicknessPx: 2,
-        allowAnimated: allowAnim,
+      const rowWrap = document.createElement('div');
+      rowWrap.className = 'chat-conv-item chat-dir-item';
+      rowWrap.setAttribute('role', 'button');
+      rowWrap.tabIndex = 0;
+
+      const avatarBtn = document.createElement('button');
+      avatarBtn.type = 'button';
+      avatarBtn.className = 'chat-avatar-card-trigger';
+      avatarBtn.setAttribute('aria-label', member.displayName);
+      avatarBtn.appendChild(
+        createRingAvatarEl({
+          userId: member.id,
+          avatarUrl: member.avatarUrl,
+          displayName: member.displayName,
+          ring: member.ring,
+          sizePx: 40,
+          thicknessPx: 2,
+          allowAnimated: allowAnim,
+        })
+      );
+      avatarBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openMemberProfileCard(member.id, avatarBtn, member);
       });
 
       const body = document.createElement('div');
       body.className = 'chat-conv-body';
-      const nameEl = document.createElement('div');
+      const nameRow = document.createElement('div');
+      nameRow.className = 'chat-dir-name-row';
+      const nameEl = document.createElement('span');
       nameEl.className = 'chat-conv-name';
       nameEl.textContent = member.displayName;
-      body.appendChild(nameEl);
+      nameRow.append(nameEl, createIdentityBadgeEl(member.kind));
+      body.appendChild(nameRow);
 
       if (member.robloxUsername) {
         const subEl = document.createElement('div');
@@ -823,34 +997,53 @@
         body.appendChild(subEl);
       }
 
-      btn.append(avatarEl, body);
-      btn.addEventListener('click', () => {
+      rowWrap.append(avatarBtn, body);
+      const selectMember = () => {
         els.searchInput.value = '';
         els.directorySection.hidden = true;
         els.searchClearBtn.hidden = true;
         openConversation(member.id, member);
+      };
+      rowWrap.addEventListener('click', selectMember);
+      rowWrap.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          selectMember();
+        }
       });
-      els.directoryList.appendChild(btn);
+      els.directoryList.appendChild(rowWrap);
     }
   }
 
   // ==========================================================================
-  // 7) KONUŞMA AÇMA, MESAJ AKIŞI, GÖRÜLDÜ VE SAYFALAMA
+  // 7) KONUŞMA / GRUP AÇMA, MESAJ AKIŞI, GÖRÜLDÜ VE SAYFALAMA
   // ==========================================================================
+  function getActiveDraftKey() {
+    if (state.activeMode === 'group' && state.activeGroupId) {
+      return `group_${state.activeGroupId}`;
+    }
+    if (state.activeMode === 'dm' && state.activeOtherId) {
+      return state.activeOtherId;
+    }
+    return null;
+  }
+
   function saveCurrentDraft() {
-    if (!state.activeOtherId || !els.messageInput) return;
+    const key = getActiveDraftKey();
+    if (!key || !els.messageInput) return;
     const val = els.messageInput.value;
-    state.drafts.set(state.activeOtherId, val);
+    state.drafts.set(key, val);
     try {
-      sessionStorage.setItem(`piyade_chat_draft_${state.activeOtherId}`, val);
+      sessionStorage.setItem(`piyade_chat_draft_${key}`, val);
     } catch (_) {}
   }
 
-  function restoreDraft(otherId) {
-    let draft = state.drafts.get(otherId);
+  function restoreDraft(key) {
+    if (!key) return;
+    let draft = state.drafts.get(key);
     if (draft === undefined) {
       try {
-        draft = sessionStorage.getItem(`piyade_chat_draft_${otherId}`) || '';
+        draft = sessionStorage.getItem(`piyade_chat_draft_${key}`) || '';
       } catch (_) {
         draft = '';
       }
@@ -860,39 +1053,7 @@
     updateComposerControls();
   }
 
-  function renderThreadHeader() {
-    const other = state.activeOther;
-    if (!other) return;
-    els.headerAvatarSlot.replaceChildren(
-      createRingAvatarEl({
-        userId: other.id,
-        avatarUrl: other.avatarUrl,
-        displayName: other.displayName,
-        ring: other.ring,
-        sizePx: 40,
-        thicknessPx: 3,
-        allowAnimated: true,
-      })
-    );
-    els.headerName.textContent = other.displayName || other.id;
-    els.headerSub.textContent = other.robloxUsername
-      ? `${i18n.robloxLabel || 'Roblox'}: ${other.robloxUsername}`
-      : '';
-    els.headerSub.hidden = !other.robloxUsername;
-
-    if (els.menuBlockLabel) {
-      els.menuBlockLabel.textContent = state.blockedState.byMe
-        ? i18n.unblockUser || 'Engeli Kaldır'
-        : i18n.blockUser || 'Üyeyi Engelle';
-    }
-
-    const isPendingIncoming =
-      state.requestStatus === 'pending' && state.requestFrom && state.requestFrom === other.id;
-
-    if (els.requestBar) {
-      els.requestBar.hidden = !isPendingIncoming;
-    }
-
+  function renderMuteBannerIfNeeded() {
     const activeMute =
       state.activeSanction &&
       state.activeSanction.type === 'mute' &&
@@ -918,12 +1079,78 @@
         els.muteBar.hidden = true;
       }
     }
+    return Boolean(activeMute);
+  }
 
-    // Engel, susturma, istek veya kapalı DM durumu
-    if (isPendingIncoming) {
+  function renderThreadHeader() {
+    const activeMute = renderMuteBannerIfNeeded();
+
+    if (state.activeMode === 'group' && state.activeGroup) {
+      const grp = state.activeGroup;
+      els.headerAvatarSlot.replaceChildren(createGroupBrandAvatarEl(grp.avatarUrl, 40));
+      els.headerName.textContent = `${grp.icon || '🌐'} ${grp.name}`;
+      const isMuted = Boolean(grp.muted);
+      els.headerSub.textContent = isMuted
+        ? `🔕 ${i18n.groupMutedBadge || 'Bildirimler sessizde'} • ${grp.description || ''}`
+        : grp.description || '';
+      els.headerSub.hidden = !els.headerSub.textContent;
+      if (els.headerProfileBtn) {
+        els.headerProfileBtn.classList.remove('is-clickable');
+        els.headerProfileBtn.disabled = true;
+      }
+      if (els.menuMuteGroupBtn) {
+        els.menuMuteGroupBtn.hidden = false;
+        if (els.menuMuteGroupIcon) els.menuMuteGroupIcon.textContent = isMuted ? '🔔' : '🔕';
+        if (els.menuMuteGroupLabel) {
+          els.menuMuteGroupLabel.textContent = isMuted
+            ? i18n.groupUnmuteBtn || 'Bildirimleri aç'
+            : i18n.groupMuteBtn || 'Bildirimleri sessize al';
+        }
+      }
+      if (els.menuBlockBtn) els.menuBlockBtn.hidden = true;
+      if (els.menuReportBtn) els.menuReportBtn.hidden = true;
+
       els.blockedBar.hidden = true;
-      els.composerShell.hidden = true;
-    } else if (activeMute) {
+      els.composerShell.hidden = activeMute;
+      return;
+    }
+
+    const other = state.activeOther;
+    if (!other) return;
+    els.headerAvatarSlot.replaceChildren(
+      createRingAvatarEl({
+        userId: other.id,
+        avatarUrl: other.avatarUrl,
+        displayName: other.displayName,
+        ring: other.ring,
+        sizePx: 40,
+        thicknessPx: 3,
+        allowAnimated: true,
+      })
+    );
+    els.headerName.textContent = other.displayName || other.id;
+    els.headerSub.textContent = other.robloxUsername
+      ? `${i18n.robloxLabel || 'Roblox'}: ${other.robloxUsername}`
+      : other.kind === 'google'
+        ? i18n.identityBadgeSite || 'Site Üyesi'
+        : i18n.identityBadgeDiscord || 'Discord Üyesi';
+    els.headerSub.hidden = !els.headerSub.textContent;
+    if (els.headerProfileBtn) {
+      els.headerProfileBtn.classList.add('is-clickable');
+      els.headerProfileBtn.disabled = false;
+    }
+    if (els.menuMuteGroupBtn) els.menuMuteGroupBtn.hidden = true;
+    if (els.menuBlockBtn) els.menuBlockBtn.hidden = false;
+    if (els.menuReportBtn) els.menuReportBtn.hidden = false;
+
+    if (els.menuBlockLabel) {
+      els.menuBlockLabel.textContent = state.blockedState.byMe
+        ? i18n.unblockUser || 'Engeli Kaldır'
+        : i18n.blockUser || 'Üyeyi Engelle';
+    }
+
+    // Engel, susturma veya kapalı DM durumu
+    if (activeMute) {
       els.blockedBar.hidden = true;
       els.composerShell.hidden = true;
     } else if (state.blockedState.byMe) {
@@ -947,14 +1174,22 @@
     }
   }
 
-  async function openConversation(otherId, hintMember = null) {
-    if (!otherId || otherId === selfId) return;
+  async function openGroup(groupId, hintGroup = null) {
+    const cleanGid = String(groupId || boot.defaultGroupId || 'genel').trim();
+    if (!cleanGid) return;
     saveCurrentDraft();
 
-    state.activeOtherId = otherId;
-    state.activeOther = hintMember || { id: otherId, displayName: otherId };
+    state.activeMode = 'group';
+    state.activeGroupId = cleanGid;
+    state.activeOtherId = null;
+    state.activeOther = null;
+    state.activeConvId = `group:${cleanGid}`;
+    const existing = state.groups.find((g) => g.id === cleanGid);
+    state.activeGroup = hintGroup || existing || { id: cleanGid, name: 'Genel Sohbet', icon: '🌐', avatarUrl: boot.brandIconUrl };
     state.messages = [];
+    state.groupSenders = {};
     state.hasMoreOlder = false;
+    state.pendingReadTs = 0;
     hideTypingIndicator();
 
     appEl.classList.add('is-thread-open');
@@ -964,12 +1199,70 @@
     closeHeaderMenu();
     closeEmojiPicker();
     renderThreadHeader();
+    renderGroupsList();
+    renderConversationsList();
+    restoreDraft(`group_${cleanGid}`);
+
+    try {
+      const data = await apiJson(`/sohbet/api/grup/${encodeURIComponent(cleanGid)}/mesajlar?limit=40`);
+      if (state.activeMode !== 'group' || state.activeGroupId !== cleanGid) return;
+      state.activeConvId = data.convId;
+      state.activeGroup = Object.assign({}, data.group || state.activeGroup, { muted: Boolean(data.muted) });
+      state.isGroupAdmin = Boolean(data.isGroupAdmin);
+      state.messages = Array.isArray(data.messages) ? data.messages : [];
+      state.groupSenders = data.senders && typeof data.senders === 'object' ? data.senders : {};
+      state.hasMoreOlder = Boolean(data.hasMore);
+      state.myInitialLastRead = Number(data.state && data.state.myLastRead) || 0;
+      state.canSeeOtherRead = false;
+      state.otherLastRead = 0;
+      state.otherLastDelivered = 0;
+
+      const listEntry = state.groups.find((g) => g.id === cleanGid);
+      if (listEntry) listEntry.muted = Boolean(data.muted);
+
+      renderThreadHeader();
+      renderGroupsList();
+      renderMessageThread({ animateLast: false, scrollToBottom: true });
+      scheduleMarkVisibleMessagesRead();
+
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('kisi');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      } catch (_) {}
+    } catch (err) {
+      showToast('Hata', err.message || 'Grup mesajları yüklenemedi.', { variant: 'danger' });
+    }
+  }
+
+  async function openConversation(otherId, hintMember = null) {
+    if (!otherId || otherId === selfId) return;
+    saveCurrentDraft();
+
+    state.activeMode = 'dm';
+    state.activeGroupId = null;
+    state.activeGroup = null;
+    state.activeOtherId = otherId;
+    state.activeOther = hintMember || { id: otherId, displayName: otherId };
+    state.messages = [];
+    state.hasMoreOlder = false;
+    state.pendingReadTs = 0;
+    hideTypingIndicator();
+
+    appEl.classList.add('is-thread-open');
+    els.threadEmpty.hidden = true;
+    els.threadActive.hidden = false;
+    els.retentionPopover.hidden = true;
+    closeHeaderMenu();
+    closeEmojiPicker();
+    renderThreadHeader();
+    renderGroupsList();
     renderConversationsList();
     restoreDraft(otherId);
 
     try {
       const data = await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(otherId)}/mesajlar?limit=40`);
-      if (state.activeOtherId !== otherId) return;
+      if (state.activeMode !== 'dm' || state.activeOtherId !== otherId) return;
       state.activeConvId = data.convId;
       state.activeOther = data.other || state.activeOther;
       state.messages = Array.isArray(data.messages) ? data.messages : [];
@@ -980,14 +1273,11 @@
       state.myInitialLastRead = Number(data.state && data.state.myLastRead) || 0;
       state.blockedState = data.blocked || { byMe: false, byOther: false, any: false };
       state.whoCanMessageOther = data.whoCanMessageOther || 'everyone';
-      state.requestStatus = (data.state && data.state.requestStatus) || 'accepted';
-      state.requestFrom = (data.state && data.state.requestFrom) || null;
 
       renderThreadHeader();
       renderMessageThread({ animateLast: false, scrollToBottom: true });
       scheduleMarkVisibleMessagesRead();
 
-      // URL query güncelle (paylaşmadan geri dönüş kolaylığı)
       try {
         const url = new URL(window.location.href);
         url.searchParams.set('kisi', otherId);
@@ -999,18 +1289,24 @@
   }
 
   async function loadOlderMessages() {
-    if (!state.activeOtherId || !state.hasMoreOlder || state.loadingOlder || state.messages.length === 0) return;
+    const isGroup = state.activeMode === 'group' && state.activeGroupId;
+    const isDm = state.activeMode === 'dm' && state.activeOtherId;
+    if ((!isGroup && !isDm) || !state.hasMoreOlder || state.loadingOlder || state.messages.length === 0) return;
     state.loadingOlder = true;
     els.loadOlderBtn.disabled = true;
     els.loadOlderBtn.textContent = i18n.loadingOlder || 'Yükleniyor…';
 
     const firstId = state.messages[0].id;
     const prevScrollHeight = els.messagesScroll.scrollHeight;
+    const url = isGroup
+      ? `/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/mesajlar?before=${encodeURIComponent(firstId)}&limit=40`
+      : `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?before=${encodeURIComponent(firstId)}&limit=40`;
 
     try {
-      const data = await apiJson(
-        `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?before=${encodeURIComponent(firstId)}&limit=40`
-      );
+      const data = await apiJson(url);
+      if (isGroup && data.senders && typeof data.senders === 'object') {
+        Object.assign(state.groupSenders, data.senders);
+      }
       const older = Array.isArray(data.messages) ? data.messages : [];
       state.hasMoreOlder = Boolean(data.hasMore);
       if (older.length > 0) {
@@ -1050,31 +1346,49 @@
       : null;
 
   function queueMarkRead(upToTs) {
-    if (!state.activeOtherId || !upToTs || document.visibilityState !== 'visible') return;
+    const isGroup = state.activeMode === 'group' && state.activeGroupId;
+    const isDm = state.activeMode === 'dm' && state.activeOtherId;
+    if ((!isGroup && !isDm) || !upToTs || document.visibilityState !== 'visible') return;
     if (upToTs <= state.pendingReadTs) return;
     state.pendingReadTs = upToTs;
     clearTimeout(state.readDebounceTimer);
     state.readDebounceTimer = setTimeout(async () => {
+      const modeSnap = state.activeMode;
+      const targetGroup = state.activeGroupId;
       const targetOther = state.activeOtherId;
       const tsToSend = state.pendingReadTs;
-      if (!targetOther || !tsToSend) return;
+      if (!tsToSend) return;
       try {
-        const res = await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(targetOther)}/okundu`, {
-          method: 'POST',
-          body: { upTo: tsToSend },
-        });
-        emitUnreadGlobal(res.unread || 0);
-        const conv = state.conversations.find((c) => c.other && c.other.id === targetOther);
-        if (conv) {
-          conv.unreadCount = 0;
-          renderConversationsList();
+        if (modeSnap === 'group' && targetGroup) {
+          const res = await apiJson(`/sohbet/api/grup/${encodeURIComponent(targetGroup)}/okundu`, {
+            method: 'POST',
+            body: { upTo: tsToSend },
+          });
+          emitUnreadGlobal(res.unread || 0);
+          const grp = state.groups.find((g) => g.id === targetGroup);
+          if (grp) {
+            grp.unreadCount = 0;
+            renderGroupsList();
+          }
+        } else if (modeSnap === 'dm' && targetOther) {
+          const res = await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(targetOther)}/okundu`, {
+            method: 'POST',
+            body: { upTo: tsToSend },
+          });
+          emitUnreadGlobal(res.unread || 0);
+          const conv = state.conversations.find((c) => c.other && c.other.id === targetOther);
+          if (conv) {
+            conv.unreadCount = 0;
+            renderConversationsList();
+          }
         }
       } catch (_) {}
     }, 220);
   }
 
   function scheduleMarkVisibleMessagesRead() {
-    if (document.visibilityState !== 'visible' || !state.activeOtherId) return;
+    if (document.visibilityState !== 'visible') return;
+    if (!state.activeOtherId && !state.activeGroupId) return;
     const latestOther = [...state.messages].reverse().find((m) => m.from !== selfId && !m.deleted);
     if (latestOther && !msgReadObserver) {
       queueMarkRead(latestOther.ts);
@@ -1082,7 +1396,7 @@
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.activeOtherId) {
+    if (document.visibilityState === 'visible' && (state.activeOtherId || state.activeGroupId)) {
       const latestOther = [...state.messages].reverse().find((m) => m.from !== selfId && !m.deleted);
       if (latestOther) {
         queueMarkRead(latestOther.ts);
@@ -1098,10 +1412,39 @@
     return null;
   }
 
+  function resolveMessageSender(msg) {
+    if (msg.from === selfId) {
+      return {
+        id: selfId,
+        kind: boot.selfKind || 'discord',
+        isGroupAdmin: state.isGroupAdmin,
+        displayName: boot.selfName || selfId,
+        avatarUrl: boot.selfAvatarUrl || null,
+        ring: state.profile.effectiveRing,
+      };
+    }
+    if (state.activeMode === 'group') {
+      return (
+        (state.groupSenders && state.groupSenders[msg.from]) || {
+          id: msg.from,
+          kind: String(msg.from || '').startsWith('g_m_') ? 'google' : 'discord',
+          isGroupAdmin: false,
+          displayName: msg.from,
+          avatarUrl: null,
+          ring: null,
+        }
+      );
+    }
+    return state.activeOther || { id: msg.from, displayName: msg.from, avatarUrl: null, ring: null };
+  }
+
   function buildMessageRowEl(msg, { isGroupStart, isGroupEnd, isLastOwn, animate = false, fromTyping = false }) {
     const isSelf = msg.from === selfId;
+    const isGroupMode = state.activeMode === 'group';
+    const sender = resolveMessageSender(msg);
+
     const row = document.createElement('div');
-    row.className = `chat-msg-row ${isSelf ? 'is-self' : 'is-other'}${isGroupStart ? ' is-group-start' : ' is-group-mid'}${isGroupEnd ? ' is-group-end' : ''}`;
+    row.className = `chat-msg-row ${isSelf ? 'is-self' : 'is-other'}${isGroupMode ? ' is-in-group' : ''}${isGroupStart ? ' is-group-start' : ' is-group-mid'}${isGroupEnd ? ' is-group-end' : ''}`;
     row.dataset.msgId = msg.id;
     row.dataset.msgTs = String(msg.ts || 0);
 
@@ -1109,22 +1452,32 @@
       msgReadObserver.observe(row);
     }
 
-    // Karşı taraf grubunun son balonunda küçük halkalı avatar
+    // Sol tarafta karşı tarafın halkalı avatarı (tıklanınca Nebula Profil Kartı açılır)
     if (!isSelf) {
       const avSlot = document.createElement('div');
       avSlot.className = 'chat-msg-avatar-slot';
-      if (isGroupEnd && state.activeOther) {
-        avSlot.appendChild(
+      const showAvatar = isGroupMode ? isGroupStart : isGroupEnd;
+      if (showAvatar && sender && sender.id && !msg.system) {
+        const avBtn = document.createElement('button');
+        avBtn.type = 'button';
+        avBtn.className = 'chat-avatar-card-trigger';
+        avBtn.setAttribute('aria-label', sender.displayName || sender.id);
+        avBtn.appendChild(
           createRingAvatarEl({
-            userId: state.activeOther.id,
-            avatarUrl: state.activeOther.avatarUrl,
-            displayName: state.activeOther.displayName,
-            ring: state.activeOther.ring,
-            sizePx: 28,
+            userId: sender.id,
+            avatarUrl: sender.avatarUrl,
+            displayName: sender.displayName,
+            ring: sender.ring,
+            sizePx: isGroupMode ? 32 : 28,
             thicknessPx: 2,
             allowAnimated: false,
           })
         );
+        avBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openMemberProfileCard(sender.id, avBtn, sender);
+        });
+        avSlot.appendChild(avBtn);
       }
       row.appendChild(avSlot);
     }
@@ -1132,10 +1485,32 @@
     const col = document.createElement('div');
     col.className = 'chat-msg-col';
 
+    // Grup sohbetinde her gönderen kümesinin üstünde tıklanabilir ad + kimlik rozeti + Yönetici rozeti
+    if (isGroupMode && isGroupStart && !msg.system && sender && sender.id) {
+      const senderHead = document.createElement('div');
+      senderHead.className = `chat-group-sender-head${isSelf ? ' is-self' : ''}`;
+
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'chat-msg-sender-btn';
+      nameBtn.textContent = sender.displayName || sender.id;
+      nameBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openMemberProfileCard(sender.id, nameBtn, sender);
+      });
+
+      senderHead.appendChild(nameBtn);
+      senderHead.appendChild(createIdentityBadgeEl(sender.kind));
+      if (sender.isGroupAdmin) {
+        senderHead.appendChild(createGroupAdminBadgeEl());
+      }
+      col.appendChild(senderHead);
+    }
+
     const bubbleWrap = document.createElement('div');
     bubbleWrap.className = 'chat-bubble-wrap';
 
-    // Kendi mesajıysa silme; karşı taraf mesajıysa raporla düğmesi
+    // Kendi mesajıysa silme düğmesi
     if (isSelf && !msg.deleted && !msg.pending && !msg.system) {
       const actions = document.createElement('div');
       actions.className = 'chat-msg-actions';
@@ -1145,7 +1520,7 @@
       delBtn.title = i18n.deleteMsgBtn || 'Mesajı sil';
       delBtn.setAttribute('aria-label', i18n.deleteMsgBtn || 'Mesajı sil');
       delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => handleDeleteMessage(msg.id));
+      delBtn.addEventListener('click', () => handleDeleteMessage(msg.id, false));
       actions.appendChild(delBtn);
       bubbleWrap.appendChild(actions);
     }
@@ -1153,15 +1528,14 @@
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble${isSelf ? ' chat-bubble--self' : ' chat-bubble--other'}${msg.deleted ? ' chat-bubble--deleted' : ''}${msg.system ? ' chat-bubble--system' : ''}`;
 
-    if (msg.maskedRequest) {
-      const maskedSpan = document.createElement('span');
-      maskedSpan.className = 'chat-msg-deleted-text';
-      maskedSpan.textContent = '📩 •••';
-      bubble.appendChild(maskedSpan);
-    } else if (msg.deleted) {
+    if (msg.deleted) {
       const delText = document.createElement('span');
       delText.className = 'chat-msg-deleted-text';
-      delText.textContent = msg.modRemoved ? i18n.msgModRemoved : i18n.msgDeleted;
+      delText.textContent = msg.modRemoved
+        ? i18n.msgModRemoved
+        : msg.adminRemoved
+          ? i18n.msgAdminRemoved
+          : i18n.msgDeleted;
       bubble.appendChild(delText);
     } else {
       if (msg.text) {
@@ -1171,7 +1545,6 @@
         bubble.appendChild(textEl);
       }
 
-      // Parça 3 (Dosya Ekleri) için eklenti kancası
       if (
         Array.isArray(msg.attachments) &&
         msg.attachments.length > 0 &&
@@ -1182,7 +1555,7 @@
       }
     }
 
-    // Zaman damgası + durum tiki (üzerine gelince / dokununca 30 gün silinme bilgisi)
+    // Zaman damgası + durum tiki (grupta teslim/görüldü tiki YOKTUR)
     const meta = document.createElement('div');
     meta.className = 'chat-msg-meta';
     const timeSpan = document.createElement('span');
@@ -1192,39 +1565,61 @@
     meta.appendChild(timeSpan);
 
     if (isSelf && !msg.deleted) {
-      const tickSpan = document.createElement('span');
-      tickSpan.className = 'chat-msg-tick';
       if (msg.pending) {
+        const tickSpan = document.createElement('span');
+        tickSpan.className = 'chat-msg-tick';
         tickSpan.textContent = i18n.statusSending || '⏳';
-      } else if (state.otherLastDelivered >= msg.ts) {
-        tickSpan.textContent = i18n.statusDelivered || '✓✓';
-      } else {
-        tickSpan.textContent = i18n.statusSent || '✓';
+        meta.appendChild(tickSpan);
+      } else if (!isGroupMode) {
+        const tickSpan = document.createElement('span');
+        tickSpan.className = 'chat-msg-tick';
+        tickSpan.textContent =
+          state.otherLastDelivered >= msg.ts ? i18n.statusDelivered || '✓✓' : i18n.statusSent || '✓';
+        meta.appendChild(tickSpan);
       }
-      meta.appendChild(tickSpan);
     }
 
     bubble.appendChild(meta);
     bubbleWrap.appendChild(bubble);
 
-    if (!isSelf && !msg.deleted && !msg.system && !msg.maskedRequest) {
+    // Karşı taraf mesajında Raporla (ve grup yöneticisiyse Yönetici Silme) düğmeleri
+    if (!isSelf && !msg.deleted && !msg.system) {
       const actions = document.createElement('div');
       actions.className = 'chat-msg-actions';
+
       const repBtn = document.createElement('button');
       repBtn.type = 'button';
       repBtn.className = 'chat-msg-action-btn';
       repBtn.title = i18n.reportBtn || 'Raporla';
       repBtn.setAttribute('aria-label', i18n.reportBtn || 'Raporla');
       repBtn.textContent = '🚩';
-      repBtn.addEventListener('click', () => openReportModal(msg.id));
+      repBtn.addEventListener('click', () => {
+        if (isGroupMode) {
+          openReportModal({ groupId: state.activeGroupId, otherId: msg.from, msgId: msg.id });
+        } else {
+          openReportModal({ otherId: state.activeOtherId, msgId: msg.id });
+        }
+      });
       actions.appendChild(repBtn);
+
+      if (isGroupMode && state.isGroupAdmin) {
+        const adminDelBtn = document.createElement('button');
+        adminDelBtn.type = 'button';
+        adminDelBtn.className = 'chat-msg-action-btn chat-msg-action-btn--admin';
+        adminDelBtn.title = i18n.deleteMsgBtn || 'Mesajı sil';
+        adminDelBtn.setAttribute('aria-label', i18n.deleteMsgBtn || 'Mesajı sil');
+        adminDelBtn.textContent = '🗑️';
+        adminDelBtn.addEventListener('click', () => handleDeleteMessage(msg.id, true));
+        actions.appendChild(adminDelBtn);
+      }
+
       bubbleWrap.appendChild(actions);
     }
 
     col.appendChild(bubbleWrap);
 
-    // Instagram tarzı: "Görüldü ✓ HH:MM" yalnızca gönderenin EN SON mesajının altında
-    if (isSelf && isLastOwn && state.canSeeOtherRead && state.otherLastRead >= msg.ts && !msg.pending) {
+    // Instagram tarzı: "Görüldü ✓ HH:MM" yalnızca DM'de ve gönderenin EN SON mesajının altında (grupta YOK)
+    if (!isGroupMode && isSelf && isLastOwn && state.canSeeOtherRead && state.otherLastRead >= msg.ts && !msg.pending) {
       const seenEl = document.createElement('div');
       seenEl.className = 'chat-msg-seen';
       seenEl.textContent = (i18n.statusSeen || 'Görüldü ✓ {time}').replace(
@@ -1373,9 +1768,13 @@
 
   async function handleSendMessage(ev) {
     if (ev) ev.preventDefault();
-    if (!state.activeOtherId) return;
+    const isGroup = state.activeMode === 'group' && Boolean(state.activeGroupId);
+    const isDm = state.activeMode === 'dm' && Boolean(state.activeOtherId);
+    if (!isGroup && !isDm) return;
 
-    const targetOtherId = state.activeOtherId;
+    const targetGroupId = isGroup ? state.activeGroupId : null;
+    const targetOtherId = isDm ? state.activeOtherId : null;
+    const draftKey = getActiveDraftKey();
     const text = els.messageInput.value.trim();
     const maxLen = (boot.limits && boot.limits.maxMessageLength) || 4000;
     const attHelper = window.PiyadeChatAttachments || null;
@@ -1409,10 +1808,12 @@
     if (attHelper && typeof attHelper.clearAll === 'function') {
       attHelper.clearAll();
     }
-    state.drafts.set(targetOtherId, '');
-    try {
-      sessionStorage.removeItem(`piyade_chat_draft_${targetOtherId}`);
-    } catch (_) {}
+    if (draftKey) {
+      state.drafts.set(draftKey, '');
+      try {
+        sessionStorage.removeItem(`piyade_chat_draft_${draftKey}`);
+      } catch (_) {}
+    }
     autoResizeTextarea();
     updateComposerControls();
     closeEmojiPicker();
@@ -1424,7 +1825,10 @@
     try {
       const payload = { text, clientId };
       if (attachmentIds.length > 0) payload.attachmentIds = attachmentIds;
-      const data = await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(targetOtherId)}/mesaj`, {
+      const endpoint = isGroup
+        ? `/sohbet/api/grup/${encodeURIComponent(targetGroupId)}/mesaj`
+        : `/sohbet/api/sohbet/${encodeURIComponent(targetOtherId)}/mesaj`;
+      const data = await apiJson(endpoint, {
         method: 'POST',
         body: payload,
       });
@@ -1433,17 +1837,25 @@
       if (idx >= 0 && data.message) {
         state.messages[idx] = data.message;
       }
-      if (data.delivered && data.message) {
+      if (isGroup && data.sender && data.sender.id) {
+        state.groupSenders[data.sender.id] = data.sender;
+      }
+      if (!isGroup && data.delivered && data.message) {
         state.otherLastDelivered = Math.max(state.otherLastDelivered, data.message.ts);
       }
-      if (state.activeOtherId === targetOtherId) {
+      const stillSame = isGroup
+        ? state.activeMode === 'group' && state.activeGroupId === targetGroupId
+        : state.activeMode === 'dm' && state.activeOtherId === targetOtherId;
+      if (stillSame) {
         renderMessageThread({ animateLast: false, scrollToBottom: false });
       }
       loadConversations();
     } catch (err) {
-      // Başarısız mesajı geri al ve metni koru
       state.messages = state.messages.filter((m) => m.id !== tempId);
-      if (state.activeOtherId === targetOtherId) {
+      const stillSame = isGroup
+        ? state.activeMode === 'group' && state.activeGroupId === targetGroupId
+        : state.activeMode === 'dm' && state.activeOtherId === targetOtherId;
+      if (stillSame) {
         els.messageInput.value = text;
         autoResizeTextarea();
         updateComposerControls();
@@ -1453,18 +1865,24 @@
     }
   }
 
-  async function handleDeleteMessage(msgId) {
-    if (!state.activeOtherId || !msgId) return;
-    const ok = await showConfirmModal(i18n.deleteMsgBtn || 'Mesajı sil', i18n.deleteConfirm || '');
+  async function handleDeleteMessage(msgId, asAdmin = false) {
+    const isGroup = state.activeMode === 'group' && state.activeGroupId;
+    const isDm = state.activeMode === 'dm' && state.activeOtherId;
+    if ((!isGroup && !isDm) || !msgId) return;
+    const confirmText = asAdmin
+      ? i18n.adminDeleteConfirm || i18n.deleteConfirm || ''
+      : i18n.deleteConfirm || '';
+    const ok = await showConfirmModal(i18n.deleteMsgBtn || 'Mesajı sil', confirmText);
     if (!ok) return;
     try {
-      await apiJson(
-        `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesaj/${encodeURIComponent(msgId)}`,
-        { method: 'DELETE' }
-      );
+      const endpoint = isGroup
+        ? `/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/mesaj/${encodeURIComponent(msgId)}`
+        : `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesaj/${encodeURIComponent(msgId)}`;
+      const res = await apiJson(endpoint, { method: 'DELETE' });
       const target = state.messages.find((m) => m.id === msgId);
       if (target) {
         target.deleted = true;
+        target.adminRemoved = Boolean(res && res.adminRemoved);
         target.text = '';
         target.attachments = [];
       }
@@ -1472,6 +1890,27 @@
       loadConversations();
     } catch (err) {
       showToast('Hata', err.message || 'Mesaj silinemedi.', { variant: 'danger' });
+    }
+  }
+
+  async function handleToggleGroupMute() {
+    if (state.activeMode !== 'group' || !state.activeGroupId || !state.activeGroup) return;
+    const nextMuted = !Boolean(state.activeGroup.muted);
+    try {
+      const res = await apiJson(`/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/sessize-al`, {
+        method: 'POST',
+        body: { muted: nextMuted },
+      });
+      state.activeGroup.muted = Boolean(res.muted);
+      state.profile.mutedGroups = Array.isArray(res.mutedGroups) ? res.mutedGroups : state.profile.mutedGroups;
+      const listEntry = state.groups.find((g) => g.id === state.activeGroupId);
+      if (listEntry) listEntry.muted = Boolean(res.muted);
+      if (typeof res.unread === 'number') emitUnreadGlobal(res.unread);
+      closeHeaderMenu();
+      renderThreadHeader();
+      renderGroupsList();
+    } catch (err) {
+      showToast('Hata', err.message || 'İşlem başarısız.', { variant: 'danger' });
     }
   }
 
@@ -1518,7 +1957,7 @@
   }
 
   function maybeNotifyTyping() {
-    if (!state.activeOtherId || state.blockedState.any) return;
+    if (state.activeMode !== 'dm' || !state.activeOtherId || state.blockedState.any) return;
     const now = Date.now();
     if (now - state.lastTypingSentAt < 3000) return;
     state.lastTypingSentAt = now;
@@ -1917,7 +2356,7 @@
 
     if (els.setReadReceipts) els.setReadReceipts.checked = prof.readReceipts !== false;
     if (els.setWhoCanMessage) els.setWhoCanMessage.value = prof.whoCanMessage === 'nobody' ? 'nobody' : 'everyone';
-    if (els.setRequireRequest) els.setRequireRequest.checked = Boolean(prof.requireMessageRequest);
+    if (els.setShowGames) els.setShowGames.checked = prof.showGamesInChat !== false;
     if (els.setNotifyPreview) els.setNotifyPreview.checked = Boolean(prof.notify && prof.notify.preview);
     if (els.setNotifySound) els.setNotifySound.checked = Boolean(prof.notify && prof.notify.sound);
 
@@ -1942,7 +2381,7 @@
       ringId: state.settingsDraft.ringId,
       readReceipts: els.setReadReceipts ? els.setReadReceipts.checked : true,
       whoCanMessage: els.setWhoCanMessage ? els.setWhoCanMessage.value : 'everyone',
-      requireMessageRequest: els.setRequireRequest ? els.setRequireRequest.checked : false,
+      showGamesInChat: els.setShowGames ? els.setShowGames.checked : true,
       notify: {
         browser: typeof window.Notification !== 'undefined' && Notification.permission === 'granted' && state.profile.notify.browser,
         preview: els.setNotifyPreview ? els.setNotifyPreview.checked : false,
@@ -1982,19 +2421,26 @@
   function maybeShowBrowserNotification(payload) {
     if (typeof window.Notification === 'undefined' || Notification.permission !== 'granted') return;
     if (!state.profile.notify || !state.profile.notify.browser) return;
-    if (document.visibilityState === 'visible' && state.activeOtherId === payload.otherId) return;
+    if (payload.muted) return;
+    if (payload.groupId && document.visibilityState === 'visible' && state.activeMode === 'group' && state.activeGroupId === payload.groupId) return;
+    if (payload.otherId && document.visibilityState === 'visible' && state.activeMode === 'dm' && state.activeOtherId === payload.otherId) return;
 
-    const title = (payload.sender && payload.sender.displayName) || i18n.newMsgToastTitle || 'Yeni mesaj';
+    const title = payload.groupId
+      ? `🌐 ${(state.groups.find((g) => g.id === payload.groupId) || {}).name || 'Genel Sohbet'}`
+      : (payload.sender && payload.sender.displayName) || i18n.newMsgToastTitle || 'Yeni mesaj';
     const allowPreview = Boolean(state.profile.notify.preview && payload.notifyPreview);
     const bodyText = allowPreview && payload.message && payload.message.text
-      ? payload.message.text.slice(0, 100)
-      : i18n.newMsgBrowserBody || 'Yeni bir özel mesajın var.';
+      ? (payload.groupId && payload.sender && payload.sender.displayName
+          ? `${payload.sender.displayName}: ${payload.message.text.slice(0, 90)}`
+          : payload.message.text.slice(0, 100))
+      : i18n.newMsgBrowserBody || 'Yeni bir mesajın var.';
 
     try {
       const n = new Notification(title, { body: bodyText, tag: `chat-${payload.convId}` });
       n.onclick = () => {
         window.focus();
-        if (payload.otherId) openConversation(payload.otherId, payload.sender);
+        if (payload.groupId) openGroup(payload.groupId);
+        else if (payload.otherId) openConversation(payload.otherId, payload.sender);
         n.close();
       };
     } catch (_) {}
@@ -2002,28 +2448,35 @@
 
   async function catchUpAfterReconnect() {
     await loadConversations();
-    if (state.activeOtherId && state.messages.length > 0) {
-      const lastTs = state.messages[state.messages.length - 1].ts;
-      try {
-        const data = await apiJson(
-          `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?after=${encodeURIComponent(String(lastTs))}&limit=60`
-        );
-        const newer = Array.isArray(data.messages) ? data.messages : [];
-        if (newer.length > 0) {
-          const existing = new Set(state.messages.map((m) => m.id));
-          let added = 0;
-          for (const m of newer) {
-            if (!existing.has(m.id)) {
-              state.messages.push(m);
-              added += 1;
-            }
-          }
-          if (added > 0) {
-            renderMessageThread({ animateLast: false, scrollToBottom: isScrolledNearBottom() });
+    if (state.messages.length === 0) return;
+    const lastTs = state.messages[state.messages.length - 1].ts;
+    const url =
+      state.activeMode === 'group' && state.activeGroupId
+        ? `/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/mesajlar?after=${encodeURIComponent(String(lastTs))}&limit=60`
+        : state.activeMode === 'dm' && state.activeOtherId
+          ? `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?after=${encodeURIComponent(String(lastTs))}&limit=60`
+          : null;
+    if (!url) return;
+    try {
+      const data = await apiJson(url);
+      if (state.activeMode === 'group' && data.senders && typeof data.senders === 'object') {
+        Object.assign(state.groupSenders, data.senders);
+      }
+      const newer = Array.isArray(data.messages) ? data.messages : [];
+      if (newer.length > 0) {
+        const existing = new Set(state.messages.map((m) => m.id));
+        let added = 0;
+        for (const m of newer) {
+          if (!existing.has(m.id)) {
+            state.messages.push(m);
+            added += 1;
           }
         }
-      } catch (_) {}
-    }
+        if (added > 0) {
+          renderMessageThread({ animateLast: false, scrollToBottom: isScrolledNearBottom() });
+        }
+      }
+    } catch (_) {}
   }
 
   function connectChatSse() {
@@ -2111,6 +2564,75 @@
         maybeShowBrowserNotification(d);
       }
       loadConversations();
+    });
+
+    sse.addEventListener('group_message', (ev) => {
+      trackId(ev);
+      let d;
+      try {
+        d = JSON.parse(ev.data || '{}');
+      } catch (_) {
+        return;
+      }
+      if (!d || !d.message || !d.groupId) return;
+
+      if (d.sender && d.sender.id) {
+        state.groupSenders[d.sender.id] = d.sender;
+      }
+
+      const isForActive = state.activeMode === 'group' && state.activeGroupId === d.groupId;
+      if (isForActive) {
+        const existsIdx = state.messages.findIndex(
+          (m) => m.id === d.message.id || (d.message.clientId && m.clientId === d.message.clientId)
+        );
+        if (existsIdx >= 0) {
+          state.messages[existsIdx] = d.message;
+          renderMessageThread({ animateLast: false, scrollToBottom: false });
+        } else {
+          const nearBottom = isScrolledNearBottom();
+          state.messages.push(d.message);
+          if (!d.selfEcho && !d.muted) playChatSound('receive');
+          renderMessageThread({ animateLast: true, scrollToBottom: nearBottom });
+          if (!d.selfEcho && document.visibilityState === 'visible') {
+            queueMarkRead(d.message.ts);
+          }
+        }
+      } else if (!d.selfEcho && !d.muted) {
+        playChatSound('receive');
+        const grpObj = state.groups.find((g) => g.id === d.groupId);
+        const title = `🌐 ${(grpObj && grpObj.name) || 'Genel Sohbet'}`;
+        const senderPrefix = d.sender && d.sender.displayName ? `${d.sender.displayName}: ` : '';
+        const preview = state.profile.notify && state.profile.notify.preview && d.message.text
+          ? `${senderPrefix}${d.message.text.slice(0, 60)}`
+          : `${senderPrefix}${i18n.newMsgBrowserBody || 'Yeni mesaj'}`;
+        showToast(title, preview, {
+          onClick: () => openGroup(d.groupId, grpObj),
+        });
+      }
+
+      if (!d.selfEcho && !d.muted) {
+        maybeShowBrowserNotification(d);
+      }
+      loadConversations();
+    });
+
+    sse.addEventListener('group_deleted', (ev) => {
+      trackId(ev);
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        if (d.convId === state.activeConvId) {
+          const target = state.messages.find((m) => m.id === d.msgId);
+          if (target) {
+            target.deleted = true;
+            target.modRemoved = Boolean(d.modRemoved);
+            target.adminRemoved = Boolean(d.adminRemoved);
+            target.text = '';
+            target.attachments = [];
+            renderMessageThread({ animateLast: false, scrollToBottom: false });
+          }
+        }
+        loadConversations();
+      } catch (_) {}
     });
 
     sse.addEventListener('delivered', (ev) => {
@@ -2270,6 +2792,14 @@
     });
   }
 
+  if (els.headerProfileBtn) {
+    els.headerProfileBtn.addEventListener('click', () => {
+      if (state.activeMode === 'dm' && state.activeOtherId && state.activeOther) {
+        openMemberProfileCard(state.activeOtherId, els.headerProfileBtn, state.activeOther);
+      }
+    });
+  }
+  if (els.menuMuteGroupBtn) els.menuMuteGroupBtn.addEventListener('click', handleToggleGroupMute);
   if (els.menuBlockBtn) els.menuBlockBtn.addEventListener('click', handleToggleBlock);
   if (els.quickUnblockBtn) els.quickUnblockBtn.addEventListener('click', handleToggleBlock);
   if (els.loadOlderBtn) els.loadOlderBtn.addEventListener('click', loadOlderMessages);
@@ -2415,7 +2945,7 @@
     if (state.sse) state.sse.close();
   });
 
-  // Parça 3 & 4 genişletme arayüzü
+  // Parça 3, 4 & Profil Kartı genişletme arayüzü
   window.PiyadeChatApp = {
     boot,
     state,
@@ -2423,19 +2953,42 @@
     apiJson,
     showToast,
     showConfirmModal,
+    openGroup,
     openConversation,
     loadConversations,
+    renderThreadHeader,
     renderMessageThread,
     updateComposerControls,
     playChatSound,
     createRingAvatarEl,
     scrollThreadToBottom,
+    openProfileCard: openMemberProfileCard,
+    openReportForMember: (targetUserId) => {
+      if (state.activeMode === 'group' && state.activeGroupId) {
+        openReportModal({ groupId: state.activeGroupId, otherId: targetUserId, msgId: null });
+      } else {
+        openReportModal({ otherId: targetUserId, msgId: null });
+      }
+    },
   };
 
-  // Parça 4: Raporlama ve Mesaj İsteği İşleyicileri
-  function openReportModal(msgId = null) {
-    if (!els.reportModal || !state.activeOtherId) return;
-    state.reportTargetMsgId = msgId;
+  // Parça 4: Raporlama İşleyicileri (DM ve Genel Sohbet grubu)
+  function openReportModal(opts = null) {
+    if (!els.reportModal) return;
+    let target = { otherId: null, groupId: null, msgId: null };
+    if (typeof opts === 'string') {
+      target = { otherId: state.activeOtherId, groupId: state.activeGroupId, msgId: opts };
+    } else if (opts && typeof opts === 'object') {
+      target = {
+        otherId: opts.otherId || (opts.groupId ? null : state.activeOtherId),
+        groupId: opts.groupId || null,
+        msgId: opts.msgId || null,
+      };
+    } else {
+      target = { otherId: state.activeOtherId, groupId: state.activeGroupId, msgId: null };
+    }
+    if (!target.otherId && !target.groupId) return;
+    state.reportTarget = target;
     if (els.reportNote) els.reportNote.value = '';
     if (els.reportError) {
       els.reportError.hidden = true;
@@ -2451,52 +3004,34 @@
     if (!els.reportModal) return;
     els.reportModal.hidden = true;
     els.reportModal.setAttribute('aria-hidden', 'true');
-    state.reportTargetMsgId = null;
+    state.reportTarget = { otherId: null, groupId: null, msgId: null };
   }
 
-  async function handleMessageRequestAction(action) {
-    if (!state.activeOtherId) return;
-    try {
-      await apiJson(`/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/istek`, {
-        method: 'POST',
-        body: { action },
-      });
-      if (action === 'accept') {
-        openConversation(state.activeOtherId, state.activeOther);
-      } else {
-        state.activeOtherId = null;
-        els.threadActive.hidden = true;
-        els.threadEmpty.hidden = false;
-        appEl.classList.remove('is-thread-open');
-      }
-      loadConversations();
-    } catch (err) {
-      showToast('Hata', err.message || 'İşlem başarısız.', { variant: 'danger' });
-    }
+  if (els.menuReportBtn) {
+    els.menuReportBtn.addEventListener('click', () => openReportModal({ otherId: state.activeOtherId, msgId: null }));
   }
-
-  if (els.menuReportBtn) els.menuReportBtn.addEventListener('click', () => openReportModal(null));
   if (els.reportCloseBtn) els.reportCloseBtn.addEventListener('click', closeReportModal);
   if (els.reportCancelBtn) els.reportCancelBtn.addEventListener('click', closeReportModal);
-  if (els.reqAcceptBtn) els.reqAcceptBtn.addEventListener('click', () => handleMessageRequestAction('accept'));
-  if (els.reqDeclineBtn) els.reqDeclineBtn.addEventListener('click', () => handleMessageRequestAction('decline'));
-  if (els.reqBlockBtn) els.reqBlockBtn.addEventListener('click', () => handleMessageRequestAction('block'));
 
   if (els.reportForm) {
     els.reportForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      if (!state.activeOtherId) return;
+      const rt = state.reportTarget || {};
+      if (!rt.otherId && !rt.groupId) return;
       if (els.reportError) els.reportError.hidden = true;
       if (els.reportSubmitBtn) els.reportSubmitBtn.disabled = true;
       try {
+        const body = {
+          category: els.reportCategory ? els.reportCategory.value : 'other',
+          note: els.reportNote ? els.reportNote.value : '',
+        };
+        if (rt.groupId) body.groupId = rt.groupId;
+        if (rt.otherId) body.otherId = rt.otherId;
+        if (rt.msgId) body.msgId = rt.msgId;
+
         const res = await apiJson('/sohbet/api/raporla', {
           method: 'POST',
-          body: {
-            otherId: state.activeOtherId,
-            msgId: state.reportTargetMsgId,
-            category: els.reportCategory ? els.reportCategory.value : 'other',
-            note: els.reportNote ? els.reportNote.value : '',
-          },
+          body,
         });
         closeReportModal();
         showToast('🛡️', res.message || i18n.reportReceivedToast || 'Raporun alındı.', { variant: 'success' });
@@ -2523,10 +3058,12 @@
     }
   }
 
-  // İlk yükleme
+  // İlk yükleme: ?kisi=... varsa ilgili DM'i, yoksa varsayılan "Genel Sohbet" grubunu açık getir
   loadConversations().then(() => {
     if (boot.requestedOtherId) {
       openConversation(boot.requestedOtherId);
+    } else if (boot.defaultGroupId) {
+      openGroup(boot.defaultGroupId);
     }
   });
   connectChatSse();

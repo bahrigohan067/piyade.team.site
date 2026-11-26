@@ -25,14 +25,14 @@ Aşağıda her bir maddenin özeti yer almaktadır; güncel kimlik ve sürüm ka
 - **Kapsam:** Birebir özel sohbetler rutin olarak izlenmez. Yalnızca taraflardan biri bir mesajı raporladığında (etrafındaki 30 mesaj) veya yerel otomatik metin filtresi yüksek riskli bir örüntü işaretlediğinde (±5 mesaj), ilgili pencerenin kopyası yetkili **Community Official** moderatörlerince incelenebilir.
 - **Güvence:** Kopyalanan vaka içeriği vaka kapandıktan sonra en geç **7 gün** (açık vakalarda en çok **90 gün**) içinde kalıcı olarak silinir. Görsel ve videolar otomatik taranmaz.
 
-### Madde B — Oyun Kullanıcı Adlarının Sohbet Profilinde Diğer Üyelere Gösterilmesi *(GELECEK ÖZELLİK)*
+### Madde B — Oyun Kullanıcı Adlarının Sohbet Profil Kartında Diğer Üyelere Gösterilmesi
 
-- **Kapsam:** Önümüzdeki güncellemede devreye alınacak profil ekranı geliştirmesiyle, topluluk kaydında paylaştığınız oyun kullanıcı adlarının (Roblox, CS2, Zula, Minecraft) sohbet profil kartınızda diğer kayıtlı üyelere görünür kılınması.
-- **Durum:** Bu özellik şu an henüz aktif değildir (**GELECEK ÖZELLİK**). Yayına girdiğinde varsayılan olarak sizin tercihinize bağlı olacak ve dilediğiniz an kapatılabilecektir.
+- **Kapsam:** Topluluk kaydında veya site profilinizde paylaştığınız oyun kullanıcı adlarının (Roblox, CS2, Zula, Minecraft) sohbet profil bilgi kartınızda diğer üyelere görünür kılınması.
+- **Durum:** İsteğe bağlıdır; sohbet ayarlarından veya profil ekranınızdan dilediğiniz an kapatabilirsiniz. Kapattığınızda oyun kullanıcı adlarınız sunucudan diğer üyelere hiç gönderilmez.
 
 ### Madde C — Verilerin Yurt Dışındaki Barındırma ve Kimlik Doğrulama Sağlayıcılarına Aktarılması
 
-- **Kapsam:** Web portalı ve bağlı API altyapısının çalışması için gerekli teknik/hesap verilerinin yurt dışında sunucuları bulunabilen bulut barındırma sağlayıcısına (Railway) ve kimlik/oyun servislerine (Discord, Roblox, Google Fonts ve **GELECEK ÖZELLİK** kapsamındaki Google OAuth) aktarılması.
+- **Kapsam:** Web portalı ve bağlı API altyapısının çalışması için gerekli teknik/hesap verilerinin yurt dışında sunucuları bulunabilen bulut barındırma sağlayıcısına (Railway) ve kimlik/oyun servislerine (Discord, Google OAuth, Roblox, Google Fonts) aktarılması.
 - **Not:** KVKK m.9 kapsamındaki yurt dışı aktarım hukuki dayanağı *(hukuki doğrulama gerekli)* incelenip kesinleştirildikten sonra güncellenecektir.
 
 ## 3. Rızanın Geri Alınması

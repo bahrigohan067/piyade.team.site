@@ -7,6 +7,7 @@ const { isRegisteredMember, isManagement, isDeveloper, isCommunityOfficial } = r
 const { getVisibleMenuItems } = require('../config/menu.config');
 const botApiClient = require('../services/botApiClient');
 const { getMemberStore, toUnifiedGoogleId } = require('../services/memberStore');
+const { getSiteWarningStore } = require('../services/siteWarningStore');
 const { formatDuration, formatRelativeUpdated } = require('../utils/formatDuration');
 
 /**
@@ -93,9 +94,11 @@ function buildGoogleSessionUser(member) {
     roles: [],
     level: 'site_member',
     highestRolePosition: 0,
-    registered: true,
+    registered: member.status === 'active',
     inGuild: false,
     status: member.status || 'active',
+    statusReason: member.statusReason || '',
+    statusExpiresAt: member.statusExpiresAt || null,
     createdAt: member.createdAt || Date.now(),
   };
 }
@@ -149,6 +152,8 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.currentUser = null;
   res.locals.userKind = null;
   res.locals.isGoogleMember = false;
+  res.locals.isGoogleSuspended = false;
+  res.locals.siteWarningNotices = [];
   res.locals.isDiscordMember = false;
   res.locals.isRegistered = false;
   res.locals.isManagement = false;
@@ -226,6 +231,14 @@ async function syncRolesMiddleware(req, res, next) {
     const memberId =
       (req.session.identity && req.session.identity.memberId) || req.session.user.memberId;
     const memberStore = getMemberStore();
+    const warningStore = getSiteWarningStore();
+
+    if (memberId) {
+      try {
+        warningStore.evaluateMemberState(memberId, { nowTs: Date.now(), memberStore });
+      } catch (_) {}
+    }
+
     const freshMember = memberId ? memberStore.findById(memberId) : null;
 
     if (!freshMember) {
@@ -236,10 +249,64 @@ async function syncRolesMiddleware(req, res, next) {
       return next();
     }
 
+    // Askıya alınan üye oturum açabilir; ancak yalnızca Askı Ekranı, Genel Kurallar ve kendi bildirimlerine erişebilir.
+    if (freshMember.status === 'suspended') {
+      const sessionUser = buildGoogleSessionUser(freshMember);
+      req.session.identity = { kind: 'google', memberId: freshMember.id };
+      req.session.user = sessionUser;
+      req.session.googleBlockedInfo = {
+        status: 'suspended',
+        reason: freshMember.statusReason || '',
+        expiresAt: freshMember.statusExpiresAt || null,
+      };
+      clearRememberCookie(res);
+
+      res.locals.currentUser = sessionUser;
+      res.locals.user = buildUnifiedUserLocal(sessionUser);
+      res.locals.userKind = 'google';
+      res.locals.isGoogleMember = true;
+      res.locals.isGoogleSuspended = true;
+      res.locals.isDiscordMember = false;
+      res.locals.isRegistered = false;
+      res.locals.isManagement = false;
+      res.locals.isDeveloper = false;
+      res.locals.isCommunityOfficial = false;
+      res.locals.siteWarningNotices = warningStore.getUnreadNotifications(freshMember.id);
+      res.locals.visibleMenus = getVisibleMenuItems(sessionUser, req.lang || 'tr').filter(
+        (m) => m && m.path === '/kurallar'
+      );
+
+      const allowedWhenSuspended =
+        req.path === '/giris/askida' ||
+        req.path === '/kurallar' ||
+        req.path === '/tr/kurallar' ||
+        req.path === '/en/kurallar' ||
+        req.path.startsWith('/api/uyari-bildirimleri') ||
+        req.path.startsWith('/yasal') ||
+        req.path.startsWith('/bildir') ||
+        req.path.startsWith('/lang') ||
+        req.path === '/auth/logout' ||
+        req.path === '/health';
+
+      if (!allowedWhenSuspended) {
+        if (wantsJson(req)) {
+          return res.status(403).json({
+            ok: false,
+            code: 'ACCOUNT_SUSPENDED',
+            expiresAt: freshMember.statusExpiresAt || null,
+            error: req.t ? req.t('googleAuth.accountSuspendedTitle') : 'Hesabınız geçici olarak askıya alındı.',
+          });
+        }
+        return res.redirect('/giris/askida');
+      }
+      return next();
+    }
+
     if (freshMember.status !== 'active') {
       const blockedInfo = {
         status: freshMember.status,
         reason: freshMember.statusReason || '',
+        expiresAt: null,
       };
       delete req.session.user;
       delete req.session.identity;
@@ -249,6 +316,9 @@ async function syncRolesMiddleware(req, res, next) {
 
       const allowedWhenBlocked =
         req.path === '/giris/askida' ||
+        req.path === '/kurallar' ||
+        req.path === '/tr/kurallar' ||
+        req.path === '/en/kurallar' ||
         req.path.startsWith('/yasal') ||
         req.path.startsWith('/bildir') ||
         req.path.startsWith('/lang') ||
@@ -275,11 +345,13 @@ async function syncRolesMiddleware(req, res, next) {
     res.locals.user = buildUnifiedUserLocal(sessionUser);
     res.locals.userKind = 'google';
     res.locals.isGoogleMember = true;
+    res.locals.isGoogleSuspended = false;
     res.locals.isDiscordMember = false;
     res.locals.isRegistered = true;
     res.locals.isManagement = false;
     res.locals.isDeveloper = false;
     res.locals.isCommunityOfficial = false;
+    res.locals.siteWarningNotices = warningStore.getUnreadNotifications(freshMember.id);
     res.locals.visibleMenus = getVisibleMenuItems(sessionUser, req.lang || 'tr');
     return next();
   }

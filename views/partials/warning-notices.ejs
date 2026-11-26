@@ -1,0 +1,109 @@
+<%
+  const isGoogleUserNow = Boolean(typeof isGoogleMember !== 'undefined' && isGoogleMember);
+  const unreadWarnList = (typeof siteWarningNotices !== 'undefined' && Array.isArray(siteWarningNotices))
+    ? siteWarningNotices
+    : [];
+  const wnLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
+  const wnLocale = wnLang === 'en' ? 'en-US' : 'tr-TR';
+  const wnI18n = {
+    headingOfficial: t('siteWarn.noticeOfficialTitle'),
+    headingVerbal: t('siteWarn.noticeVerbalTitle'),
+    ruleLabel: t('siteWarn.noticeRuleLabel'),
+    reasonLabel: t('siteWarn.noticeReasonLabel'),
+    pointsLabel: t('siteWarn.noticePointsLabel'),
+    sanctionLabel: t('siteWarn.noticeSanctionLabel'),
+    expiresLabel: t('siteWarn.noticeExpiresLabel'),
+    dismissBtn: t('siteWarn.noticeDismissBtn'),
+    rulesLink: t('nav.rules'),
+    pointsWord: t('profile.pointsWord'),
+    verbalRuleFallback: t('siteWarn.noticeVerbalNoRule'),
+    noReasonFallback: t('siteWarn.noticeNoReason'),
+  };
+%>
+<% if (isGoogleUserNow) { %>
+  <section
+    id="siteWarningNoticesContainer"
+    class="site-warn-notices-stack"
+    aria-live="polite"
+    aria-label="<%= t('siteWarn.noticesRegionAria') %>"
+    data-lang="<%= wnLang %>"
+    data-csrf="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>"
+    data-chat-sse-expected="<%= (typeof chatEnabled !== 'undefined' && chatEnabled && typeof isRegistered !== 'undefined' && isRegistered && (typeof chatGoogleMembersEnabled === 'undefined' || chatGoogleMembersEnabled)) ? '1' : '0' %>"
+    data-i18n="<%= JSON.stringify(wnI18n) %>"
+    <%= unreadWarnList.length === 0 ? 'hidden' : '' %>
+  >
+    <% unreadWarnList.forEach(function (n) {
+      const isVerbal = n.type === 'verbal';
+      const ruleTitle = wnLang === 'en' ? (n.ruleTitleEn || n.ruleTitleTr || '') : (n.ruleTitleTr || '');
+      const sanctionLabel = wnLang === 'en' ? (n.sanctionLabelEn || n.sanctionLabelTr || '') : (n.sanctionLabelTr || '');
+      const expiresText = n.sanctionExpiresAt
+        ? new Date(n.sanctionExpiresAt).toLocaleString(wnLocale, { dateStyle: 'medium', timeStyle: 'short' })
+        : '';
+      const severityClass =
+        n.sanctionKind === 'account_suspend' || n.sanctionKind === 'permanent_ban'
+          ? 'site-warn-notice-card--danger'
+          : n.sanctionKind === 'chat_mute'
+            ? 'site-warn-notice-card--warning'
+            : isVerbal
+              ? 'site-warn-notice-card--info'
+              : 'site-warn-notice-card--warning';
+    %>
+      <article class="glass-card site-warn-notice-card <%= severityClass %>" data-notice-id="<%= n.id %>">
+        <div class="site-warn-notice-head">
+          <div class="site-warn-notice-title-wrap">
+            <span class="site-warn-notice-icon" aria-hidden="true"><%= isVerbal ? '🗣️' : '⚠️' %></span>
+            <div>
+              <h2 class="site-warn-notice-heading">
+                <%= isVerbal ? t('siteWarn.noticeVerbalTitle') : t('siteWarn.noticeOfficialTitle') %>
+              </h2>
+              <div class="site-warn-notice-sub">
+                <% if (n.ruleCode) { %>
+                  <span class="badge badge-danger"><%= n.ruleCode %></span>
+                  <span><%= ruleTitle %></span>
+                <% } else { %>
+                  <span class="badge badge-warning"><%= t('siteWarn.noticeVerbalNoRule') %></span>
+                <% } %>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary btn-xs site-warn-notice-dismiss-btn"
+            data-dismiss-notice-id="<%= n.id %>"
+            aria-label="<%= t('siteWarn.noticeDismissBtn') %>"
+          >
+            ✕ <span><%= t('siteWarn.noticeDismissBtn') %></span>
+          </button>
+        </div>
+
+        <div class="site-warn-notice-grid">
+          <div class="site-warn-notice-field">
+            <span class="site-warn-notice-label"><%= t('siteWarn.noticeReasonLabel') %></span>
+            <p class="site-warn-notice-value"><%= n.reason ? n.reason : t('siteWarn.noticeNoReason') %></p>
+          </div>
+          <div class="site-warn-notice-field">
+            <span class="site-warn-notice-label"><%= t('siteWarn.noticePointsLabel') %></span>
+            <p class="site-warn-notice-value">
+              <strong>+<%= Number(n.pointsAdded) || 0 %> <%= t('profile.pointsWord') %></strong>
+              (<%= t('siteWarn.noticeTotalPrefix') %>: <%= Number(n.totalPoints) || 0 %>)
+            </p>
+          </div>
+          <div class="site-warn-notice-field">
+            <span class="site-warn-notice-label"><%= t('siteWarn.noticeSanctionLabel') %></span>
+            <p class="site-warn-notice-value"><%= sanctionLabel || '-' %></p>
+          </div>
+          <% if (expiresText) { %>
+            <div class="site-warn-notice-field">
+              <span class="site-warn-notice-label"><%= t('siteWarn.noticeExpiresLabel') %></span>
+              <p class="site-warn-notice-value"><%= expiresText %></p>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="site-warn-notice-foot">
+          <a href="/kurallar" class="site-warn-notice-rules-link">📜 <%= t('nav.rules') %></a>
+        </div>
+      </article>
+    <% }); %>
+  </section>
+<% } %>

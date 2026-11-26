@@ -573,6 +573,8 @@ router.get('/', requireChatMember, async (req, res) => {
       ? {
           type: activeSanction.type,
           reasonCategory: activeSanction.reasonCategory,
+          ruleCode: activeSanction.ruleCode || null,
+          reasonText: activeSanction.reasonText || '',
           expiresAt: activeSanction.expiresAt || null,
           createdAt: activeSanction.createdAt,
         }
@@ -1062,6 +1064,8 @@ router.post(
         sanction: {
           type: 'mute',
           reasonCategory: activeSanction.reasonCategory,
+          ruleCode: activeSanction.ruleCode || null,
+          reasonText: activeSanction.reasonText || '',
           expiresAt: activeSanction.expiresAt,
         },
         error: req.t('chat.errMutedInChat'),
@@ -1509,6 +1513,8 @@ router.post(
         sanction: {
           type: 'mute',
           reasonCategory: activeSanction.reasonCategory,
+          ruleCode: activeSanction.ruleCode || null,
+          reasonText: activeSanction.reasonText || '',
           expiresAt: activeSanction.expiresAt,
         },
         error: req.t('chat.errMutedInChat'),

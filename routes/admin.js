@@ -2,8 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const { getLocalizedRules } = require('../rules');
+const warningsConfig = require('../config/warnings.config');
 const { isDeveloper, isManagement } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
+const { getMemberStore } = require('../services/memberStore');
 const { requireManagement, requireFreshManagement } = require('../middlewares/auth');
 const { verifyCsrfToken } = require('../middlewares/csrf');
 const { formActionLimiter } = require('../middlewares/rateLimiter');
@@ -186,14 +188,49 @@ router.get('/uyari', requireManagement, async (req, res) => {
     delete req.session.warnFlashResult;
   }
 
+  // Site (Google) üyesi uyarı paneli için tek seferlik sonuç/hata ve ön-seçim (mevcut Discord paneline dokunmaz)
+  const siteTargetId = String(req.query.siteTargetId || '').trim();
+  let sitePreselectedMember = null;
+  if (siteTargetId) {
+    try {
+      const m = getMemberStore().findById(siteTargetId);
+      if (m) {
+        sitePreselectedMember = {
+          id: m.id,
+          nickname: m.nickname || '',
+          displayName: m.displayName || m.nickname || m.id,
+          status: m.status || 'active',
+        };
+      }
+    } catch (_) {
+      sitePreselectedMember = null;
+    }
+  }
+  const siteFlashResult = (req.session && req.session.siteWarnFlashResult) || null;
+  if (req.session && req.session.siteWarnFlashResult) {
+    delete req.session.siteWarnFlashResult;
+  }
+  const siteFlashError = (req.session && req.session.siteWarnFlashError) || null;
+  if (req.session && req.session.siteWarnFlashError) {
+    delete req.session.siteWarnFlashError;
+  }
+
+  const lang = req.lang || 'tr';
   return res.render('pages/admin-warn', {
     title: req.t('adminWarn.pageTitle'),
-    rules: getLocalizedRules(req.lang || 'tr'),
+    isAdminWarnPage: true,
+    rules: getLocalizedRules(lang),
     preselectedMember,
     targetId: preselectedId,
     result: flashResult,
     error: null,
     idempotencyKey: generateIdempotencyKey(req),
+    siteRules: warningsConfig.getSiteRulesMap(lang),
+    siteIdempotencyKey: generateIdempotencyKey(req),
+    siteTargetId,
+    sitePreselectedMember,
+    siteResult: siteFlashResult,
+    siteError: siteFlashError,
   });
 });
 
@@ -308,12 +345,19 @@ router.post(
       }
       return res.status(status).render('pages/admin-warn', {
         title: req.t('adminWarn.pageTitle'),
+        isAdminWarnPage: true,
         rules: localizedRules,
         preselectedMember: null,
         targetId: cleanTargetId,
         result: null,
         error: errorMessage,
         idempotencyKey: nextKey,
+        siteRules: warningsConfig.getSiteRulesMap(req.lang || 'tr'),
+        siteIdempotencyKey: generateIdempotencyKey(req),
+        siteTargetId: '',
+        sitePreselectedMember: null,
+        siteResult: null,
+        siteError: null,
       });
     };
 

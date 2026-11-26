@@ -6,6 +6,7 @@ const consentsConfig = require('../config/consents.config');
 const botApiClient = require('../services/botApiClient');
 const { getMemberStore, toUnifiedGoogleId } = require('../services/memberStore');
 const { getChatStore } = require('../services/chatStore');
+const { getSiteWarningStore } = require('../services/siteWarningStore');
 const { chatSseHub } = require('../services/chatSseHub');
 const {
   requireSiteMember,
@@ -538,6 +539,11 @@ router.post(
         getChatStore().purgeUserData(unifiedId);
       } catch (_) {}
     }
+
+    // 2.5) Site üyesi uyarı kayıtlarındaki kişisel bağlantıları ve kanıt dosyalarını kaldır (yalnızca kimliksiz denetim satırı kalır)
+    try {
+      getSiteWarningStore().purgePersonalLinksForDeletedMember(member.id);
+    } catch (_) {}
 
     // 3) Üye kaydını ve tüm hatırlama kayıtlarını sil (yalnızca kimliksiz account_deleted denetim satırı kalır)
     getMemberStore().deleteMember(member.id);

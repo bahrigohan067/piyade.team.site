@@ -3,7 +3,13 @@
 <%
   const errType = typeof errorType === 'string' ? errorType : 'token_invalid';
   const reasonText = typeof statusReason === 'string' ? statusReason.trim() : '';
+  const expiresAtTs = typeof statusExpiresAt === 'number' && Number.isFinite(statusExpiresAt) ? statusExpiresAt : null;
+  const localeTag = (typeof lang !== 'undefined' && lang === 'en') ? 'en-US' : 'tr-TR';
+  const expiresFormatted = expiresAtTs
+    ? new Date(expiresAtTs).toLocaleString(localeTag, { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
   const isBlocked = errType === 'account_suspended' || errType === 'account_banned';
+  const isSuspended = errType === 'account_suspended';
   const isConflict = errType === 'discord_link_conflict';
   const iconMap = {
     cancelled: '↩️',
@@ -37,18 +43,36 @@
     <h1 id="googleErrorHeading" class="auth-center-title"><%= title %></h1>
     <p class="auth-center-desc"><%= t(descKeyMap[errType] || 'googleAuth.errTokenDesc') %></p>
 
-    <% if (isBlocked && reasonText) { %>
+    <% if (isBlocked && (reasonText || expiresFormatted)) { %>
       <div class="auth-reason-box">
-        <span class="auth-reason-label"><%= t('googleAuth.accountReasonLabel') %></span>
-        <p class="auth-reason-text"><%= reasonText %></p>
+        <% if (reasonText) { %>
+          <span class="auth-reason-label"><%= t('googleAuth.accountReasonLabel') %></span>
+          <p class="auth-reason-text"><%= reasonText %></p>
+        <% } %>
+        <% if (isSuspended && expiresFormatted) { %>
+          <div class="auth-suspend-until">
+            <strong>⏳ <%= t('siteWarn.suspendUntilLabel') %>:</strong>
+            <span><%= expiresFormatted %></span>
+          </div>
+        <% } %>
       </div>
+    <% } %>
+
+    <% if (isSuspended) { %>
+      <p class="auth-suspend-scope-note"><%= t('siteWarn.suspendScopeNote') %></p>
     <% } %>
 
     <div class="auth-error-actions">
       <% if (isBlocked) { %>
-        <a href="/yasal/kvkk-basvuru" class="btn btn-primary btn-sm"><%= t('googleAuth.btnLegalAppeal') %></a>
+        <a href="/kurallar" class="btn btn-primary btn-sm">📜 <%= t('nav.rules') %></a>
+        <a href="/yasal/kvkk-basvuru" class="btn btn-secondary btn-sm"><%= t('googleAuth.btnLegalAppeal') %></a>
         <a href="/bildir" class="btn btn-secondary btn-sm"><%= t('googleAuth.btnReportLink') %></a>
-        <a href="/" class="btn btn-secondary btn-sm"><%= t('nav.home') %></a>
+        <% if (isSuspended && typeof currentUser !== 'undefined' && currentUser) { %>
+          <a href="/auth/logout" class="btn btn-secondary btn-sm"><%= t('nav.logout') %></a>
+        <% } else { %>
+          <a href="/yasal/gizlilik-politikasi" class="btn btn-secondary btn-sm"><%= t('siteWarn.btnPrivacyPolicy') %></a>
+          <a href="/" class="btn btn-secondary btn-sm"><%= t('nav.home') %></a>
+        <% } %>
       <% } else if (errType === 'reauth_mismatch') { %>
         <a href="/profil#hesap-sil" class="btn btn-primary btn-sm"><%= t('googleAuth.btnBackToProfile') %></a>
         <a href="/auth/google?purpose=reauth_delete" class="btn btn-secondary btn-sm"><%= t('googleAuth.btnTryAgain') %></a>

@@ -1067,7 +1067,14 @@
               timeStyle: 'short',
             })
           : '—';
+        const customReason =
+          state.activeSanction.reasonText && String(state.activeSanction.reasonText).trim()
+            ? (state.activeSanction.ruleCode
+                ? `${state.activeSanction.ruleCode} — ${state.activeSanction.reasonText}`
+                : state.activeSanction.reasonText)
+            : '';
         const reasonLbl =
+          customReason ||
           (i18n.reportCatLabels && i18n.reportCatLabels[state.activeSanction.reasonCategory]) ||
           state.activeSanction.reasonCategory ||
           '—';
@@ -2711,6 +2718,28 @@
           return;
         }
         renderThreadHeader();
+      } catch (_) {}
+    });
+
+    sse.addEventListener('sanction_updated', (ev) => {
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        state.activeSanction = d && d.type && d.type !== 'none' ? d : null;
+        renderThreadHeader();
+      } catch (_) {}
+    });
+
+    sse.addEventListener('site_warning', (ev) => {
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        window.dispatchEvent(new CustomEvent('piyade:site-warning', { detail: d }));
+      } catch (_) {}
+    });
+
+    sse.addEventListener('account_suspended', (ev) => {
+      try {
+        const d = JSON.parse(ev.data || '{}');
+        window.dispatchEvent(new CustomEvent('piyade:account-suspended', { detail: d }));
       } catch (_) {}
     });
 

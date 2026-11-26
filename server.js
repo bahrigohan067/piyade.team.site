@@ -28,11 +28,13 @@ const chatModRoutes = require('./routes/chatMod');
 const legalRoutes = require('./routes/legal');
 const reportRoutes = require('./routes/reports');
 const legalAdminRoutes = require('./routes/legalAdmin');
+const siteWarningsRoutes = require('./routes/siteWarnings');
 const { getChatStore } = require('./services/chatStore');
 const { getChatModStore } = require('./services/chatModStore');
 const { getLegalStore } = require('./services/legalStore');
 const { getReportStore } = require('./services/reportStore');
 const { getMemberStore } = require('./services/memberStore');
+const { getSiteWarningStore } = require('./services/siteWarningStore');
 const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
@@ -175,6 +177,7 @@ function createServerApp() {
   app.use('/yasal', legalRoutes);
   app.use('/bildir', reportRoutes);
   app.use('/', memberRoutes);
+  app.use('/', siteWarningsRoutes);
   app.use('/yonetim', legalAdminRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
@@ -221,6 +224,14 @@ if (require.main === module) {
         },
       });
     }
+    // Site (Google) üyeleri uyarı sistemi: açılışta eksik kontrol + günlük otomatik af / askı bitişi / saklama temizliği
+    try {
+      const chatModForMaint = appConfig.isChatEnabled() ? getChatModStore(getChatStore()) : null;
+      getSiteWarningStore().startMaintenanceScheduler({
+        memberStore: getMemberStore(),
+        chatModStore: chatModForMaint,
+      });
+    } catch (_) {}
   });
 
   // SIGTERM / SIGINT kapanışında sohbet ve moderasyon depolarını güvenle boşalt ve SSE bağlantılarını kapat
@@ -235,6 +246,8 @@ if (require.main === module) {
       getLegalStore().flush();
       getReportStore().flush();
       getMemberStore().flush();
+      getSiteWarningStore().stopMaintenanceScheduler();
+      getSiteWarningStore().flush();
     } catch (_) {}
     process.exit(0);
   };

@@ -5,6 +5,7 @@ const router = express.Router();
 const authConfig = require('../config/auth.config');
 const googleAuthService = require('../services/googleAuthService');
 const { getMemberStore } = require('../services/memberStore');
+const { getSiteWarningStore } = require('../services/siteWarningStore');
 const {
   isGoogleSession,
   buildGoogleSessionUser,
@@ -58,7 +59,7 @@ function getValidPendingGoogle(req) {
   return pending;
 }
 
-function renderGoogleError(req, res, statusCode, errorType, { statusReason = '' } = {}) {
+function renderGoogleError(req, res, statusCode, errorType, { statusReason = '', statusExpiresAt = null } = {}) {
   markPrivateNoIndex(req, res);
   const titleMap = {
     cancelled: 'googleAuth.errCancelledTitle',
@@ -77,6 +78,7 @@ function renderGoogleError(req, res, statusCode, errorType, { statusReason = '' 
     title: req.t(titleKey),
     errorType,
     statusReason,
+    statusExpiresAt,
   });
 }
 
@@ -101,9 +103,36 @@ router.get('/giris', (req, res) => {
  */
 router.get('/giris/askida', (req, res) => {
   markPrivateNoIndex(req, res);
-  const blocked = (req.session && req.session.googleBlockedInfo) || { status: 'suspended', reason: '' };
-  const errorType = blocked.status === 'banned' ? 'account_banned' : 'account_suspended';
-  return renderGoogleError(req, res, 403, errorType, { statusReason: blocked.reason || '' });
+  const blocked = (req.session && req.session.googleBlockedInfo) || {
+    status: 'suspended',
+    reason: '',
+    expiresAt: null,
+  };
+  let status = blocked.status;
+  let reason = blocked.reason || '';
+  let expiresAt = blocked.expiresAt || null;
+
+  if (isGoogleSession(req)) {
+    const memberId =
+      (req.session.identity && req.session.identity.memberId) ||
+      (req.session.user && req.session.user.memberId);
+    const fresh = memberId ? getMemberStore().findById(memberId) : null;
+    if (fresh && fresh.status === 'active') {
+      delete req.session.googleBlockedInfo;
+      return res.redirect('/');
+    }
+    if (fresh && fresh.status === 'suspended') {
+      status = 'suspended';
+      reason = fresh.statusReason || reason;
+      expiresAt = fresh.statusExpiresAt || expiresAt;
+    }
+  }
+
+  const errorType = status === 'banned' ? 'account_banned' : 'account_suspended';
+  return renderGoogleError(req, res, 403, errorType, {
+    statusReason: reason,
+    statusExpiresAt: expiresAt,
+  });
 });
 
 /**
@@ -235,12 +264,36 @@ router.get('/auth/google/callback', authLimiter, async (req, res) => {
   }
 
   // (a) Mevcut Google site üyesi varsa
-  const existingMember = memberStore.findByGoogleSub(verified.sub);
+  let existingMember = memberStore.findByGoogleSub(verified.sub);
   if (existingMember) {
+    // Süresi dolmuş askı varsa giriş anında otomatik kaldır
+    try {
+      getSiteWarningStore().evaluateMemberState(existingMember.id, {
+        nowTs: Date.now(),
+        memberStore,
+      });
+      existingMember = memberStore.findById(existingMember.id) || existingMember;
+    } catch (_) {}
+
+    if (existingMember.status === 'suspended') {
+      // Askıya alınan üye kısıtlı oturum açabilir (yalnızca Askı Ekranı + Genel Kurallar + kendi bildirimleri)
+      req.session.identity = { kind: 'google', memberId: existingMember.id };
+      req.session.user = buildGoogleSessionUser(existingMember);
+      delete req.session.pendingGoogle;
+      req.session.googleBlockedInfo = {
+        status: 'suspended',
+        reason: existingMember.statusReason || '',
+        expiresAt: existingMember.statusExpiresAt || null,
+      };
+      clearRememberCookie(res);
+      return req.session.save(() => res.redirect('/giris/askida'));
+    }
+
     if (existingMember.status !== 'active') {
       req.session.googleBlockedInfo = {
         status: existingMember.status,
         reason: existingMember.statusReason || '',
+        expiresAt: null,
       };
       clearRememberCookie(res);
       return req.session.save(() => res.redirect('/giris/askida'));

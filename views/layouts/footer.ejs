@@ -165,6 +165,16 @@
     <script src="/js/report-form.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
+  <% if (typeof isGoogleMember !== 'undefined' && isGoogleMember) { %>
+    <!-- Site (Google) Üyesi Kapatılabilir Uyarı Bildirim Kartları (SSR + Canlı SSE) -->
+    <script src="/js/warning-notices.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isAdminWarnPage !== 'undefined' && isAdminWarnPage) { %>
+    <!-- Yönetim Paneli: Site (Google) Üyelerine Uyarı Verme ve Sicil Önizleme -->
+    <script src="/js/admin-site-warn.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
   <% if (typeof isAdminLegalPage !== 'undefined' && isAdminLegalPage) { %>
     <script src="/js/admin-legal.js?v=<%= assetVer %>" defer></script>
   <% } %>

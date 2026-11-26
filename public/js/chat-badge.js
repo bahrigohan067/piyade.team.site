@@ -81,6 +81,16 @@
           if (typeof d.unread === 'number') applyUnreadCount(d.unread);
         } catch (_) {}
       });
+      sse.addEventListener('site_warning', (ev) => {
+        try {
+          window.dispatchEvent(new CustomEvent('piyade:site-warning', { detail: JSON.parse(ev.data || '{}') }));
+        } catch (_) {}
+      });
+      sse.addEventListener('account_suspended', (ev) => {
+        try {
+          window.dispatchEvent(new CustomEvent('piyade:account-suspended', { detail: JSON.parse(ev.data || '{}') }));
+        } catch (_) {}
+      });
       sse.addEventListener('disconnect', () => {
         stopped = true;
         if (sse) sse.close();

@@ -36,7 +36,9 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `GET /profil` | Kayıtlı Discord Üyesi & Google Site Üyesi | Kişisel profil (Discord üyeleri için kayıt + disiplin; Google üyeleri için oyunlar, gizlilik, rızalarım, oturumlarım ve hesabımı sil) |
 | `GET /yonetim/uyeler` | Yönetmenlik / Developer | Üye arama, kayıt/oyun bilgisi ve disiplin sicili inceleme |
 | `GET /yonetim/uyeler/:id` | Yönetmenlik / Developer | Tekil üye detay, kayıtlı oyunlar ve sicil geçmişi |
-| `GET /yonetim/uyari` / `POST /yonetim/uyari` | Yönetmenlik / Developer | Sözlü veya resmi disiplin uyarısı ve kanıt yükleme (Orbital Loader) |
+| `GET /yonetim/uyari` / `POST /yonetim/uyari` | Yönetmenlik / Developer (taze rol) | Discord üyelerine sözlü/resmi uyarı + alt panelde **Site (Google) Üyelerine Uyarı Ver** ve sicil önizleme/iptal (Orbital Loader) |
+| `POST /yonetim/site-uyari` & `/:id/iptal` & `/kanit/:f` | Yönetmenlik / Developer (taze Discord rolü) | Google site üyelerine M/D uyarısı verme, iptal/yeniden hesaplama ve yalnızca yetkililere açık kanıt sunumu (`noindex`) |
+| `GET/POST /api/uyari-bildirimleri/*` | Google Site Üyesi (aktif veya askıda) | Kapatılabilir uyarı bildirim kartı ve canlı SSE bildirim akışı (kanıt göstermez) |
 | `POST /geri-bildirim` | Sunucudaki Girişli Üyeler | Sağ alt Geri Bildirim hapı (Feedback Pill) |
 | `GET /sohbet` | Kayıtlı Üye+ (`CHAT_ENABLED=true`) | Birebir özel sohbet, dosya eki, emoji, 44 profil halkası (`noindex`) |
 | `GET /sohbet/gizlilik` | Herkese Açık (`CHAT_ENABLED=true`) | Sohbet gizlilik, 30 günlük saklama ve moderasyon politikası (`noindex`) |
@@ -216,7 +218,53 @@ Yasal sayfalar (`content/legal/tr/` ve `content/legal/en/`) gerçek sistem veri 
 - [ ] **Hukuki İnceleme Yaptırın:** `kvkk-aydinlatma.md` içindeki KVKK m.5 hukuki sebep eşleştirmelerini (*"hukuki doğrulama gerekli"* notlu alanlar), KVKK m.9 yurt dışı aktarım dayanağını ve `acik-riza.md` maddelerini bir hukukçuya inceletin.
 - [ ] **Taslak Uyarısını Kaldırın:** Hukuki inceleme tamamlandığında Railway Variables üzerinden `LEGAL_REVIEWED=true` yapın (`false` iken her yasal sayfanın en üstünde taslak uyarısı gösterilir).
 - [ ] **Saklama Sürelerini Gözden Geçirin:** `LEGAL_KVKK_RETENTION_DAYS` (varsayılan `1095` gün) ve `LEGAL_REPORT_RETENTION_DAYS` (varsayılan `365` gün) değerlerinin politikanızla uyumlu olduğundan emin olun.
-- [ ] **Gelecek Özellikler Notu:** Google ile giriş, `pw_remember` hatırlama çerezi, doğrudan site üyeliği ve sohbet profilinde oyun kullanıcı adlarının gösterilmesi yayına alınmış ve `kvkk-aydinlatma.md` / `cerez-politikasi.md` (`v1.1`) ile `consents.config.js` güncellenmiştir. Yalnızca **Google üye uyarı sicili** bir sonraki aşamada eklendiğinde metinlerden "Gelecek Özellik" ibaresi kaldırılacaktır.
+- [ ] **Gelecek Özellikler Notu:** Google ile giriş, `pw_remember` hatırlama çerezi, doğrudan site üyeliği, sohbet profilinde oyun kullanıcı adlarının gösterilmesi ve **Google site üyesi uyarı/yaptırım sistemi** yayına alınmış; `kvkk-aydinlatma.md` (`v1.2`), `gizlilik-politikasi.md` (`v1.1`), `cerez-politikasi.md` (`v1.1`) ve `consents.config.js` buna göre güncellenmiştir.
+
+---
+
+## ⚖️ Site (Google) Üyeleri Uyarı & Yaptırım Sistemi (Discord → Site Eşleştirmesi)
+
+`/yonetim/uyari` sayfasında mevcut Discord uyarı panelinin altında ikinci bir panel (**🌐 Site (Google) Üyelerine Uyarı Ver**) yer alır. Tüm kural maddeleri tek kaynak olan [`config/rules.config.js`](config/rules.config.js) dosyasından okunur; site karşılıkları, eşikler ve saklama süreleri [`config/warnings.config.js`](config/warnings.config.js) üzerinden yönetilir. Google site üyeleri asla yetkili olamayacağı için **`Y1–Y5` yetkili kuralları bu panelde bulunmaz**.
+
+### 1. Puan Kademeleri ve Eşik Eşleştirme Tablosu
+
+| Toplam Puan / Eşik | Discord Karşılığı (`warningManager.js`) | Site (Google Üyesi) Karşılığı (`warnings.config.js`) |
+| :--- | :--- | :--- |
+| **0–2 Puan** | Kademe 0 (Uyarı rolü yok) | Temiz / Kademe 0 |
+| **3–5 Puan** | `Uyarı 1` rolü | `Uyarı 1` kademe etiketi |
+| **6–8 Puan** | `Uyarı 2` rolü | `Uyarı 2` kademe etiketi |
+| **9–11 Puan** | `Uyarı 3` rolü | `Uyarı 3` kademe etiketi |
+| **12–14 Puan** | `Uyarı 4` rolü | `Uyarı 4` kademe etiketi |
+| **10 Puan Eşiği (İLK geçiş — idempotent)** | Otomatik **+3 Gün Timeout** | **3 Gün Sohbet Susturma** (DM & Genel Sohbet yazma kapalı, okuma açık; tek `sanctions.json` kaydı) |
+| **15+ Puan Eşiği (İLK geçiş — idempotent)** | `Uyarı 5` + **1 Hafta `@Askıda`** | `Uyarı 5` + **7 Gün Hesap Askıya Alma** (yalnızca Askı Ekranı, kendi bildirimleri ve `/kurallar` açık; sohbet ve diğer paneller kapalı) |
+
+### 2. Kural Maddeleri Eşleştirme Tablosu (`M1–M13`, `D1–D3`)
+
+| Madde | Kural Başlığı | Discord Karşılığı | Site (Google Üyesi) Karşılığı |
+| :--- | :--- | :--- | :--- |
+| **M1** | Küfür / Hakaret | `+2 Ceza Puanı` | `+2 Ceza Puanı` |
+| **M2** | Reklam & Ticari Faaliyet | `Kalıcı Yasak (Permanent Ban)` | **Kalıcı Hesap Yasağı** (`status: banned`, `googleSub` özet listesi, yeniden üyelik engelli) |
+| **M3** | Aşırı Övünme / Rahatsız Etme | `+1 Ceza Puanı` | `+1 Ceza Puanı` |
+| **M4** | Taciz | `2 Gün Timeout` | **2 Gün Sohbet Susturma** |
+| **M5** | Kanal Amacı Dışında Kullanım | `+3 Ceza Puanı` | `+3 Ceza Puanı` |
+| **M6** | Cinsel İçerik | `+8 Ceza Puanı` | `+8 Ceza Puanı` |
+| **M7** | Kavga Ortamı Yaratma | `+4 Ceza Puanı` | `+4 Ceza Puanı` |
+| **M8** | Zorbalık & Soğutma | `+5 Ceza Puanı` | `+5 Ceza Puanı` |
+| **M9** | Başka Sunucuya Davet | `Doğrudan @Yasaklı Rolü` | **Kalıcı Hesap Yasağı** (`status: banned`, `googleSub` özet listesi, yeniden üyelik engelli) |
+| **M10** | +18 & Ayrımcılık Paylaşımı | `1 Gün Timeout` | **1 Gün Sohbet Susturma** |
+| **M11** | Irkçılık & Ayrımcılık | `1 Gün Timeout` | **1 Gün Sohbet Susturma** |
+| **M12** | Küçümseme & Dalga Geçme | `+2 Ceza Puanı` | `+2 Ceza Puanı` |
+| **M13** | 3. Taraf Yazılım / Hile | `1 Gün Timeout` | **1 Gün Sohbet Susturma** |
+| **D1** | Önemli Kanallara Boş Mesaj | `+3 Ceza Puanı` | `+3 Ceza Puanı` |
+| **D2** | Sohbet & Ses Paneli Spamı | `+3 Ceza Puanı` | `+3 Ceza Puanı` |
+| **D3** | Ses Kanalında Bildirim Yağmuru | `+3 Ceza Puanı` | `+3 Ceza Puanı` |
+| **Y1–Y5** | Yetkili Disiplin Kuralları | Yetkili uyarısı / yetki alma | **Uygulanmaz** (Google üyeler yetkili olamaz) |
+
+### 3. Otomatik Af, İptal, Saklama Süreleri ve Denetim
+- **30 Günlük Otomatik Af (`WARNING_AMNESTY_DAYS=30`):** Son puanlı uyarısından itibaren 30 gün boyunca yeni ceza puanı almayan üyenin puanı ve kademesi günlük bakım işiyle (ve açılış telafisiyle) otomatik sıfırlanır. Süresi dolan 7 günlük hesap askısı ve sohbet susturmaları otomatik kalkar; kalıcı yasak yalnızca yetkili iptaliyle kalkar.
+- **İptal ve Yeniden Hesaplama:** Yetkili, seçili üyenin sicil önizlemesinden herhangi bir kaydı zorunlu gerekçe yazarak iptal ettiğinde puanlar yeniden hesaplanır; o kayıttan doğan susturma, askı veya kalıcı yasak başka bir aktif kayıtla desteklenmiyorsa otomatik kaldırılır.
+- **Saklama Süreleri ve Hesap Silme:** Uyarı kayıtları ve içeriksiz denetim kaydı (`${VOLUME}/warnings/audit.jsonl`) kayıt süresi dolduktan/af/iptal sonrası **12 ay** (`WARNING_RECORD_RETENTION_DAYS=365`, `WARNING_AUDIT_RETENTION_DAYS=365`), yalnızca yetkililere açık kanıt görselleri (`${VOLUME}/warnings/evidence/`) en fazla **6 ay** (`WARNING_EVIDENCE_RETENTION_DAYS=180`) saklanır ve günlük bakım işiyle silinir. Hesap silindiğinde kişisel bağlantılar ve kanıt dosyaları derhal kaldırılır, geriye yalnızca kimliksiz denetim satırı kalır.
+- **Bildirim ve Gizlilik:** Uyarı/yaptırım alan Google üyesi bir sonraki girişinde ve çevrimiçiyken canlı SSE ile kapatılabilir bir bildirim kartı görür (kural kodu/adı, gerekçe, puan, yaptırım ve bitişi); **kanıt dosyası/bağlantısı üyeye asla gösterilmez**. Denetim kaydı gerekçe ve kanıt içeriği tutmaz.
 
 ---
 

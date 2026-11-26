@@ -1,6 +1,6 @@
 ---
 title: KVKK Privacy Notice
-version: 1.1
+version: 1.2
 lastUpdated: 2026-11-26
 ---
 
@@ -29,11 +29,11 @@ For Discord members, the website fetches membership and game data on demand from
 - **Google Sign-In & Direct Site Membership Data:** Unique Google subject identifier (`sub`), verified email address, and Google account name obtained via Google OpenID Connect (`openid email profile` with PKCE S256 and JWKS signature verification); age group, nickname, chosen games and game usernames (plus verified Roblox ID/avatar if selected), separate consent records, and privacy settings declared during signup. **Your email address and Google name are never shown to other users anywhere, and your Google profile photo (`picture`) is never stored.** You may optionally link your Google login permanently to an existing Discord account.
 - **Community Registration & Game Profile Data (Bot API):** The name/nickname, gender selection, chosen games and game usernames (Roblox, CS2, Zula, Minecraft), Roblox ID/username/avatar, and disciplinary warning history maintained via the bot. Game usernames are shown on your chat profile only when your explicit consent and privacy switch are enabled.
 - **Monthly Game Activity Data (Bot API):** For registered Discord members who keep activity tracking enabled, cumulative play duration for the current calendar month only (automatically reset on the 1st of each month; no historical timeline is stored). Members with `tracking: false` are neither tracked nor displayed anywhere.
-- **Private Chat & Moderation Data (when `CHAT_ENABLED` is active):** Private one-to-one messages, uploaded attachments (JPEG EXIF/location metadata is automatically stripped before saving), chat preferences (profile ring, blocked users, first-contact request toggle), copied case snapshots triggered strictly by user reports or our local text-only auto-filter, sanctions, and contentless audit logs.
+- **General Chat, Private Chat & Moderation Data (when `CHAT_ENABLED` is active):** Private one-to-one and mandatory General Chat messages, uploaded attachments (JPEG EXIF/location metadata is automatically stripped before saving), chat preferences (profile ring, blocked users, game username visibility), copied case snapshots triggered strictly by user reports or our local text-only auto-filter, sanctions, and contentless audit logs.
+- **Site (Google) Member Warning & Sanction Records:** Official and verbal warnings issued by authorized staff to direct Google site members (rule code, penalty points/tier, staff reason, applied chat mute / 7-day account suspension / permanent ban, and one-way `googleSub` hash for permanent bans), staff-only evidence images (`warnings/evidence/` — never shown to members), and contentless audit entries.
 - **Session, Cookie & Browser Storage Data:** Strictly necessary session cookie (`piyade.sid`), 90-day rotating "remember me" cookie (`pw_remember`) for Google site members (only validator SHA-256 digest and device label stored server-side; up to 5 devices), language cookie (`lang`), and UI preferences (`localStorage` / `sessionStorage`). See our [Cookie Policy](/en/yasal/cerez-politikasi).
 - **Transaction Security & Error Logs:** Volatile in-memory (RAM-only) IP counters for rate limiting (never written to disk) and sanitized technical error logs with secrets/tokens masked.
 - **KVKK Requests & Abuse Reports:** Contact details, descriptions, evidence images, and tracking codes submitted through the [KVKK Request Form](/en/yasal/kvkk-basvuru) or [Abuse Reporting System](/en/bildir).
-- **UPCOMING FEATURE (Planned Future Data Flows):** A future update will add **Google member disciplinary history**, which will be separately disclosed upon launch.
 
 ## 3. Purposes of Processing
 
@@ -79,6 +79,8 @@ Cross-border transfer safeguards under KVKK Article 9 are presented separately i
 | Closed moderation case snapshots & evidence | Within **7 days** after closure | Automatic permanent purge (preserved until retention expiry even if account is deleted) |
 | Open moderation cases | Maximum **90 days** | Automatic closure and snapshot purge |
 | Chat sanction records & contentless audit logs | **1 year** | Scheduled expiry cleanup |
+| Site (Google) member warning records & contentless audit log (`warnings/`) | **12 months** (365 days) after expiry, 30-day amnesty, or cancellation | Daily scheduled permanent purge; upon account deletion, personal links are immediately removed leaving only an identity-free audit line |
+| Site (Google) member warning evidence files (`warnings/evidence/`) | Maximum **6 months** (180 days) | Daily scheduled deletion from disk (immediately deleted upon account deletion; never shown to members) |
 | Monthly game activity duration (Bot API) | Current calendar month only | Automatic reset on 1st of month (TRT) |
 | KVKK application records & audit log | **{{KVKK_RETENTION_DAYS}} days** (~{{KVKK_RETENTION_YEARS}} yrs) | Secure deletion upon expiry |
 | Abuse/DMCA report records & evidence images | **{{REPORT_RETENTION_DAYS}} days** | Secure deletion upon expiry |

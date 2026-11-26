@@ -1,6 +1,6 @@
 ---
 title: KVKK Aydınlatma Metni
-version: 1.1
+version: 1.2
 lastUpdated: 2026-11-26
 ---
 
@@ -29,11 +29,11 @@ Web sitesi Discord üyeleri için bağlı Discord botunun dahili REST API’sini
 - **Google ile Giriş ve Doğrudan Site Üyeliği Verileri:** Google OpenID Connect (`openid email profile`, PKCE S256 ve JWKS imza doğrulaması) ile alınan benzersiz Google kimliği (`sub`), doğrulanmış e-posta adresi ve Google hesap adı; üyelik sihirbazında beyan ettiğiniz yaş grubu, takma ad, seçtiğiniz oyunlar ve oyun kullanıcı adları (varsa doğrulanmış Roblox kimliği/avatarı), ayrı rıza onay kayıtları ve gizlilik tercihleri. **E-posta adresiniz ve Google adınız hiçbir yerde diğer üyelere gösterilmez; Google profil fotoğrafınız (`picture`) hiçbir zaman alınmaz ve saklanmaz.** İsteğe bağlı olarak Google hesabınızı mevcut Discord hesabınıza kalıcı biçimde bağlayabilirsiniz.
 - **Topluluk Kayıt ve Oyun Profili Verileri (Bot API):** Discord kayıt başvurusunda beyan ettiğiniz isim/takma ad, cinsiyet seçimi, seçtiğiniz oyunlar ve oyun kullanıcı adları (Roblox, CS2, Zula, Minecraft), Roblox kimlik/kullanıcı adı/avatar bilgisi ve sunucu disiplin/uyarı puanı kayıtları. Oyun kullanıcı adlarınız, yalnızca açık rızanız ve gizlilik ayarınız açık olduğu sürece sohbet profilinizde diğer kayıtlı üyelere gösterilir.
 - **Oyun Etkinliği Verileri (Bot API):** Yalnızca oyun takibini açık bırakan kayıtlı Discord üyeleri için, bulunulan takvim ayına ait toplam oyun süreleri (her ayın 1’inde sıfırlanır; tarihsel zaman çizelgesi tutulmaz). Takibini kapatan (`tracking: false`) üyelerin verisi toplanmaz ve gösterilmez.
-- **Birebir Sohbet ve Moderasyon Verileri (`CHAT_ENABLED` açıkken):** Kayıtlı üyeler arasındaki özel sohbet mesajları, yüklenen ek dosyalar (JPEG fotoğraflardaki EXIF/konum üstverileri sunucuya yazılmadan önce otomatik temizlenir), sohbet tercihleri (profil halkası, engellenen üyeler, ilk mesaj isteği ayarı), rapor veya yerel otomatik metin filtresi sonucu açılan vaka anlık görüntüleri, yaptırım ve içeriksiz denetim kayıtları.
+- **Genel Sohbet, Birebir Sohbet ve Moderasyon Verileri (`CHAT_ENABLED` açıkken):** Kayıtlı üyeler arasındaki özel sohbet ve zorunlu Genel Sohbet mesajları, yüklenen ek dosyalar (JPEG fotoğraflardaki EXIF/konum üstverileri sunucuya yazılmadan önce otomatik temizlenir), sohbet tercihleri (profil halkası, engellenen üyeler, oyun adı görünürlüğü), rapor veya yerel otomatik metin filtresi sonucu açılan vaka anlık görüntüleri, yaptırım ve içeriksiz denetim kayıtları.
+- **Site (Google) Üyeleri Uyarı ve Yaptırım Kayıtları:** Doğrudan Google ile kayıtlı site üyelerine yetkili tarafından verilen resmi veya sözlü uyarı kayıtları (kural kodu, puan/kademe, gerekçe, uygulanan sohbet susturma / 7 günlük hesap askısı / kalıcı yasak yaptırımları, kalıcı yasakta tek yönlü `googleSub` özeti), yalnızca yetkililerin görebildiği kanıt görselleri (`warnings/evidence/` — üyelere gösterilmez) ve gerekçe/kanıt içermeyen denetim kayıtları.
 - **Oturum, Çerez ve Tarayıcı Depolama Verileri:** Zorunlu oturum çerezi (`piyade.sid`), Google site üyeleri için 90 günlük döndürülen "beni hatırla" çerezi (`pw_remember` — sunucuda yalnızca belirteç özeti ve cihaz etiketi tutulur, en fazla 5 cihaz), dil tercihi çerezi (`lang`) ile arayüz tercihleriniz (`localStorage` / `sessionStorage`). Ayrıntılı tablo [Çerez Politikası](/yasal/cerez-politikasi) sayfasındadır.
 - **İşlem Güvenliği ve Hata Kayıtları:** Hız sınırlayıcı (rate limiter) için yalnızca geçici bellek (RAM) üzerinde tutulan IP sayaçları (diske yazılmaz) ve teknik arıza takibi için gizli anahtarları maskelenmiş hata kodları.
 - **KVKK Başvuruları ve İhlal Bildirimleri:** [KVKK Başvuru Formu](/yasal/kvkk-basvuru) veya [İhlal Bildirim Sistemi](/bildir) üzerinden gönderdiğiniz ad/iletişim bilgileri, açıklamalar, kanıt görselleri ve takip kodları.
-- **GELECEK ÖZELLİK (Yakında Eklenecek Veri Akışları):** Önümüzdeki güncellemede eklenecek **Google üye uyarı sicili** özelliği yayına alındığında ilgili profil ve kural ekranlarında ayrıca bilgilendirilerek işlenecektir.
 
 ## 3. Kişisel Verilerin İşlenme Amaçları
 
@@ -79,6 +79,8 @@ Yurt dışına aktarımların KVKK m.9 kapsamındaki güncel hukuki dayanağı (
 | Kapanan moderasyon vaka anlık görüntüsü ve kanıtı | Kapanıştan sonra en geç **7 gün** | Otomatik kalıcı silme (hesap silme halinde dahi vaka süresi dolana kadar korunur) |
 | Kapanmamış moderasyon vakası | En çok **90 gün** | Otomatik kapatma ve anlık görüntü silme |
 | Sohbet yaptırım kayıtları ve içeriksiz denetim kaydı | **1 yıl** | Süre dolumunda otomatik temizleme |
+| Site (Google) üyesi uyarı kayıtları ve içeriksiz denetim kaydı (`warnings/`) | Kayıt süresi dolduktan / 30 günlük af veya iptal sonrası **12 ay** (365 gün) | Günlük otomatik bakım göreviyle kalıcı silme; hesap silinince kişisel bağlantılar derhal kaldırılır, yalnızca kimlik içermeyen denetim satırı kalır |
+| Site (Google) üyesi uyarı kanıt görselleri (`warnings/evidence/`) | En fazla **6 ay** (180 gün) | Günlük otomatik bakım göreviyle diskten kalıcı silme (hesap silinince derhal silinir; üyelere gösterilmez) |
 | Aylık oyun etkinliği süresi (Bot API) | Yalnızca bulunulan ay | Her ayın 1’inde (TSİ) otomatik sıfırlama |
 | KVKK başvuru kayıtları ve denetim kaydı | **{{KVKK_RETENTION_DAYS}} gün** (~{{KVKK_RETENTION_YEARS}} yıl) | Yapılandırma süresinin dolumunda güvenli silme |
 | İhlal/DMCA bildirim kayıtları ve kanıt görselleri | **{{REPORT_RETENTION_DAYS}} gün** | Yapılandırma süresinin dolumunda güvenli silme |

@@ -1809,86 +1809,12 @@
     const controller = createOrbitalOverlayController(overlay);
     global.NexusOrbitalOverlay = controller;
 
-    const form =
-      document.getElementById('adminWarnForm') ||
-      document.querySelector('form[data-orbital-loader="true"]');
-    if (!form) return;
-
-    const errorBanner = document.getElementById(
-      form.getAttribute('data-error-banner-id') || 'adminWarnErrorBanner'
-    );
-    const errorBannerText = document.getElementById(
-      form.getAttribute('data-error-text-id') || 'adminWarnErrorText'
-    );
-
-    const cfg = Object.assign(
-      {
-        enableSound: false,
-        requestTimeoutMs: 45000,
-        successRedirectDelayMs: 750,
-      },
-      parseJsonAttr(form, 'data-loader-config', {})
-    );
-
-    const i18n = parseJsonAttr(form, 'data-loader-i18n', {
-      uploading: 'Kanıt yükleniyor…',
-      forwarding: "Kanıt Discord'a iletiliyor…",
-      success: 'Kanıt ve uyarı başarıyla iletildi!',
-      errorTitle: 'Kanıt İletilemedi',
-      timeoutError: 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
-      networkError: 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
-      closeBtn: 'Kapat ve Düzenle',
-    });
-
-    async function refreshIdempotencyKeyIfNeeded(providedKey) {
-      let nextKey = providedKey;
-      if (!nextKey) {
-        try {
-          const resp = await fetch('/yonetim/api/idempotency-key', {
-            headers: { Accept: 'application/json' },
-          });
-          if (resp.ok) {
-            const payload = await resp.json();
-            nextKey = payload && payload.idempotencyKey;
-          }
-        } catch (_) {}
-      }
-
-      if (nextKey) {
-        const keyInput = form.querySelector('input[name="_idempotencyKey"]');
-        if (keyInput) keyInput.value = nextKey;
-        try {
-          const url = new URL(form.action, global.location.origin);
-          url.searchParams.set('_idempotencyKey', nextKey);
-          form.action = `${url.pathname}${url.search}`;
-        } catch (_) {}
-      }
+    const forms = Array.from(document.querySelectorAll('form[data-orbital-loader="true"]'));
+    if (forms.length === 0) {
+      const fallback = document.getElementById('adminWarnForm');
+      if (fallback) forms.push(fallback);
     }
-
-    function unlockForm() {
-      form.dataset.submitted = 'false';
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        submitBtn.style.cursor = 'pointer';
-        if (submitBtn.dataset.originalHtml) {
-          submitBtn.innerHTML = submitBtn.dataset.originalHtml;
-        }
-      }
-    }
-
-    function handleUploadError(errMsg, maybeFreshKey) {
-      controller.switchToError(i18n.errorTitle || 'Kanıt İletilemedi', errMsg);
-
-      if (errorBanner && errorBannerText) {
-        errorBannerText.textContent = errMsg;
-        errorBanner.hidden = false;
-      }
-
-      unlockForm();
-      refreshIdempotencyKeyIfNeeded(maybeFreshKey);
-    }
+    if (forms.length === 0) return;
 
     if (controller.closeBtn) {
       controller.closeBtn.addEventListener('click', () => {
@@ -1912,114 +1838,195 @@
 
     global.NexusOrbitalUploadReady = true;
 
-    form.addEventListener('submit', (e) => {
-      const fileInputs = Array.from(form.querySelectorAll('input[type="file"]'));
-      const hasFile = fileInputs.some((inp) => inp && inp.files && inp.files.length > 0);
-      if (!hasFile) {
-        return;
-      }
+    forms.forEach((form) => {
+      const errorBanner = document.getElementById(
+        form.getAttribute('data-error-banner-id') || 'adminWarnErrorBanner'
+      );
+      const errorBannerText = document.getElementById(
+        form.getAttribute('data-error-text-id') || 'adminWarnErrorText'
+      );
 
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      const cfg = Object.assign(
+        {
+          enableSound: false,
+          requestTimeoutMs: 45000,
+          successRedirectDelayMs: 750,
+        },
+        parseJsonAttr(form, 'data-loader-config', {})
+      );
 
-      if (form.dataset.submitted === 'true') {
-        return;
-      }
+      const i18n = parseJsonAttr(form, 'data-loader-i18n', {
+        uploading: 'Kanıt yükleniyor…',
+        forwarding: "Kanıt Discord'a iletiliyor…",
+        success: 'Kanıt ve uyarı başarıyla iletildi!',
+        errorTitle: 'Kanıt İletilemedi',
+        timeoutError: 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
+        networkError: 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
+        closeBtn: 'Kapat ve Düzenle',
+      });
 
-      const confirmMsg = form.getAttribute('data-confirm');
-      if (confirmMsg && !global.confirm(confirmMsg)) {
-        return;
-      }
-
-      form.dataset.submitted = 'true';
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        if (!submitBtn.dataset.originalHtml) {
-          submitBtn.dataset.originalHtml = submitBtn.innerHTML;
-        }
-        submitBtn.disabled = true;
-        submitBtn.style.opacity = '0.65';
-        submitBtn.style.cursor = 'not-allowed';
-        const submittingText = submitBtn.getAttribute('data-submitting-text');
-        if (submittingText) submitBtn.textContent = submittingText;
-      }
-
-      if (errorBanner) errorBanner.hidden = true;
-
-      controller.openUploading(i18n.uploading || 'Kanıt yükleniyor…');
-
-      const formData = new FormData(form);
-      const csrfInput = form.querySelector('input[name="_csrf"]');
-      const csrfVal = csrfInput ? csrfInput.value : '';
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', form.action, true);
-      xhr.timeout = cfg.requestTimeoutMs || 45000;
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-      xhr.setRequestHeader('Accept', 'application/json');
-      if (csrfVal) {
-        xhr.setRequestHeader('X-CSRF-Token', csrfVal);
-      }
-
-      xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable && ev.total > 0) {
-          controller.setProgress((ev.loaded / ev.total) * 100);
-        }
-      };
-
-      xhr.upload.onload = () => {
-        controller.switchToForwarding(i18n.forwarding || "Kanıt Discord'a iletiliyor…");
-      };
-
-      xhr.onload = () => {
-        let data = null;
-        try {
-          data = JSON.parse(xhr.responseText || '{}');
-        } catch (_) {
-          data = null;
+      async function refreshIdempotencyKeyIfNeeded(providedKey) {
+        let nextKey = providedKey;
+        if (!nextKey) {
+          try {
+            const resp = await fetch('/yonetim/api/idempotency-key', {
+              headers: { Accept: 'application/json' },
+            });
+            if (resp.ok) {
+              const payload = await resp.json();
+              nextKey = payload && payload.idempotencyKey;
+            }
+          } catch (_) {}
         }
 
-        if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
-          controller.switchToSuccess(i18n.success || 'Kanıt ve uyarı başarıyla iletildi!');
-          const waitMs = prefersReducedMotion() ? 220 : cfg.successRedirectDelayMs || 750;
-          global.setTimeout(() => {
-            global.location.assign(
-              data.redirectUrl || form.getAttribute('data-default-redirect') || '/yonetim/uyari'
-            );
-          }, waitMs);
+        if (nextKey) {
+          const keyInput = form.querySelector('input[name="_idempotencyKey"]');
+          if (keyInput) keyInput.value = nextKey;
+          try {
+            const url = new URL(form.action, global.location.origin);
+            url.searchParams.set('_idempotencyKey', nextKey);
+            form.action = `${url.pathname}${url.search}`;
+          } catch (_) {}
+        }
+      }
+
+      function unlockForm() {
+        form.dataset.submitted = 'false';
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+          if (submitBtn.dataset.originalHtml) {
+            submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+          }
+        }
+      }
+
+      function handleUploadError(errMsg, maybeFreshKey) {
+        controller.switchToError(i18n.errorTitle || 'Kanıt İletilemedi', errMsg);
+
+        if (errorBanner && errorBannerText) {
+          errorBannerText.textContent = errMsg;
+          errorBanner.hidden = false;
+        }
+
+        unlockForm();
+        refreshIdempotencyKeyIfNeeded(maybeFreshKey);
+      }
+
+      form.addEventListener('submit', (e) => {
+        if (e.defaultPrevented) {
+          return;
+        }
+        const fileInputs = Array.from(form.querySelectorAll('input[type="file"]'));
+        const hasFile = fileInputs.some((inp) => inp && inp.files && inp.files.length > 0);
+        if (!hasFile) {
           return;
         }
 
-        const msg =
-          (data && data.error) ||
-          (xhr.status === 413 ? i18n.fileTooLarge : null) ||
-          i18n.networkError ||
-          'İşlem sırasında bir hata oluştu.';
-        handleUploadError(msg, data && data.nextIdempotencyKey);
-      };
+        e.preventDefault();
+        e.stopImmediatePropagation();
 
-      xhr.ontimeout = () => {
-        handleUploadError(
-          i18n.timeoutError || 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
-          null
-        );
-      };
+        if (form.dataset.submitted === 'true') {
+          return;
+        }
 
-      xhr.onerror = () => {
-        handleUploadError(
-          i18n.networkError || 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
-          null
-        );
-      };
+        const confirmMsg = form.getAttribute('data-confirm');
+        if (confirmMsg && !global.confirm(confirmMsg)) {
+          return;
+        }
 
-      xhr.onabort = () => {
-        handleUploadError(
-          i18n.networkError || 'Yükleme iptal edildi. Lütfen tekrar deneyin.',
-          null
-        );
-      };
+        form.dataset.submitted = 'true';
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          if (!submitBtn.dataset.originalHtml) {
+            submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+          }
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.65';
+          submitBtn.style.cursor = 'not-allowed';
+          const submittingText = submitBtn.getAttribute('data-submitting-text');
+          if (submittingText) submitBtn.textContent = submittingText;
+        }
 
-      xhr.send(formData);
+        if (errorBanner) errorBanner.hidden = true;
+
+        controller.openUploading(i18n.uploading || 'Kanıt yükleniyor…');
+
+        const formData = new FormData(form);
+        const csrfInput = form.querySelector('input[name="_csrf"]');
+        const csrfVal = csrfInput ? csrfInput.value : '';
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.timeout = cfg.requestTimeoutMs || 45000;
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (csrfVal) {
+          xhr.setRequestHeader('X-CSRF-Token', csrfVal);
+        }
+
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable && ev.total > 0) {
+            controller.setProgress((ev.loaded / ev.total) * 100);
+          }
+        };
+
+        xhr.upload.onload = () => {
+          controller.switchToForwarding(i18n.forwarding || "Kanıt Discord'a iletiliyor…");
+        };
+
+        xhr.onload = () => {
+          let data = null;
+          try {
+            data = JSON.parse(xhr.responseText || '{}');
+          } catch (_) {
+            data = null;
+          }
+
+          if (xhr.status >= 200 && xhr.status < 300 && data && data.ok) {
+            controller.switchToSuccess(i18n.success || 'Kanıt ve uyarı başarıyla iletildi!');
+            const waitMs = prefersReducedMotion() ? 220 : cfg.successRedirectDelayMs || 750;
+            global.setTimeout(() => {
+              global.location.assign(
+                data.redirectUrl || form.getAttribute('data-default-redirect') || '/yonetim/uyari'
+              );
+            }, waitMs);
+            return;
+          }
+
+          const msg =
+            (data && data.error) ||
+            (xhr.status === 413 ? i18n.fileTooLarge : null) ||
+            i18n.networkError ||
+            'İşlem sırasında bir hata oluştu.';
+          handleUploadError(msg, data && data.nextIdempotencyKey);
+        };
+
+        xhr.ontimeout = () => {
+          handleUploadError(
+            i18n.timeoutError || 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.',
+            null
+          );
+        };
+
+        xhr.onerror = () => {
+          handleUploadError(
+            i18n.networkError || 'Ağ hatası oluştu. Lütfen tekrar deneyin.',
+            null
+          );
+        };
+
+        xhr.onabort = () => {
+          handleUploadError(
+            i18n.networkError || 'Yükleme iptal edildi. Lütfen tekrar deneyin.',
+            null
+          );
+        };
+
+        xhr.send(formData);
+      });
     });
   }
 

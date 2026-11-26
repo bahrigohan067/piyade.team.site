@@ -28,6 +28,8 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'js/cookie-notice.js',
       'js/report-form.js',
       'js/admin-legal.js',
+      'js/admin-site-warn.js',
+      'js/warning-notices.js',
       'js/google-signup.js',
       'js/profile-google.js',
     ];

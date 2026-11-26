@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-version: 1.0
+version: 1.1
 lastUpdated: 2026-11-26
 ---
 
@@ -19,7 +19,7 @@ Our website runs on a **"thin client"** architecture:
 1. **Discord OAuth2 Login:** Requests `identify` scope only (we do not request your Discord email). Your session stores Discord ID, username, display name, avatar URL, and server role levels, synced fresh from the Bot API every 60 seconds.
 2. **Discord Bot REST API:** Your registration data (name/nickname, gender, game usernames, Roblox verification), disciplinary history, monthly game activity, and member directory are retrieved over an authenticated server-to-server connection.
 3. **Monthly Game Activity & Privacy Opt-Out:** Only current-month play duration is summed and reset on the 1st of every month. Members who disable tracking (`tracking: false`) in Discord are never counted or displayed.
-4. **Google Sign-In & Direct Site Membership:** Users without Discord may sign in with Google OpenID Connect (`sub`, email, name — Google profile photos are never stored), use the optional "remember me" cookie (`pw_remember`, max 5 devices), and optionally display game usernames on their chat profile card. *(UPCOMING FEATURE: Google member warning history will be documented here once released.)*
+4. **Google Sign-In, Direct Site Membership & Warning History:** Users without Discord may sign in with Google OpenID Connect (`sub`, email, name — Google profile photos are never stored), use the optional "remember me" cookie (`pw_remember`, max 5 devices), optionally display game usernames on their chat profile card, and are subject to site member disciplinary rules. Warning records and contentless audit entries are retained for **12 months** (365 days) after expiry/amnesty/cancellation, and staff-only evidence files are retained for at most **6 months** (180 days) before automatic daily deletion. Deleting your account immediately removes personal warning links and evidence files, leaving only an identity-free audit line.
 
 ## 3. Chat Privacy (`CHAT_ENABLED`: General Chat Group & Private DMs)
 
@@ -33,7 +33,7 @@ Our website runs on a **"thin client"** architecture:
 
 ## 4. Storage on Disk Volume vs. Memory
 
-- **Persistent Volume (`RAILWAY_VOLUME_MOUNT_PATH`):** Sessions (`sessions/`), chat and moderation files (`chat/`), KVKK applications (`legal/`), and abuse reports/evidence (`reports/`). Chat attachments and report evidence are NEVER placed in public static directories and require server-side authorization.
+- **Persistent Volume (`RAILWAY_VOLUME_MOUNT_PATH`):** Sessions (`sessions/`), Google member accounts (`members/`), site member warning records and staff-only evidence (`warnings/`), chat and moderation files (`chat/`), KVKK applications (`legal/`), and abuse reports/evidence (`reports/`). Chat attachments, warning evidence, and report evidence are NEVER placed in public static directories and require server-side authorization.
 - **In-Memory Only (RAM):** Rate limiter IP/user counters and short-lived API caches (60s–5m) stay strictly in volatile RAM and are never written to disk.
 - **Error Logs:** Record only HTTP method, path, 8-char error code, and masked stack traces; secrets, session cookies, and chat message contents are never logged.
 

@@ -1,6 +1,6 @@
 ---
 title: Gizlilik Politikası
-version: 1.0
+version: 1.1
 lastUpdated: 2026-11-26
 ---
 
@@ -19,7 +19,7 @@ Web sitesi **"ince ön yüz" (thin client)** mimarisiyle çalışır:
 1. **Discord ile Giriş (OAuth2):** Giriş sırasında yalnızca `identify` izni istenir (Discord e-postanız istenmez). Oturumda Discord ID, kullanıcı adı, görünen ad, avatar URL’si ve sunucu rol seviyeleriniz tutulur; her 60 saniyede bir Bot API üzerinden taze rol kontrolü yapılır.
 2. **Discord Bot REST API:** Topluluk kayıt başvurunuz (isim/takma ad, cinsiyet, oyun kullanıcı adları, Roblox doğrulaması), disiplin/uyarı kayıtlarınız, aylık oyun etkinliğiniz ve üye rehberi botun korumalı API’sinden sunucu-içi gizli anahtarla çekilir.
 3. **Aylık Oyun Etkinliği ve Gizlilik Tercihi:** Oyun süreleri yalnızca bulunulan takvim ayı için toplanır ve her ayın 1’inde sıfırlanır. Discord’da oyun takibini kapatan (`tracking: false`) üyelerin süresi tutulmaz ve ne kişisel panelde ne de anonim sıralamada görünür.
-4. **Google ile Giriş ve Doğrudan Site Üyeliği:** Discord hesabı olmayanlar için Google OpenID Connect (`sub`, e-posta, ad — Google profil fotoğrafı alınmaz), isteğe bağlı "beni hatırla" çerezi (`pw_remember`, en fazla 5 cihaz) ve oyun kullanıcı adlarının (isteğe bağlı olarak) sohbet profil kartında gösterilmesi aktiftir. *(GELECEK ÖZELLİK: Google üye uyarı sicili eklendiğinde bu bölüm ayrıca güncellenecektir.)*
+4. **Google ile Giriş, Doğrudan Site Üyeliği ve Uyarı Sicili:** Discord hesabı olmayanlar için Google OpenID Connect (`sub`, e-posta, ad — Google profil fotoğrafı alınmaz), isteğe bağlı "beni hatırla" çerezi (`pw_remember`, en fazla 5 cihaz), oyun kullanıcı adlarının (isteğe bağlı olarak) sohbet profil kartında gösterilmesi ve site (Google) üyelerine yönelik uyarı/yaptırım sicili aktiftir. Uyarı kayıtları ve içeriksiz denetim satırları kayıt süresi dolduktan/af/iptal sonrası **12 ay** (365 gün), yalnızca yetkililerin erişebildiği kanıt dosyaları ise en fazla **6 ay** (180 gün) saklanır ve günlük bakım göreviyle otomatik silinir. Hesabınızı sildiğinizde uyarılara ait kişisel bağlantılar ve kanıt dosyaları derhal kaldırılır, geriye yalnızca kimlik içermeyen bir denetim satırı kalır.
 
 ## 3. Sohbet Gizliliği (`CHAT_ENABLED`: Genel Sohbet Grubu ve Birebir Sohbet)
 
@@ -33,7 +33,7 @@ Web sitesi **"ince ön yüz" (thin client)** mimarisiyle çalışır:
 
 ## 4. Sunucu Diskinde (Volume) ve Bellekte Tutulanlar
 
-- **Kalıcı Disk Hacmi (`RAILWAY_VOLUME_MOUNT_PATH`):** Oturum dosyaları (`sessions/`), sohbet ve moderasyon kayıtları (`chat/`), KVKK başvuru kayıtları (`legal/`) ve ihlal bildirim kayıtları/kanıt görselleri (`reports/`). Kanıt ve sohbet dosyaları herkese açık statik klasörde ASLA tutulmaz; erişim sunucu tarafı yetki kontrolüne tabidir.
+- **Kalıcı Disk Hacmi (`RAILWAY_VOLUME_MOUNT_PATH`):** Oturum dosyaları (`sessions/`), Google üye kayıtları (`members/`), site üyesi uyarı kayıtları ve kanıtları (`warnings/`), sohbet ve moderasyon kayıtları (`chat/`), KVKK başvuru kayıtları (`legal/`) ve ihlal bildirim kayıtları/kanıt görselleri (`reports/`). Kanıt ve sohbet dosyaları herkese açık statik klasörde ASLA tutulmaz; erişim sunucu tarafı yetki kontrolüne tabidir.
 - **Geçici Bellek (RAM):** Hız sınırlayıcı (rate limiter) IP/kullanıcı sayaçları ve kısa süreli (en çok 60 sn – 5 dk) API önbellekleri yalnızca bellekte tutulur, diske yazılmaz.
 - **Hata Günlükleri:** Teknik arıza incelemesi için yalnızca HTTP yöntemi, yol, 8 karakterlik hata kodu ve maskelenmiş yığın izi kaydedilir; gizli anahtarlar, oturum çerezleri ve sohbet mesaj içerikleri loglara yazılmaz.
 

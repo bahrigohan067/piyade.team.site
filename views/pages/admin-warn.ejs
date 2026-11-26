@@ -237,6 +237,307 @@
       </div>
     </form>
   </div>
+
+  <!-- ========================================================================
+       2. PANEL: SİTE (GOOGLE) ÜYELERİNE UYARI VERME VE SİCİL ÖNİZLEME
+       (Mevcut Discord uyarı panelinden tamamen bağımsız; Y1–Y5 maddeleri yoktur)
+       ======================================================================== -->
+  <%
+    const safeSiteRules = (typeof siteRules !== 'undefined' && siteRules) ? siteRules : {};
+    const safeSiteIdem = typeof siteIdempotencyKey !== 'undefined' ? siteIdempotencyKey : '';
+    const safeSiteTargetId = typeof siteTargetId !== 'undefined' ? siteTargetId : '';
+    const safeSitePreselected = typeof sitePreselectedMember !== 'undefined' ? sitePreselectedMember : null;
+    const safeSiteResult = typeof siteResult !== 'undefined' ? siteResult : null;
+    const safeSiteError = typeof siteError !== 'undefined' ? siteError : null;
+    const siteWarnClientI18n = {
+      selectedPrefix: t('adminWarn.selectedPrefix'),
+      clearSelection: t('siteWarn.clearSelection'),
+      noMembersFound: t('siteWarn.noMembersFound'),
+      siteMemberBadge: t('chat.identityBadgeSite'),
+      pointsWord: t('profile.pointsWord'),
+      statusActive: t('siteWarn.statusActive'),
+      statusSuspended: t('siteWarn.statusSuspended'),
+      statusBanned: t('siteWarn.statusBanned'),
+      noActiveSanction: t('siteWarn.noActiveSanction'),
+      sanctionPermanentBan: t('siteWarn.sanctionPermanentBan'),
+      sanctionSuspended: t('siteWarn.sanctionSuspended'),
+      sanctionChatMute: t('siteWarn.sanctionChatMute'),
+      historyTitle: t('siteWarn.historyTitle'),
+      refreshBtn: t('siteWarn.refreshBtn'),
+      statTotalPoints: t('siteWarn.statTotalPoints'),
+      statTier: t('siteWarn.statTier'),
+      statStatus: t('siteWarn.statStatus'),
+      statActiveSanction: t('siteWarn.statActiveSanction'),
+      recentRecordsTitle: t('siteWarn.recentRecordsTitle'),
+      noRecordsYet: t('siteWarn.noRecordsYet'),
+      typeVerbal: t('adminWarn.typeVerbalLabel'),
+      recordCancelledBadge: t('siteWarn.recordCancelledBadge'),
+      recordPardonedBadge: t('siteWarn.recordPardonedBadge'),
+      expiresShort: t('siteWarn.expiresShort'),
+      cancelReasonPrefix: t('siteWarn.cancelReasonPrefix'),
+      viewEvidenceFile: t('siteWarn.viewEvidenceFile'),
+      viewEvidenceUrl: t('siteWarn.viewEvidenceUrl'),
+      cancelBtn: t('siteWarn.cancelBtn'),
+      loadingHistory: t('siteWarn.loadingHistory'),
+      errSelectMember: t('siteWarn.errSelectMember'),
+      errVerbalReason: t('adminWarn.errVerbalReason'),
+      errSelectRule: t('adminWarn.errSelectRule'),
+      errCancelReason: t('siteWarn.errCancelReason'),
+      errGeneric: t('siteWarn.errGeneric'),
+    };
+  %>
+  <section
+    id="site-uyari-paneli"
+    class="site-warn-section"
+    aria-labelledby="siteWarnPanelHeading"
+    data-site-warn-i18n="<%= JSON.stringify(siteWarnClientI18n) %>"
+  >
+    <div class="site-warn-header">
+      <div class="site-warn-badges">
+        <span class="badge badge-primary"><%= t('siteWarn.badgeTop') %></span>
+        <span class="badge badge-neutral"><%= t('siteWarn.badgeRulesScope') %></span>
+      </div>
+      <h2 id="siteWarnPanelHeading" class="site-warn-heading"><%= t('siteWarn.panelHeading') %></h2>
+      <p class="site-warn-subheading"><%= t('siteWarn.panelSubheading') %></p>
+    </div>
+
+    <% if (safeSiteResult && safeSiteResult.success) { %>
+      <div class="glass-card site-warn-success-card" role="status">
+        <div class="site-warn-success-head">
+          <span class="site-warn-success-icon" aria-hidden="true">✅</span>
+          <div>
+            <span class="badge badge-success"><%= t('siteWarn.successBadge') %></span>
+            <h3 class="site-warn-success-title">
+              <%= safeSiteResult.action === 'cancelled'
+                ? t('siteWarn.successCancelTitle')
+                : t('siteWarn.successIssueTitle') %>
+              (<code><%= safeSiteResult.warnId %></code>)
+            </h3>
+          </div>
+        </div>
+        <div class="site-warn-success-grid">
+          <% if (safeSiteResult.memberDisplayName) { %>
+            <div>
+              <span class="site-warn-stat-label"><%= t('siteWarn.labelTargetMember') %></span>
+              <div class="site-warn-stat-val"><%= safeSiteResult.memberDisplayName %> (<code><%= safeSiteResult.memberId %></code>)</div>
+            </div>
+          <% } %>
+          <% if (safeSiteResult.ruleCode) { %>
+            <div>
+              <span class="site-warn-stat-label"><%= t('adminWarn.labelViolatedRule') %></span>
+              <div class="site-warn-stat-val"><%= safeSiteResult.ruleCode %> — <%= safeSiteResult.ruleTitle %></div>
+            </div>
+          <% } %>
+          <% if (safeSiteResult.sanctionLabel) { %>
+            <div>
+              <span class="site-warn-stat-label"><%= t('adminWarn.labelActionTaken') %></span>
+              <div class="site-warn-stat-val"><%= safeSiteResult.sanctionLabel %></div>
+            </div>
+          <% } %>
+          <div>
+            <span class="site-warn-stat-label"><%= t('adminWarn.labelNewTotalPoints') %></span>
+            <div class="site-warn-stat-val">
+              <strong><%= safeSiteResult.totalPoints || 0 %> <%= t('profile.pointsWord') %></strong>
+              (<%= safeSiteResult.tierLabel || '' %>)
+            </div>
+          </div>
+        </div>
+        <% if (safeSiteResult.evidenceFileUrl || safeSiteResult.evidenceUrl) { %>
+          <div class="site-warn-success-proof">
+            <% if (safeSiteResult.evidenceFileUrl) { %>
+              <a href="<%= safeSiteResult.evidenceFileUrl %>" target="_blank" rel="noopener noreferrer" class="site-warn-evidence-link">
+                📎 <%= t('siteWarn.viewEvidenceFile') %>
+              </a>
+            <% } %>
+            <% if (safeSiteResult.evidenceUrl) { %>
+              <a href="<%= safeSiteResult.evidenceUrl %>" target="_blank" rel="noopener noreferrer" class="site-warn-evidence-link">
+                🔗 <%= t('siteWarn.viewEvidenceUrl') %>
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="alert alert-danger site-warn-error-banner" id="siteWarnErrorBanner" <%= safeSiteError ? '' : 'hidden' %>>
+      <span class="site-warn-error-icon" aria-hidden="true">🛑</span>
+      <div>
+        <strong><%= t('adminWarn.blockedTitle') %></strong>
+        <p class="site-warn-error-text" id="siteWarnErrorText"><%= safeSiteError || '' %></p>
+      </div>
+    </div>
+
+    <div class="glass-card site-warn-card">
+      <form
+        id="siteAdminWarnForm"
+        action="/yonetim/site-uyari?_csrf=<%= encodeURIComponent(csrfToken) %>&_idempotencyKey=<%= encodeURIComponent(safeSiteIdem) %>"
+        method="POST"
+        enctype="multipart/form-data"
+        data-prevent-double-submit="true"
+        data-orbital-loader="true"
+        data-error-banner-id="siteWarnErrorBanner"
+        data-error-text-id="siteWarnErrorText"
+        data-default-redirect="/yonetim/uyari#site-uyari-paneli"
+        data-confirm="<%= t('siteWarn.confirmWarn') %>"
+        data-loader-config="<%= typeof nexusConfig !== 'undefined' && nexusConfig ? JSON.stringify(nexusConfig.orbitalLoader) : '{}' %>"
+        data-loader-i18n="<%= JSON.stringify({
+          uploading: t('adminWarn.loaderUploading'),
+          forwarding: t('siteWarn.loaderSaving'),
+          success: t('siteWarn.loaderSuccess'),
+          errorTitle: t('adminWarn.loaderErrorTitle'),
+          timeoutError: t('adminWarn.loaderTimeoutErr'),
+          networkError: t('adminWarn.loaderNetworkErr'),
+          fileTooLarge: t('errors.fileTooLarge'),
+          closeBtn: t('adminWarn.loaderCloseBtn')
+        }) %>"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <input type="hidden" name="_idempotencyKey" value="<%= safeSiteIdem %>" />
+
+        <!-- 1. Google (Site) Üyesi Arama Seçici -->
+        <div class="form-group site-warn-search-group">
+          <label class="form-label" for="siteWarnMemberSearch"><%= t('siteWarn.labelSelectMember') %></label>
+          <input
+            type="text"
+            id="siteWarnMemberSearch"
+            class="form-control"
+            placeholder="<%= t('siteWarn.placeholderMemberSearch') %>"
+            autocomplete="off"
+            value="<%= safeSitePreselected ? (safeSitePreselected.displayName + ' (' + safeSitePreselected.id + ')') : '' %>"
+          />
+          <input
+            type="hidden"
+            id="siteTargetMemberId"
+            name="siteTargetMemberId"
+            value="<%= safeSiteTargetId || (safeSitePreselected ? safeSitePreselected.id : '') %>"
+            required
+          />
+          <div id="siteSelectedMemberBadge"></div>
+          <div id="siteWarnMemberResults" class="site-warn-search-results" hidden></div>
+          <div class="form-text"><%= t('siteWarn.memberPickerHelp') %></div>
+        </div>
+
+        <!-- Seçili Üyenin Altında Sicil Önizlemesi -->
+        <div id="siteMemberHistoryBox" class="site-warn-history-slot" hidden></div>
+
+        <!-- 2. Ceza Türü (Resmi / Sözlü) -->
+        <div class="form-group">
+          <label class="form-label"><%= t('adminWarn.labelPenaltyType') %></label>
+          <div class="site-warn-radio-row">
+            <label class="site-warn-radio-option">
+              <input type="radio" name="siteWarnType" value="official" checked />
+              <strong class="site-warn-radio-danger"><%= t('adminWarn.radioOfficialTitle') %></strong>
+              <span class="site-warn-radio-sub"><%= t('siteWarn.radioOfficialSub') %></span>
+            </label>
+            <label class="site-warn-radio-option">
+              <input type="radio" name="siteWarnType" value="verbal" />
+              <strong class="site-warn-radio-warning"><%= t('adminWarn.radioVerbalTitle') %></strong>
+              <span class="site-warn-radio-sub"><%= t('adminWarn.radioVerbalSub') %></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. Kural Maddesi (Yalnızca M1–M13 ve D1–D3; Y1–Y5 YOKTUR) -->
+        <div id="siteOfficialRuleFields" class="form-group">
+          <label class="form-label" for="siteRuleCodeSelect"><%= t('adminWarn.labelRuleSelect') %></label>
+          <select id="siteRuleCodeSelect" name="siteRuleCode" class="form-select" data-rules="<%= JSON.stringify(safeSiteRules) %>">
+            <option value=""><%= t('adminWarn.placeholderRuleSelect') %></option>
+
+            <optgroup label="<%= t('adminWarn.optgroupParticipant') %>">
+              <% Object.values(safeSiteRules).filter(r => r.category === 'participant').forEach(function(r) { %>
+                <option value="<%= r.code %>"><%= r.code %> — <%= r.title %> (<%= r.sitePenaltyLabel %>)</option>
+              <% }); %>
+            </optgroup>
+
+            <optgroup label="<%= t('adminWarn.optgroupOrder') %>">
+              <% Object.values(safeSiteRules).filter(r => r.category === 'order').forEach(function(r) { %>
+                <option value="<%= r.code %>"><%= r.code %> — <%= r.title %> (<%= r.sitePenaltyLabel %>)</option>
+              <% }); %>
+            </optgroup>
+          </select>
+          <div id="siteRulePreviewBox" hidden></div>
+        </div>
+
+        <!-- 4. Gerekçe -->
+        <div class="form-group">
+          <label class="form-label" for="siteWarnReason">
+            <%= t('adminWarn.labelReason') %>
+            <span id="siteReasonRequiredMark" class="site-warn-required-mark" hidden>(<%= t('siteWarn.requiredLabel') %>)</span>
+          </label>
+          <textarea
+            id="siteWarnReason"
+            name="siteWarnReason"
+            class="form-control"
+            rows="3"
+            maxlength="600"
+            placeholder="<%= t('siteWarn.placeholderReason') %>"
+          ></textarea>
+          <div class="form-text"><%= t('siteWarn.reasonHelp') %></div>
+        </div>
+
+        <!-- 5. Kanıt (Yalnızca Yetkililere Özel; Üyeye Gösterilmez) -->
+        <div class="form-group site-warn-evidence-box">
+          <label class="form-label"><%= t('adminWarn.labelEvidenceSection') %></label>
+          <div class="grid grid-2 site-warn-evidence-grid">
+            <div>
+              <label class="form-label site-warn-evidence-sublabel" for="siteEvidenceFile"><%= t('adminWarn.labelUploadFile') %></label>
+              <input type="file" id="siteEvidenceFile" name="evidenceFile" class="form-control" accept="image/png,image/jpeg,image/webp" />
+            </div>
+            <div>
+              <label class="form-label site-warn-evidence-sublabel" for="siteEvidenceUrlInput"><%= t('adminWarn.labelEvidenceUrl') %></label>
+              <input
+                type="url"
+                id="siteEvidenceUrlInput"
+                name="siteEvidenceUrlInput"
+                class="form-control"
+                placeholder="<%= t('adminWarn.placeholderEvidenceUrl') %>"
+              />
+            </div>
+          </div>
+          <div class="form-text"><%= t('siteWarn.evidenceHelp') %></div>
+        </div>
+
+        <!-- Gönder -->
+        <div class="site-warn-submit-row">
+          <span class="site-warn-audit-hint">🔒 <%= t('siteWarn.auditHint') %></span>
+          <button type="submit" class="btn btn-danger btn-lg" data-submitting-text="<%= t('adminWarn.btnSubmittingWarn') %>">
+            <span><%= t('siteWarn.btnSubmitSiteWarn') %></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<!-- İptal Et Onay ve Gerekçe Modalı (Site Üyesi Uyarısı İçin) -->
+<div class="chat-modal-backdrop" id="siteWarnCancelModal" hidden aria-hidden="true">
+  <div class="chat-modal-card chat-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="siteWarnCancelTitle">
+    <div class="chat-modal-header">
+      <h3 id="siteWarnCancelTitle" class="chat-modal-title">
+        ↩️ <%= t('siteWarn.cancelModalTitle') %> (<code id="siteWarnCancelIdLabel"></code>)
+      </h3>
+      <button type="button" class="chat-icon-btn" id="siteWarnCancelCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+    </div>
+    <form id="siteWarnCancelForm" class="chat-modal-body" novalidate>
+      <p class="site-warn-cancel-desc"><%= t('siteWarn.cancelModalDesc') %></p>
+      <div class="form-group">
+        <label class="form-label" for="siteWarnCancelReasonInput"><%= t('siteWarn.cancelReasonLabel') %></label>
+        <textarea
+          id="siteWarnCancelReasonInput"
+          class="form-control"
+          rows="3"
+          maxlength="400"
+          required
+          placeholder="<%= t('siteWarn.cancelReasonPlaceholder') %>"
+        ></textarea>
+      </div>
+      <div id="siteWarnCancelError" class="chat-inline-error" role="alert" hidden></div>
+      <div class="chat-modal-footer site-warn-cancel-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="siteWarnCancelDismissBtn"><%= t('chat.cancelBtn') %></button>
+        <button type="submit" class="btn btn-danger btn-sm" id="siteWarnCancelSubmitBtn">↩️ <%= t('siteWarn.cancelConfirmBtn') %></button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <%- include('../partials/orbital-loader') %>

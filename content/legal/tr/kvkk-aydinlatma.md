@@ -1,6 +1,6 @@
 ---
 title: KVKK Aydınlatma Metni
-version: 1.0
+version: 1.1
 lastUpdated: 2026-11-26
 ---
 
@@ -23,23 +23,24 @@ lastUpdated: 2026-11-26
 
 ## 2. İşlenen Kişisel Veri Kategorileri (Gerçek Sistem Akışı)
 
-Web sitesi kendi başına ayrı bir üye veritabanı tutmaz; üyelik ve oyun verileri bağlı Discord botunun dahili REST API’si üzerinden anlık çekilir. Gerçek sistem akışımıza göre işlenen veri kategorileri şunlardır:
+Web sitesi Discord üyeleri için bağlı Discord botunun dahili REST API’sini kullanır; Discord hesabı olmadan "Google ile devam et" seçeneğiyle doğrudan üye olan kullanıcıların kayıtları ise kalıcı sunucu hacminde (`members/`) atomik olarak saklanır. Gerçek sistem akışımıza göre işlenen veri kategorileri şunlardır:
 
 - **Discord Kimlik ve Oturum Verileri:** Discord OAuth2 (`identify` kapsamı — e-posta talep edilmez) ile alınan Discord kullanıcı kimliği (ID), kullanıcı adı, görünen ad, profil görseli bağlantısı ve sunucu rol/yetki bilgileri. OAuth erişim anahtarı (`access_token`) oturumda saklanmaz ve tarayıcıya gönderilmez.
-- **Topluluk Kayıt ve Oyun Profili Verileri (Bot API):** Kayıt başvurusunda beyan ettiğiniz isim/takma ad, cinsiyet seçimi, seçtiğiniz oyunlar ve oyun kullanıcı adları (Roblox, CS2, Zula, Minecraft), Roblox kimlik/kullanıcı adı/avatar bilgisi ve sunucu disiplin/uyarı puanı kayıtları.
-- **Oyun Etkinliği Verileri (Bot API):** Yalnızca oyun takibini açık bırakan kayıtlı üyeler için, bulunulan takvim ayına ait toplam oyun süreleri (her ayın 1’inde sıfırlanır; tarihsel zaman çizelgesi tutulmaz). Takibini kapatan (`tracking: false`) üyelerin verisi toplanmaz ve gösterilmez.
+- **Google ile Giriş ve Doğrudan Site Üyeliği Verileri:** Google OpenID Connect (`openid email profile`, PKCE S256 ve JWKS imza doğrulaması) ile alınan benzersiz Google kimliği (`sub`), doğrulanmış e-posta adresi ve Google hesap adı; üyelik sihirbazında beyan ettiğiniz yaş grubu, takma ad, seçtiğiniz oyunlar ve oyun kullanıcı adları (varsa doğrulanmış Roblox kimliği/avatarı), ayrı rıza onay kayıtları ve gizlilik tercihleri. **E-posta adresiniz ve Google adınız hiçbir yerde diğer üyelere gösterilmez; Google profil fotoğrafınız (`picture`) hiçbir zaman alınmaz ve saklanmaz.** İsteğe bağlı olarak Google hesabınızı mevcut Discord hesabınıza kalıcı biçimde bağlayabilirsiniz.
+- **Topluluk Kayıt ve Oyun Profili Verileri (Bot API):** Discord kayıt başvurusunda beyan ettiğiniz isim/takma ad, cinsiyet seçimi, seçtiğiniz oyunlar ve oyun kullanıcı adları (Roblox, CS2, Zula, Minecraft), Roblox kimlik/kullanıcı adı/avatar bilgisi ve sunucu disiplin/uyarı puanı kayıtları. Oyun kullanıcı adlarınız, yalnızca açık rızanız ve gizlilik ayarınız açık olduğu sürece sohbet profilinizde diğer kayıtlı üyelere gösterilir.
+- **Oyun Etkinliği Verileri (Bot API):** Yalnızca oyun takibini açık bırakan kayıtlı Discord üyeleri için, bulunulan takvim ayına ait toplam oyun süreleri (her ayın 1’inde sıfırlanır; tarihsel zaman çizelgesi tutulmaz). Takibini kapatan (`tracking: false`) üyelerin verisi toplanmaz ve gösterilmez.
 - **Birebir Sohbet ve Moderasyon Verileri (`CHAT_ENABLED` açıkken):** Kayıtlı üyeler arasındaki özel sohbet mesajları, yüklenen ek dosyalar (JPEG fotoğraflardaki EXIF/konum üstverileri sunucuya yazılmadan önce otomatik temizlenir), sohbet tercihleri (profil halkası, engellenen üyeler, ilk mesaj isteği ayarı), rapor veya yerel otomatik metin filtresi sonucu açılan vaka anlık görüntüleri, yaptırım ve içeriksiz denetim kayıtları.
-- **Oturum, Çerez ve Tarayıcı Depolama Verileri:** Zorunlu oturum çerezi (`piyade.sid`, içinde CSRF güvenlik belirteci ve OAuth durum kodu), dil tercihi çerezi (`lang`) ile arayüz tercihleriniz (`localStorage` / `sessionStorage`). Ayrıntılı tablo [Çerez Politikası](/yasal/cerez-politikasi) sayfasındadır.
+- **Oturum, Çerez ve Tarayıcı Depolama Verileri:** Zorunlu oturum çerezi (`piyade.sid`), Google site üyeleri için 90 günlük döndürülen "beni hatırla" çerezi (`pw_remember` — sunucuda yalnızca belirteç özeti ve cihaz etiketi tutulur, en fazla 5 cihaz), dil tercihi çerezi (`lang`) ile arayüz tercihleriniz (`localStorage` / `sessionStorage`). Ayrıntılı tablo [Çerez Politikası](/yasal/cerez-politikasi) sayfasındadır.
 - **İşlem Güvenliği ve Hata Kayıtları:** Hız sınırlayıcı (rate limiter) için yalnızca geçici bellek (RAM) üzerinde tutulan IP sayaçları (diske yazılmaz) ve teknik arıza takibi için gizli anahtarları maskelenmiş hata kodları.
 - **KVKK Başvuruları ve İhlal Bildirimleri:** [KVKK Başvuru Formu](/yasal/kvkk-basvuru) veya [İhlal Bildirim Sistemi](/bildir) üzerinden gönderdiğiniz ad/iletişim bilgileri, açıklamalar, kanıt görselleri ve takip kodları.
-- **GELECEK ÖZELLİK (Yakında Eklenecek Veri Akışları):** Önümüzdeki güncellemelerde devreye alınacak **Google ile giriş** (`sub` kimliği, e-posta adresi, ad), isteğe bağlı **"beni hatırla" çerezi**, **doğrudan site üyesi kaydı**, **Google üye uyarı sicili** ve **oyun kullanıcı adlarının sohbet profilinde diğer üyelere gösterilmesi** özellikleri yayına alındığında bu veri kategorileri de ilgili ekranlarda ayrıca bilgilendirilerek işlenecektir.
+- **GELECEK ÖZELLİK (Yakında Eklenecek Veri Akışları):** Önümüzdeki güncellemede eklenecek **Google üye uyarı sicili** özelliği yayına alındığında ilgili profil ve kural ekranlarında ayrıca bilgilendirilerek işlenecektir.
 
 ## 3. Kişisel Verilerin İşlenme Amaçları
 
-- Topluluk üyeliği ve oyun bazlı kayıt başvurularının alınması, doğrulanması ve Discord sunucu rollerinin senkronize edilmesi,
-- Birebir özel sohbet hizmetinin, dosya paylaşımının ve güvenlik önlemlerinin yürütülmesi,
+- Topluluk üyeliği (Discord veya Google site üyeliği) ve oyun bazlı kayıt süreçlerinin yürütülmesi, Roblox hesap benzersizliğinin korunması ve Discord sunucu rollerinin senkronize edilmesi,
+- Birebir özel sohbet hizmetinin, dosya paylaşımının ve güvenlik önlemlerinin (yeni üye 24 saatlik dosya/bağlantı sınırı dahil) yürütülmesi,
 - Topluluk kurallarının uygulanması, kötüye kullanım, telif hakkı ve yasa dışı içerik bildirimlerinin incelenmesi,
-- Oturum güvenliğinin, CSRF korumasının ve kötü niyetli trafik/spam engellemesinin sağlanması,
+- Oturum güvenliğinin, CSRF korumasının, çalınma tespitli hatırlama çerezinin ve kötü niyetli trafik/spam engellemesinin sağlanması,
 - KVKK kapsamındaki bilgi, erişim, düzeltme ve silme başvurularının yasal süresi içinde yanıtlanması,
 - Yetkili kamu kurum ve kuruluşlarından gelebilecek yasal yükümlülüklerin yerine getirilmesi.
 
@@ -49,11 +50,11 @@ Web sitesi kendi başına ayrı bir üye veritabanı tutmaz; üyelik ve oyun ver
 
 | Veri İşleme Faaliyeti | Öngörülen KVKK m.5 Hukuki Sebebi | Durum |
 | --- | --- | --- |
-| Discord OAuth girişi, oturum yönetimi, zorunlu çerezler | KVKK m.5/2-(c) Sözleşmenin kurulması veya ifası / m.5/2-(f) Meşru menfaat | *Hukuki doğrulama gerekli* |
+| Discord/Google OAuth girişi, oturum ve `pw_remember` yönetimi, zorunlu çerezler | KVKK m.5/2-(c) Sözleşmenin kurulması veya ifası / m.5/2-(f) Meşru menfaat | *Hukuki doğrulama gerekli* |
 | Oyun bazlı kayıt ve topluluk profili yönetimi | KVKK m.5/2-(c) Hizmetin ifası | *Hukuki doğrulama gerekli* |
 | Hız sınırlama (RAM IP), CSRF ve güvenlik günlükleri | KVKK m.5/2-(ç) Hukuki yükümlülük ve m.5/2-(f) Meşru menfaat | *Hukuki doğrulama gerekli* |
 | KVKK başvuruları ve yasal ihlal/telif bildirimlerinin işlenmesi | KVKK m.5/2-(ç) Hukuki yükümlülük ve m.5/2-(e) Hakkın tesisi/korunması | *Hukuki doğrulama gerekli* |
-| Sohbet vaka incelemesi, yurt dışı aktarım ve oyun adı görünürlüğü *(gelecek)* | KVKK m.5/1 Açık rıza (veya yurt dışı aktarım için KVKK m.9 mekanizması) | *Hukuki doğrulama gerekli* |
+| Sohbet vaka incelemesi (Madde A), sohbet oyun adı görünürlüğü (Madde B) ve yurt dışı aktarım (Madde C) | KVKK m.5/1 Açık rıza (veya yurt dışı aktarım için KVKK m.9 mekanizması) | *Hukuki doğrulama gerekli* |
 
 ## 5. Kişisel Verilerin Aktarılması ve Yurt Dışına Aktarım
 
@@ -61,8 +62,8 @@ Kişisel verileriniz üçüncü kişilere satılmaz veya reklam amacıyla payla�
 
 - **Bulut Barındırma Sağlayıcısı (Railway):** Web sitesi, kalıcı disk hacmi (Volume) ve hata günlükleri yurt dışındaki sunucularda barındırılabilir.
 - **Discord (Discord Inc.):** OAuth2 kimlik doğrulaması, rol kontrolü ve profil avatarı gösterimi (`cdn.discordapp.com`) için teknik çağrılar yapılır.
+- **Google (Google LLC):** "Google ile devam et" OpenID Connect kimlik doğrulaması (`oauth2.googleapis.com` / JWKS) ve yazı tipi yüklemesi (`fonts.googleapis.com` / `fonts.gstatic.com`) için teknik veri alışverişi gerçekleşir.
 - **Roblox (Roblox Corporation):** Kayıt sırasında Roblox kullanıcı doğrulaması ve avatar gösterimi (`rbxcdn.com`) için sınırlı sorgu yapılır.
-- **Google (Google LLC):** Yazı tipi yüklemesi (`fonts.googleapis.com` / `fonts.gstatic.com`) ve **GELECEK ÖZELLİK** kapsamında devreye girecek Google OAuth ile giriş akışında teknik veri alışverişi gerçekleşir.
 - **Yetkili Kamu Kurumları:** Yalnızca kanunen zorunlu ve usulüne uygun resmi talep halinde.
 
 Yurt dışına aktarımların KVKK m.9 kapsamındaki güncel hukuki dayanağı (standart sözleşme, yeterlilik veya açık rıza) ayrıca [Açık Rıza Metni](/yasal/acik-riza) sayfasında ayrı madde olarak sunulmaktadır *(hukuki doğrulama gerekli)*.
@@ -72,8 +73,10 @@ Yurt dışına aktarımların KVKK m.9 kapsamındaki güncel hukuki dayanağı (
 | Veri Türü | Saklama Süresi | İmha / Silme Yöntemi |
 | --- | --- | --- |
 | Oturum dosyası (`piyade.sid` / `sessions.json`) | 24 saat | Süre dolumunda veya çıkışta otomatik silinir |
+| Hatırlama belirteci (`pw_remember` / `remember-tokens.json`) | 90 gün (kullanımda yenilenir) | Çıkışta, Profil → Oturumlarım iptalinde, çalınma tespitinde veya hesap silmede derhal silinir |
+| Google doğrudan site üyesi kaydı (`members/members.json`) | Üyelik süresince | Profil → **Hesabımı Sil** ile üye kaydı, sohbet profili, kendi mesajları/korunmayan dosyaları ve Roblox eşleşmesi derhal silinir; geriye yalnızca kimlik içermeyen `account_deleted` denetim satırı kalır |
 | Sohbet mesajları ve ek dosyalar | En fazla **30 gün** | Her gün TSİ 03:00’te otomatik kalıcı silme |
-| Kapanan moderasyon vaka anlık görüntüsü ve kanıtı | Kapanıştan sonra en geç **7 gün** | Otomatik kalıcı silme |
+| Kapanan moderasyon vaka anlık görüntüsü ve kanıtı | Kapanıştan sonra en geç **7 gün** | Otomatik kalıcı silme (hesap silme halinde dahi vaka süresi dolana kadar korunur) |
 | Kapanmamış moderasyon vakası | En çok **90 gün** | Otomatik kapatma ve anlık görüntü silme |
 | Sohbet yaptırım kayıtları ve içeriksiz denetim kaydı | **1 yıl** | Süre dolumunda otomatik temizleme |
 | Aylık oyun etkinliği süresi (Bot API) | Yalnızca bulunulan ay | Her ayın 1’inde (TSİ) otomatik sıfırlama |

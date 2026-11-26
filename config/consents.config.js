@@ -31,44 +31,44 @@ const EXPLICIT_CONSENTS = Object.freeze([
   },
   {
     id: 'chat_profile_game_usernames',
-    version: '1.0',
-    upcoming: true,
+    version: '1.1',
+    upcoming: false,
     tr: {
       code: 'Madde B',
-      title: 'Oyun Kullanıcı Adlarınızın Sohbet Profilinde Diğer Kayıtlı Üyelere Gösterilmesi (GELECEK ÖZELLİK)',
+      title: 'Oyun Kullanıcı Adlarınızın Sohbet Profilinde Diğer Kayıtlı Üyelere Gösterilmesi',
       summary:
-        'Yakında devreye alınacak profil geliştirme aşamasında, kayıt sırasında paylaştığınız oyun kullanıcı adlarının (Roblox, CS2, Zula, Minecraft) sohbet profil kartınızda diğer kayıtlı topluluk üyelerine görünür kılınması.',
+        'Üyelik sırasında paylaştığınız oyun kullanıcı adlarının (Roblox, CS2, Zula, Minecraft) sohbet profil kartınızda diğer kayıtlı topluluk üyelerine görünür kılınması.',
       impact:
-        'Bu özellik şu an henüz yayında değildir (GELECEK ÖZELLİK). Yayına alındığında tamamen isteğe bağlı olacak ve rızanızı istediğiniz zaman profil/sohbet ayarlarından geri alabileceksiniz.',
+        'Tamamen isteğe bağlıdır; rızanızı geri çektiğinizde veya Profil → Gizlilik anahtarını kapattığınızda oyun kullanıcı adlarınız sohbet profilinizde derhal gizlenir.',
     },
     en: {
       code: 'Item B',
-      title: 'Displaying Your Game Usernames on Your Chat Profile to Other Registered Members (UPCOMING FEATURE)',
+      title: 'Displaying Your Game Usernames on Your Chat Profile to Other Registered Members',
       summary:
-        'In an upcoming profile update, making the game usernames you registered (Roblox, CS2, Zula, Minecraft) visible on your chat profile card to other registered community members.',
+        'Making the game usernames you registered (Roblox, CS2, Zula, Minecraft) visible on your chat profile card to other registered community members.',
       impact:
-        'This feature is not live yet (UPCOMING FEATURE). Once launched, it will remain strictly optional and revocable at any time from your profile/chat settings.',
+        'Strictly optional; withdrawing this consent or toggling off the Profile → Privacy switch immediately hides your game usernames on your chat profile.',
     },
   },
   {
     id: 'international_data_transfer',
-    version: '1.0',
+    version: '1.1',
     upcoming: false,
     tr: {
       code: 'Madde C',
       title: 'Verilerin Yurt Dışındaki Barındırma ve Kimlik Doğrulama Sağlayıcılarına Aktarılması',
       summary:
-        'Web sitesi altyapısının ve kimlik doğrulama akışlarının çalışabilmesi için zorunlu teknik verilerin yurt dışında sunucuları bulunabilen bulut barındırma sağlayıcısı (Railway) ile üçüncü taraf platform API’lerine (Discord, Roblox, Google Fonts ve gelecek özellik kapsamında Google OAuth) aktarılması.',
+        'Web sitesi altyapısının ve kimlik doğrulama akışlarının çalışabilmesi için zorunlu teknik verilerin yurt dışında sunucuları bulunabilen bulut barındırma sağlayıcısı (Railway) ile üçüncü taraf platform API’lerine (Discord, Google OAuth, Roblox, Google Fonts) aktarılması.',
       impact:
-        'Yurt dışı aktarım hukuki dayanağının (KVKK m.9 kapsamındaki standart sözleşme / yeterlilik / açık rıza değerlendirmesi) hukuki inceleme ile kesinleştirilmesi gerekmektedir.',
+        'Site hesabı oluşturmak ve kullanmak için gereklidir; bu rızayı geri çektiğinizde hesap ve sohbet kullanımı sona erer ve Hesabımı Sil işlemi önerilir. Yurt dışı aktarım hukuki dayanağı (KVKK m.9) hukuki inceleme ile kesinleştirilmelidir.',
     },
     en: {
       code: 'Item C',
       title: 'Transfer of Data to International Hosting and Identity Providers',
       summary:
-        'Transferring strictly necessary technical and account data to cloud hosting infrastructure (Railway) and third-party APIs (Discord, Roblox, Google Fonts, and Google OAuth as an upcoming feature) whose servers may be located abroad.',
+        'Transferring strictly necessary technical and account data to cloud hosting infrastructure (Railway) and third-party APIs (Discord, Google OAuth, Roblox, Google Fonts) whose servers may be located abroad.',
       impact:
-        'The final legal transfer mechanism under Article 9 of KVKK (adequacy, standard contractual clauses, or explicit consent) is subject to legal counsel verification.',
+        'Required to create and operate a site account; withdrawing this consent ends account and chat access and we recommend using Delete Account. The final KVKK Article 9 transfer mechanism is subject to legal counsel review.',
     },
   },
 ]);

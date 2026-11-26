@@ -8892,3 +8892,677 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
     display: block !important;
   }
 }
+
+/* ============================================================================
+ * GOOGLE İLE GİRİŞ, /GİRİŞ MERKEZİ, /ÜYE-OL SİHİRBAZI VE SİTE ÜYESİ PROFİLİ
+ * Tüm renkler yalnızca theme.css CSS değişkenlerinden okunur (sıfır sabit hex).
+ * ============================================================================ */
+
+.home-auth-flash {
+  margin-bottom: 1.25rem;
+}
+
+.nav-google-login-btn {
+  white-space: nowrap;
+}
+
+.sidebar-user-avatar--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand-icon);
+  color: var(--text-primary);
+  font-weight: 800;
+  font-size: 0.98rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.profile-avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-brand-icon);
+  color: var(--text-primary);
+  font-weight: 900;
+  font-size: 2.1rem;
+  user-select: none;
+}
+
+/* 1) /giris ve /giris/discord-var-mi Merkezi */
+.auth-center-shell {
+  max-width: 780px;
+  margin: 1.25rem auto 2.5rem;
+}
+
+.auth-center-card {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.auth-center-head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.auth-center-title {
+  margin: 0;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.auth-center-desc {
+  margin: 0;
+  max-width: 560px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.auth-pending-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-full);
+  background: var(--color-success-light);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success-text);
+  font-size: 0.85rem;
+}
+
+.auth-provider-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-provider-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-provider-grid--one {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.auth-provider-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  border: 1px solid var(--register-card-border);
+  background: var(--register-card-bg);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  min-width: 0;
+}
+
+.auth-provider-btn:hover,
+.auth-provider-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--register-card-hover-border);
+  background: var(--register-card-hover-bg);
+  box-shadow: var(--register-card-glow);
+}
+
+.auth-provider-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--color-discord);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-provider-icon--google {
+  background: var(--gradient-brand-icon);
+}
+
+.auth-provider-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-provider-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.auth-provider-sub {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.auth-provider-arrow {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.auth-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.auth-choice-form {
+  display: flex;
+}
+
+.auth-choice-card {
+  width: 100%;
+  padding: 1.5rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-primary);
+  background: var(--register-card-bg);
+  border: 1px solid var(--register-card-border);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-width: 0;
+}
+
+.auth-choice-card:hover,
+.auth-choice-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--register-card-hover-border);
+  box-shadow: var(--register-card-glow);
+}
+
+.auth-choice-icon {
+  font-size: 1.85rem;
+}
+
+.auth-choice-title {
+  margin: 0;
+  font-size: 1.08rem;
+  color: var(--text-primary);
+}
+
+.auth-choice-desc {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  flex: 1;
+}
+
+.auth-choice-cta {
+  margin-top: 0.35rem;
+}
+
+.auth-center-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.auth-center-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.auth-inline-link,
+.gs-doc-link {
+  color: var(--color-info-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-inline-link:hover,
+.gs-doc-link:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+
+.auth-error-card {
+  align-items: center;
+  text-align: center;
+}
+
+.auth-error-icon {
+  font-size: 2.5rem;
+}
+
+.auth-reason-box {
+  width: 100%;
+  max-width: 520px;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger-border);
+  text-align: left;
+}
+
+.auth-reason-label {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-danger-text);
+  margin-bottom: 0.3rem;
+}
+
+.auth-reason-text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.auth-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* 2) /uye-ol 4 Adımlı Sihirbaz */
+.gs-steps-bar {
+  flex-wrap: wrap;
+}
+
+.gs-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.gs-age-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.6rem;
+}
+
+.gs-age-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: 1rem 0.75rem;
+}
+
+.gs-age-title {
+  font-size: 0.98rem;
+  color: var(--text-primary);
+}
+
+.gs-age-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.gs-under13-box {
+  margin-bottom: 1.25rem;
+}
+
+.gs-under13-text {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+}
+
+.gs-consents-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+}
+
+.gs-consents-heading {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.gs-consent-item {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-color);
+  transition: border-color var(--transition-fast);
+}
+
+.gs-consent-item.has-error {
+  border-color: var(--color-danger-border);
+}
+
+.gs-consent-item--parent {
+  margin-bottom: 1rem;
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-light);
+}
+
+.gs-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  cursor: pointer;
+}
+
+.gs-check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+
+.gs-check-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.gs-consent-summary {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.gs-summary-card {
+  padding: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.gs-summary-display-box {
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-light);
+  border: 1px solid var(--border-hover);
+}
+
+.gs-summary-display-name {
+  margin-top: 0.25rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.gs-summary-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* 3) Google Site Üyesi Profili */
+.gp-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.gp-grid {
+  align-items: start;
+}
+
+.gp-card {
+  min-width: 0;
+}
+
+.gp-section-card {
+  margin-top: 1.25rem;
+}
+
+.gp-card-desc {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.gp-edit-details {
+  margin-top: 1.15rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.gp-edit-summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--color-info-text);
+  font-size: 0.92rem;
+  user-select: none;
+}
+
+.gp-edit-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gp-edit-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.gp-edit-game-row {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.gp-edit-game-toggle {
+  align-items: center;
+}
+
+.gp-privacy-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.gp-toggle-row {
+  padding: 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-color);
+}
+
+.gp-privacy-guarantees {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gp-guarantee-item {
+  font-size: 0.83rem;
+  color: var(--color-success-text);
+}
+
+.gp-consents-list,
+.gp-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gp-consent-row,
+.gp-session-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-subtle);
+}
+
+.gp-consent-info,
+.gp-session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gp-consent-head,
+.gp-session-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+}
+
+.gp-consent-summary,
+.gp-consent-impact {
+  margin: 0.25rem 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.gp-consent-impact {
+  color: var(--text-muted);
+}
+
+.gp-consent-meta,
+.gp-session-meta,
+.gp-empty-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.gp-consent-action {
+  flex-shrink: 0;
+}
+
+.gp-consent-delete-hint {
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning-alert);
+  font-size: 0.84rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.gp-danger-card {
+  border-color: var(--color-danger-border);
+}
+
+.gp-delete-exception {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.gp-delete-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.gp-delete-step-box,
+.gp-delete-form {
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-table-head);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.gp-delete-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .auth-center-card {
+    padding: 1.25rem;
+  }
+
+  .auth-provider-grid--two,
+  .auth-choice-grid,
+  .gs-age-grid,
+  .gp-delete-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gp-consent-row,
+  .gp-session-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nav-google-login-btn {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+}

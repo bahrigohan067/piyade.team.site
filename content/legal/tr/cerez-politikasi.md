@@ -1,6 +1,6 @@
 ---
 title: Çerez Politikası
-version: 1.0
+version: 1.1
 lastUpdated: 2026-11-26
 ---
 
@@ -12,9 +12,9 @@ lastUpdated: 2026-11-26
 
 | Ad | Amaç | Süre | Tür |
 | --- | --- | --- | --- |
-| `piyade.sid` | Giriş oturumunuzu korumak, CSRF güvenlik belirtecini, OAuth2 `state` doğrulamasını ve form tekillik anahtarlarını (idempotency) saklamak (`HttpOnly`, üretimde `Secure`, `SameSite=Lax`). | 24 saat | Zorunlu (Oturum / Güvenlik) |
+| `piyade.sid` | Giriş oturumunuzu korumak, CSRF güvenlik belirtecini, OAuth2 `state`/`nonce`/PKCE doğrulamasını ve form tekillik anahtarlarını (idempotency) saklamak (`HttpOnly`, üretimde `Secure`, `SameSite=Lax`). | 24 saat | Zorunlu (Oturum / Güvenlik) |
 | `lang` | Seçtiğiniz site dilini (`tr` veya `en`) sonraki ziyaretlerinizde hatırlamak (`SameSite=Lax`, üretimde `Secure`). | 1 yıl | Zorunlu / İşlevsel |
-| `piyade.remember` *(GELECEK ÖZELLİK)* | Yakında eklenecek Google ile giriş / site üyeliği sisteminde yalnızca sizin isteğinizle etkinleştirilecek "beni hatırla" oturum yenileme çerezi. Şu an aktif değildir. | Planlanan (yayında güncellenecektir) | İsteğe Bağlı *(Gelecek Özellik)* |
+| `pw_remember` | Google ile giriş yapan doğrudan site üyelerinin oturumunu güvenli biçimde yenileyen "beni hatırla" belirteci (`HttpOnly`, üretimde `Secure`, `SameSite=Lax`). `selector.validator` yapısındadır; sunucuda yalnızca `validator` özet değeri (SHA-256) saklanır, her kullanımda yenilenir (döndürülür), kullanıcı başına en çok 5 cihaz tutulur, uyumsuz belirteçte çalınma önlemi olarak tüm cihazlar iptal edilir ve çıkışta veya Profil → Oturumlarım ekranından silinir. Discord oturumlarını etkilemez. | 90 gün (kullanımda yenilenir) | İşlevsel / Oturum Sürekliliği |
 
 ## 2. Tarayıcı Yerel Depolama (`localStorage` ve `sessionStorage`) Envanteri
 

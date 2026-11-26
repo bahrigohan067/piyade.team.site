@@ -1,6 +1,6 @@
 ---
 title: Cookie Policy
-version: 1.0
+version: 1.1
 lastUpdated: 2026-11-26
 ---
 
@@ -12,9 +12,9 @@ lastUpdated: 2026-11-26
 
 | Name | Purpose | Duration | Type |
 | --- | --- | --- | --- |
-| `piyade.sid` | Maintains your login session, CSRF protection token, OAuth2 `state`, and form idempotency keys (`HttpOnly`, `Secure` in prod, `SameSite=Lax`). | 24 hours | Strictly Necessary (Session / Security) |
+| `piyade.sid` | Maintains your login session, CSRF protection token, OAuth2 `state`/`nonce`/PKCE verification, and form idempotency keys (`HttpOnly`, `Secure` in prod, `SameSite=Lax`). | 24 hours | Strictly Necessary (Session / Security) |
 | `lang` | Remembers your selected language (`tr` or `en`) across visits (`SameSite=Lax`, `Secure` in prod). | 1 year | Strictly Necessary / Functional |
-| `piyade.remember` *(UPCOMING FEATURE)* | Optional "remember me" token planned for the upcoming Google Sign-In / direct site membership release. Not currently active. | Planned (will be updated at launch) | Optional *(Upcoming Feature)* |
+| `pw_remember` | Persistent "remember me" token for Google site members (`HttpOnly`, `Secure` in prod, `SameSite=Lax`). Uses a `selector.validator` split where only the SHA-256 digest of the validator is stored server-side; rotates on every use; supports up to 5 devices per member; revokes all devices on mismatch (theft detection); and can be revoked on logout or via Profile → My Sessions. Does not affect Discord sessions. | 90 days (rolling on use) | Functional / Session Continuity |
 
 ## 2. Browser Storage (`localStorage` & `sessionStorage`) Inventory
 

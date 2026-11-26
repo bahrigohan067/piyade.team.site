@@ -1,0 +1,103 @@
+<%- include('../layouts/header') %>
+
+<%
+  const langPrefixPath = (typeof lang !== 'undefined' && lang === 'en') ? '/en' : '';
+%>
+
+<section class="legal-page">
+  <% if (!legalReviewed) { %>
+    <div class="legal-draft-banner" role="status" data-draft-banner="true">
+      <span class="legal-draft-icon" aria-hidden="true">⚠️</span>
+      <div class="legal-draft-copy">
+        <strong><%= t('legal.draftBannerTitle') %></strong>
+        <span><%= t('legal.draftBannerText') %></span>
+      </div>
+    </div>
+  <% } %>
+
+  <header class="card legal-header-card">
+    <div class="legal-header-top">
+      <div class="legal-header-badges">
+        <span class="badge badge-primary">⚖️ <%= t('legal.sectionBadge') %></span>
+        <% if (doc.meta && doc.meta.version) { %>
+          <span class="badge badge-neutral"><%= t('legal.versionLabel') %> v<%= doc.meta.version %></span>
+        <% } %>
+        <% if (doc.meta && doc.meta.lastUpdated) { %>
+          <span class="badge badge-neutral"><%= t('legal.lastUpdatedLabel') %>: <%= doc.meta.lastUpdated %></span>
+        <% } %>
+      </div>
+      <div class="legal-header-actions no-print">
+        <button type="button" class="btn btn-secondary btn-xs" onclick="window.print()">
+          🖨️ <%= t('legal.printBtn') %>
+        </button>
+        <a href="<%= langPrefixPath %>/bildir" class="btn btn-primary btn-xs">
+          🛡️ <%= t('legal.reportAbuseCta') %>
+        </a>
+      </div>
+    </div>
+    <h1 class="legal-page-title"><%= doc.meta && doc.meta.title ? doc.meta.title : pageTitle %></h1>
+  </header>
+
+  <div class="legal-layout-grid <%= (doc.toc && doc.toc.length > 0) ? 'has-toc' : '' %>">
+    <% if (doc.toc && doc.toc.length > 0) { %>
+      <aside class="card legal-toc-card no-print" aria-label="<%= t('legal.tocTitle') %>">
+        <h2 class="legal-toc-title"><%= t('legal.tocTitle') %></h2>
+        <nav class="legal-toc-nav">
+          <ul class="legal-toc-list">
+            <% doc.toc.forEach(function (entry) { %>
+              <li class="legal-toc-item legal-toc-level-<%= entry.level %>">
+                <a href="#<%= entry.id %>"><%= entry.text %></a>
+              </li>
+            <% }); %>
+          </ul>
+        </nav>
+      </aside>
+    <% } %>
+
+    <article class="card legal-doc-body">
+      <div class="legal-markdown-content">
+        <%- doc.html %>
+      </div>
+
+      <% if (slug === 'acik-riza' && Array.isArray(explicitConsents) && explicitConsents.length > 0) { %>
+        <section class="legal-consents-grid" aria-label="<%= t('legal.consentItemsHeading') %>">
+          <h2 class="legal-consents-heading"><%= t('legal.consentItemsHeading') %></h2>
+          <% explicitConsents.forEach(function (item) { %>
+            <div class="legal-consent-card" data-consent-id="<%= item.id %>" data-consent-version="<%= item.version %>">
+              <div class="legal-consent-head">
+                <span class="badge badge-primary"><%= item.code %></span>
+                <span class="badge badge-neutral">ID: <%= item.id %></span>
+                <span class="badge badge-neutral">v<%= item.version %></span>
+                <% if (item.upcoming) { %>
+                  <span class="badge badge-warning"><%= t('legal.upcomingBadge') %></span>
+                <% } %>
+              </div>
+              <h3 class="legal-consent-title"><%= item.title %></h3>
+              <p class="legal-consent-summary"><%= item.summary %></p>
+              <p class="legal-consent-impact"><%= item.impact %></p>
+            </div>
+          <% }); %>
+        </section>
+      <% } %>
+
+      <footer class="legal-doc-nav no-print" aria-label="<%= t('legal.otherDocsLabel') %>">
+        <span class="legal-doc-nav-label"><%= t('legal.otherDocsLabel') %></span>
+        <div class="legal-doc-nav-links">
+          <% allLegalDocs.forEach(function (item) { %>
+            <a
+              href="<%= langPrefixPath %>/yasal/<%= item.slug %>"
+              class="legal-doc-pill <%= item.slug === slug ? 'is-active' : '' %>"
+            >
+              <%= lang === 'en' ? item.titleEn : item.titleTr %>
+            </a>
+          <% }); %>
+          <a href="<%= langPrefixPath %>/bildir" class="legal-doc-pill legal-doc-pill--accent">
+            🛡️ <%= t('legal.reportAbuseCta') %>
+          </a>
+        </div>
+      </footer>
+    </article>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const appConfig = require('./app.config');
 const brandConfig = require('./brand.config');
+const legalConfig = require('./legal.config');
 const trLocale = require('../locales/tr.json');
 const enLocale = require('../locales/en.json');
 
@@ -23,6 +24,9 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'js/chat-attachments.js',
       'js/chat-badge.js',
       'js/chat-mod.js',
+      'js/cookie-notice.js',
+      'js/report-form.js',
+      'js/admin-legal.js',
     ];
     for (const rel of trackedFiles) {
       const fullPath = path.join(publicDir, rel);
@@ -62,7 +66,8 @@ const KNOWS_ABOUT = Object.freeze([
   'Piyade Dünyası',
 ]);
 
-const PUBLIC_ROUTE_PATHS = ['/', '/kurallar', '/kayit', '/etkilesim'];
+const LEGAL_PUBLIC_PATHS = legalConfig.LEGAL_DOCS.map((d) => `/yasal/${d.slug}`);
+const PUBLIC_ROUTE_PATHS = ['/', '/kurallar', '/kayit', '/etkilesim', '/bildir', ...LEGAL_PUBLIC_PATHS];
 
 const ROUTE_SEO_KEYS = {
   '/': {
@@ -89,7 +94,24 @@ const ROUTE_SEO_KEYS = {
     keywordsKey: 'seo.interactiveKeywords',
     breadcrumbKey: 'nav.interactive',
   },
+  '/bildir': {
+    titleKey: 'seo.reportTitle',
+    descKey: 'seo.reportDescription',
+    keywordsKey: 'seo.reportKeywords',
+    breadcrumbKey: 'reportPage.breadcrumb',
+  },
 };
+
+for (const doc of legalConfig.LEGAL_DOCS) {
+  ROUTE_SEO_KEYS[`/yasal/${doc.slug}`] = {
+    staticTitleTr: `${doc.titleTr} — Piyade World`,
+    staticTitleEn: `${doc.titleEn} — Piyade World`,
+    staticDescTr: doc.descTr,
+    staticDescEn: doc.descEn,
+    staticBreadcrumbTr: doc.titleTr,
+    staticBreadcrumbEn: doc.titleEn,
+  };
+}
 
 function readLocaleKey(lang, dotKey) {
   const dict = lang === 'en' ? enLocale : trLocale;
@@ -182,7 +204,8 @@ function buildBreadcrumbList(baseUrl, normalizedPath, canonicalUrl, lang) {
   if (normalizedPath !== '/') {
     const keyCfg = ROUTE_SEO_KEYS[normalizedPath];
     const subLabel =
-      (keyCfg && readLocaleKey(lang, keyCfg.breadcrumbKey)) ||
+      (keyCfg && (lang === 'en' ? keyCfg.staticBreadcrumbEn : keyCfg.staticBreadcrumbTr)) ||
+      (keyCfg && keyCfg.breadcrumbKey && readLocaleKey(lang, keyCfg.breadcrumbKey)) ||
       normalizedPath.replace(/^\/+/, '');
     elements.push({
       '@type': 'ListItem',
@@ -316,8 +339,12 @@ function buildPageSeo(req, overrides = {}) {
   const noindex = overrides.noindex !== undefined ? Boolean(overrides.noindex) : !isPublic;
 
   const keyCfg = ROUTE_SEO_KEYS[normalizedPath] || ROUTE_SEO_KEYS['/'];
-  const rawTitle = readLocaleKey(lang, keyCfg.titleKey).replace(/\{siteName\}/g, siteName);
-  const rawDesc = readLocaleKey(lang, keyCfg.descKey).replace(/\{siteName\}/g, siteName);
+  const rawTitle =
+    (lang === 'en' ? keyCfg.staticTitleEn : keyCfg.staticTitleTr) ||
+    readLocaleKey(lang, keyCfg.titleKey).replace(/\{siteName\}/g, siteName);
+  const rawDesc =
+    (lang === 'en' ? keyCfg.staticDescEn : keyCfg.staticDescTr) ||
+    readLocaleKey(lang, keyCfg.descKey).replace(/\{siteName\}/g, siteName);
   const rawKeywords = keyCfg.keywordsKey
     ? readLocaleKey(lang, keyCfg.keywordsKey).replace(/\{siteName\}/g, siteName)
     : 'Piyade World, Piyade Dünyası, Piyade, Piyade Oyuncu Topluluğu, Piyade Discord, Roblox, CS2, Zula, Minecraft';

@@ -4,6 +4,7 @@ const router = express.Router();
 const siteConfig = require('../config/site.config');
 const brandConfig = require('../config/brand.config');
 const gamesConfig = require('../config/games.config');
+const legalConfig = require('../config/legal.config');
 const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
 const { requireLogin } = require('../middlewares/auth');
@@ -41,6 +42,10 @@ router.get('/robots.txt', (req, res) => {
     'Allow: /kurallar',
     'Allow: /kayit',
     'Allow: /etkilesim',
+    'Allow: /yasal',
+    'Allow: /bildir',
+    'Disallow: /yasal/kvkk-basvuru/sorgula',
+    'Disallow: /bildir/sorgula',
     'Disallow: /yonetim',
     'Disallow: /profil',
     'Disallow: /auth',
@@ -75,6 +80,12 @@ router.get('/sitemap.xml', (req, res) => {
     { path: '/kurallar', priority: '0.9', changefreq: 'weekly' },
     { path: '/kayit', priority: '0.9', changefreq: 'weekly' },
     { path: '/etkilesim', priority: '0.8', changefreq: 'monthly' },
+    { path: '/bildir', priority: '0.6', changefreq: 'monthly' },
+    ...legalConfig.LEGAL_DOCS.map((doc) => ({
+      path: `/yasal/${doc.slug}`,
+      priority: doc.sitemapPriority || '0.5',
+      changefreq: 'monthly',
+    })),
   ];
 
   const urlEntries = [];

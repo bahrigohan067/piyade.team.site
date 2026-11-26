@@ -1,0 +1,99 @@
+<%- include('../layouts/header') %>
+
+<%
+  const langPrefixPath = (typeof lang !== 'undefined' && lang === 'en') ? '/en' : '';
+  const statusLabels = {
+    received: t('kvkkForm.statusReceived'),
+    in_review: t('kvkkForm.statusInReview'),
+    answered: t('kvkkForm.statusAnswered'),
+    rejected: t('kvkkForm.statusRejected'),
+  };
+  const statusBadges = {
+    received: 'badge-primary',
+    in_review: 'badge-warning',
+    answered: 'badge-success',
+    rejected: 'badge-danger',
+  };
+  const localeTag = lang === 'en' ? 'en-US' : 'tr-TR';
+%>
+
+<section class="legal-page legal-page--narrow">
+  <header class="card legal-header-card">
+    <div class="legal-header-top">
+      <span class="badge badge-primary">🔎 <%= t('kvkkForm.lookupBadge') %></span>
+      <a href="<%= langPrefixPath %>/yasal/kvkk-basvuru" class="btn btn-secondary btn-xs">
+        ← <%= t('kvkkForm.backToFormBtn') %>
+      </a>
+    </div>
+    <h1 class="legal-page-title"><%= t('kvkkForm.lookupHeading') %></h1>
+    <p class="legal-page-subtitle"><%= t('kvkkForm.lookupSubtitle') %></p>
+  </header>
+
+  <div class="card legal-form-card">
+    <% if (lookupError) { %>
+      <div class="alert alert-danger legal-alert" role="alert"><%= lookupError %></div>
+    <% } %>
+
+    <form method="POST" action="<%= langPrefixPath %>/yasal/kvkk-basvuru/sorgula" class="legal-form" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="legal-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="lookupCode"><%= t('kvkkForm.trackingCodeLabel') %> *</label>
+          <input
+            type="text"
+            id="lookupCode"
+            name="trackingCode"
+            class="form-control"
+            required
+            maxlength="32"
+            value="<%= queryCode || '' %>"
+            placeholder="KVKK-2026-XXXXX"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="lookupEmail"><%= t('kvkkForm.emailLabel') %> *</label>
+          <input
+            type="email"
+            id="lookupEmail"
+            name="email"
+            class="form-control"
+            required
+            maxlength="160"
+            value="<%= queryEmail || '' %>"
+            placeholder="<%= t('kvkkForm.emailPlaceholder') %>"
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">🔎 <%= t('kvkkForm.lookupSubmitBtn') %></button>
+    </form>
+
+    <% if (lookupResult) { %>
+      <div class="legal-status-result" data-kvkk-status-result="true">
+        <div class="legal-status-row">
+          <span><%= t('kvkkForm.trackingCodeLabel') %></span>
+          <strong><%= lookupResult.trackingCode %></strong>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('kvkkForm.statusLabel') %></span>
+          <span class="badge <%= statusBadges[lookupResult.status] || 'badge-neutral' %>">
+            <%= statusLabels[lookupResult.status] || lookupResult.status %>
+          </span>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('kvkkForm.submittedAtLabel') %></span>
+          <span><%= new Date(lookupResult.createdAt).toLocaleString(localeTag, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('kvkkForm.deadlineAtLabel') %></span>
+          <span><%= new Date(lookupResult.deadlineAt).toLocaleDateString(localeTag, { dateStyle: 'medium' }) %></span>
+        </div>
+        <p class="legal-field-hint"><%= t('kvkkForm.statusPrivacyNote') %></p>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

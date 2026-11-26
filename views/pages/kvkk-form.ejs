@@ -1,0 +1,193 @@
+<%- include('../layouts/header') %>
+
+<%
+  const langPrefixPath = (typeof lang !== 'undefined' && lang === 'en') ? '/en' : '';
+  const safeForm = formData || {};
+  const selectedTypes = Array.isArray(safeForm.requestTypes) ? safeForm.requestTypes : [];
+%>
+
+<section class="legal-page">
+  <% if (!legalReviewed) { %>
+    <div class="legal-draft-banner" role="status" data-draft-banner="true">
+      <span class="legal-draft-icon" aria-hidden="true">⚠️</span>
+      <div class="legal-draft-copy">
+        <strong><%= t('legal.draftBannerTitle') %></strong>
+        <span><%= t('legal.draftBannerText') %></span>
+      </div>
+    </div>
+  <% } %>
+
+  <header class="card legal-header-card">
+    <div class="legal-header-top">
+      <div class="legal-header-badges">
+        <span class="badge badge-primary">📋 <%= t('kvkkForm.badge') %></span>
+        <% if (doc.meta && doc.meta.version) { %>
+          <span class="badge badge-neutral"><%= t('legal.versionLabel') %> v<%= doc.meta.version %></span>
+        <% } %>
+        <% if (doc.meta && doc.meta.lastUpdated) { %>
+          <span class="badge badge-neutral"><%= t('legal.lastUpdatedLabel') %>: <%= doc.meta.lastUpdated %></span>
+        <% } %>
+      </div>
+      <div class="legal-header-actions no-print">
+        <a href="<%= langPrefixPath %>/yasal/kvkk-basvuru/sorgula" class="btn btn-secondary btn-xs">
+          🔎 <%= t('kvkkForm.lookupBtn') %>
+        </a>
+        <button type="button" class="btn btn-secondary btn-xs" onclick="window.print()">
+          🖨️ <%= t('legal.printBtn') %>
+        </button>
+      </div>
+    </div>
+    <h1 class="legal-page-title"><%= t('kvkkForm.heading') %></h1>
+    <p class="legal-page-subtitle"><%= t('kvkkForm.subtitle') %></p>
+  </header>
+
+  <% if (submittedResult) { %>
+    <div class="card legal-success-card" role="status" data-kvkk-success="true">
+      <div class="legal-success-icon" aria-hidden="true">✅</div>
+      <h2 class="legal-success-title"><%= t('kvkkForm.successTitle') %></h2>
+      <p class="legal-success-desc"><%= t('kvkkForm.successDesc') %></p>
+      <div class="legal-tracking-box">
+        <span class="legal-tracking-label"><%= t('kvkkForm.trackingCodeLabel') %></span>
+        <strong class="legal-tracking-code" id="kvkkTrackingCodeValue"><%= submittedResult.trackingCode %></strong>
+      </div>
+      <p class="legal-deadline-note">⏱️ <%= t('kvkkForm.deadlineNotice') %></p>
+      <div class="legal-success-actions">
+        <a href="<%= langPrefixPath %>/yasal/kvkk-basvuru/sorgula?kod=<%= encodeURIComponent(submittedResult.trackingCode) %>" class="btn btn-primary btn-sm">
+          🔎 <%= t('kvkkForm.lookupBtn') %>
+        </a>
+        <a href="<%= langPrefixPath %>/yasal/kvkk-aydinlatma" class="btn btn-secondary btn-sm">
+          ⚖️ <%= t('legal.kvkkNoticeLink') %>
+        </a>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="legal-kvkk-split">
+    <div class="card legal-form-card">
+      <h2 class="legal-form-title"><%= t('kvkkForm.formTitle') %></h2>
+
+      <% if (formError) { %>
+        <div class="alert alert-danger legal-alert" role="alert"><%= formError %></div>
+      <% } %>
+
+      <form method="POST" action="<%= langPrefixPath %>/yasal/kvkk-basvuru" class="legal-form" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <input type="hidden" name="_formStartedAt" value="<%= formStartToken %>" />
+
+        <!-- Honeypot (İnsan kullanıcılar görmez) -->
+        <div class="legal-hp-field" aria-hidden="true">
+          <label for="kvkkWebsiteHp">Website</label>
+          <input type="text" id="kvkkWebsiteHp" name="website_url" tabindex="-1" autocomplete="off" value="" />
+        </div>
+
+        <div class="legal-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="kvkkFullName"><%= t('kvkkForm.fullNameLabel') %> *</label>
+            <input
+              type="text"
+              id="kvkkFullName"
+              name="fullName"
+              class="form-control"
+              maxlength="120"
+              required
+              value="<%= safeForm.fullName || '' %>"
+              placeholder="<%= t('kvkkForm.fullNamePlaceholder') %>"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="kvkkEmail"><%= t('kvkkForm.emailLabel') %> *</label>
+            <input
+              type="email"
+              id="kvkkEmail"
+              name="email"
+              class="form-control"
+              maxlength="160"
+              required
+              value="<%= safeForm.email || '' %>"
+              placeholder="<%= t('kvkkForm.emailPlaceholder') %>"
+            />
+          </div>
+        </div>
+
+        <div class="legal-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="kvkkRelation"><%= t('kvkkForm.relationLabel') %> *</label>
+            <select id="kvkkRelation" name="relation" class="form-control" required>
+              <option value="member" <%= safeForm.relation === 'member' ? 'selected' : '' %>><%= t('kvkkForm.relationMember') %></option>
+              <option value="visitor" <%= safeForm.relation !== 'member' ? 'selected' : '' %>><%= t('kvkkForm.relationVisitor') %></option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="kvkkAccountId"><%= t('kvkkForm.accountIdLabel') %></label>
+            <input
+              type="text"
+              id="kvkkAccountId"
+              name="accountIdentifier"
+              class="form-control"
+              maxlength="120"
+              value="<%= safeForm.accountIdentifier || '' %>"
+              placeholder="<%= t('kvkkForm.accountIdPlaceholder') %>"
+            />
+          </div>
+        </div>
+
+        <fieldset class="legal-fieldset">
+          <legend class="form-label"><%= t('kvkkForm.requestTypesLabel') %> *</legend>
+          <div class="legal-checkbox-grid">
+            <% requestTypesList.forEach(function (rt) { %>
+              <label class="legal-checkbox-item">
+                <input
+                  type="checkbox"
+                  name="requestTypes"
+                  value="<%= rt.id %>"
+                  <%= selectedTypes.includes(rt.id) ? 'checked' : '' %>
+                />
+                <span><%= lang === 'en' ? rt.labelEn : rt.labelTr %></span>
+              </label>
+            <% }); %>
+          </div>
+        </fieldset>
+
+        <div class="form-group">
+          <label class="form-label" for="kvkkDescription">
+            <%= t('kvkkForm.descriptionLabel') %> *
+          </label>
+          <textarea
+            id="kvkkDescription"
+            name="description"
+            class="form-control"
+            rows="6"
+            maxlength="3000"
+            required
+            placeholder="<%= t('kvkkForm.descriptionPlaceholder') %>"
+          ><%= safeForm.description || '' %></textarea>
+          <div class="legal-field-hint"><%= t('kvkkForm.descriptionHint') %></div>
+        </div>
+
+        <div class="legal-info-notes">
+          <p>🔒 <strong><%= t('kvkkForm.processingNoticeTitle') %>:</strong> <%= t('kvkkForm.processingNoticeBody') %></p>
+          <p>🪪 <strong><%= t('kvkkForm.identityNoticeTitle') %>:</strong> <%= t('kvkkForm.identityNoticeBody') %></p>
+        </div>
+
+        <div class="legal-form-actions">
+          <button type="submit" class="btn btn-primary">
+            📨 <%= t('kvkkForm.submitBtn') %>
+          </button>
+          <a href="<%= langPrefixPath %>/yasal/kvkk-basvuru/sorgula" class="btn btn-secondary">
+            🔎 <%= t('kvkkForm.lookupBtn') %>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <aside class="card legal-doc-body legal-doc-side">
+      <div class="legal-markdown-content">
+        <%- doc.html %>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

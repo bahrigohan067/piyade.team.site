@@ -193,6 +193,78 @@ const chatModLimiter = rateLimit({
   },
 });
 
+/**
+ * KVKK Başvuru Formu Limiter'ı (IP başına günde en fazla 3 başvuru)
+ */
+const kvkkSubmitLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => `kvkk_submit_ip:${ipKeyGenerator(req.ip)}`,
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('kvkkForm.errRateLimited')
+      : 'Günlük KVKK başvuru sınırına (3) ulaştınız. Lütfen yarın tekrar deneyiniz.';
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.status(429).json({ ok: false, code: 'RATE_LIMITED', error: msg });
+    }
+    return res.status(429).render('errors/403', {
+      title: req.t ? req.t('legal.rateLimitedTitle') : 'İşlem Sınırı Aşıldı (429)',
+      message: msg,
+    });
+  },
+});
+
+/**
+ * Kötüye Kullanım ve İhlal Bildirimi Limiter'ı (IP başına saatte en fazla 5 bildirim)
+ */
+const abuseReportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => `abuse_report_ip:${ipKeyGenerator(req.ip)}`,
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('reportPage.errRateLimited')
+      : 'Saatlik bildirim sınırına (5) ulaştınız. Lütfen daha sonra tekrar deneyiniz.';
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.status(429).json({ ok: false, code: 'RATE_LIMITED', error: msg });
+    }
+    return res.status(429).render('errors/403', {
+      title: req.t ? req.t('legal.rateLimitedTitle') : 'İşlem Sınırı Aşıldı (429)',
+      message: msg,
+    });
+  },
+});
+
+/**
+ * KVKK & İhlal Takip Kodu Sorgulama Limiter'ı (IP başına 15 dakikada max 30 sorgu)
+ */
+const statusLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => `status_lookup_ip:${ipKeyGenerator(req.ip)}`,
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('legal.errLookupRateLimited')
+      : 'Çok fazla sorgulama yaptınız. Lütfen 15 dakika sonra tekrar deneyiniz.';
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.status(429).json({ ok: false, code: 'RATE_LIMITED', error: msg });
+    }
+    return res.status(429).render('errors/403', {
+      title: req.t ? req.t('legal.rateLimitedTitle') : 'İşlem Sınırı Aşıldı (429)',
+      message: msg,
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
@@ -205,4 +277,7 @@ module.exports = {
   chatMessageLimiter,
   chatUploadLimiter,
   chatModLimiter,
+  kvkkSubmitLimiter,
+  abuseReportLimiter,
+  statusLookupLimiter,
 };

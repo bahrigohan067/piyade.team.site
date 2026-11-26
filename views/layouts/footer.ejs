@@ -9,6 +9,20 @@
         ? brandConfig.ASSETS.logo256
         : '/img/brand/logo-256.webp?v=1';
       const assetVer = (typeof seo !== 'undefined' && seo.assetVersion) ? seo.assetVersion : '2.2.0';
+      const footerLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
+      const footerLangPrefix = footerLang === 'en' ? '/en' : '';
+      const footerLegalLinks = (typeof legalFooterLinks !== 'undefined' && Array.isArray(legalFooterLinks) && legalFooterLinks.length > 0)
+        ? legalFooterLinks
+        : [
+            { path: '/yasal/kvkk-aydinlatma', labelTr: 'KVKK Aydınlatma Metni', labelEn: 'KVKK Privacy Notice' },
+            { path: '/yasal/acik-riza', labelTr: 'Açık Rıza Metni', labelEn: 'Explicit Consent' },
+            { path: '/yasal/gizlilik-politikasi', labelTr: 'Gizlilik Politikası', labelEn: 'Privacy Policy' },
+            { path: '/yasal/cerez-politikasi', labelTr: 'Çerez Politikası', labelEn: 'Cookie Policy' },
+            { path: '/yasal/kvkk-basvuru', labelTr: 'KVKK Başvuru Formu', labelEn: 'KVKK Request Form' },
+            { path: '/yasal/kunye', labelTr: 'Künye', labelEn: 'Imprint' },
+            { path: '/yasal/telif-dmca', labelTr: 'Telif Hakkı / DMCA', labelEn: 'Copyright / DMCA' },
+            { path: '/bildir', labelTr: 'İhlal Bildir', labelEn: 'Report Abuse' },
+          ];
       const discordUrl = (typeof brandConfig !== 'undefined' && brandConfig && typeof brandConfig.getDiscordInviteUrl === 'function' && brandConfig.getDiscordInviteUrl())
         ? brandConfig.getDiscordInviteUrl()
         : ((typeof seo !== 'undefined' && Array.isArray(seo.sameAs) && seo.sameAs.length > 0) ? seo.sameAs[0] : '');
@@ -57,8 +71,32 @@
           &copy; <%= new Date().getFullYear() %> <%= footerBrand %> — <%= t('footer.copyright') %>
         </div>
       </div>
+
+      <% if (typeof isChatPage === 'undefined' || !isChatPage) { %>
+        <div class="container footer-legal-bar" aria-label="<%= t('footer.legalLinksAria') %>">
+          <nav class="footer-legal-nav">
+            <% footerLegalLinks.forEach(function (item, idx) { %>
+              <% if (idx > 0) { %><span class="footer-legal-sep" aria-hidden="true">•</span><% } %>
+              <a href="<%= footerLangPrefix %><%= item.path %>" class="footer-legal-link"><%= footerLang === 'en' ? item.labelEn : item.labelTr %></a>
+            <% }); %>
+          </nav>
+        </div>
+      <% } %>
     </footer>
   </div><!-- /.app-layout-shell -->
+
+  <!-- Engellemeyen Zorunlu Çerez Bilgi Çubuğu -->
+  <div id="cookieNoticeBar" class="cookie-notice-bar no-print" role="region" aria-label="<%= t('cookieNotice.ariaLabel') %>" hidden aria-hidden="true">
+    <div class="cookie-notice-inner">
+      <p class="cookie-notice-text">
+        🍪 <%= t('cookieNotice.text') %>
+        <a href="<%= footerLangPrefix %>/yasal/cerez-politikasi" class="cookie-notice-link"><%= t('cookieNotice.policyLink') %></a>
+      </p>
+      <button type="button" id="cookieNoticeAckBtn" class="btn btn-primary btn-xs cookie-notice-btn">
+        <%= t('cookieNotice.ackBtn') %>
+      </button>
+    </div>
+  </div>
 
   <% if (showFeedbackPill) { %>
     <!-- Sağ Alt Köşe: Nexus UI Feedback Pill Bileşeni (Yalnızca girişli ve sunucudaki üyelere) -->
@@ -82,8 +120,9 @@
     <script src="/js/feedback-pill.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
-  <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama) -->
+  <!-- Temel İstemci Scriptleri (Sol Menü, Form Kilidi, Canlı Arama, Zorunlu Çerez Bildirimi) -->
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>
+  <script src="/js/cookie-notice.js?v=<%= assetVer %>" defer></script>
 
   <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) { %>
     <!-- Kişisel "Etkinliğim" Paneli İstemci Mantığı -->
@@ -111,6 +150,14 @@
 
   <% if (typeof isChatModPage !== 'undefined' && isChatModPage) { %>
     <script src="/js/chat-mod.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isReportPage !== 'undefined' && isReportPage) { %>
+    <script src="/js/report-form.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isAdminLegalPage !== 'undefined' && isAdminLegalPage) { %>
+    <script src="/js/admin-legal.js?v=<%= assetVer %>" defer></script>
   <% } %>
 </body>
 </html>

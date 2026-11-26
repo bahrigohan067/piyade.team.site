@@ -1,6 +1,7 @@
 const appConfig = require('../config/app.config');
 const brandConfig = require('../config/brand.config');
 const chatConfig = require('../config/chat.config');
+const legalConfig = require('../config/legal.config');
 const { isRegisteredMember, isManagement, isDeveloper, isCommunityOfficial } = require('../config/roles.config');
 const { getVisibleMenuItems } = require('../config/menu.config');
 const botApiClient = require('../services/botApiClient');
@@ -15,6 +16,7 @@ async function syncRolesMiddleware(req, res, next) {
   res.locals.currentUser = null;
   res.locals.chatEnabled = appConfig.isChatEnabled();
   res.locals.isCommunityOfficial = false;
+  res.locals.legalFooterLinks = legalConfig.FOOTER_LEGAL_LINKS;
   res.locals.visibleMenus = getVisibleMenuItems(null, req.lang || 'tr');
   res.locals.currentPath = req.path;
   res.locals.activeStats = botApiClient.getLastKnownActiveStats();
@@ -305,6 +307,76 @@ async function requireFreshModAuditViewer(req, res, next) {
   }
 }
 
+/**
+ * KVKK Yönetici Paneli (/yonetim/kvkk): Her istekte Bot API'den TAZE Developer rolü doğrular.
+ * Developer dışındaki herkese (Yönetmenlik, Community Official, üyeler, ziyaretçiler) 404 döndürür.
+ */
+async function requireFreshDeveloper(req, res, next) {
+  markNoIndex(req, res);
+  if (!req.session || !req.session.user || !req.session.user.id) {
+    return next('router');
+  }
+  const actorId = String(req.session.user.id);
+  try {
+    const freshRolesData = await botApiClient.getMemberRoles(actorId);
+    const roles = freshRolesData.roles || [];
+    const level = freshRolesData.level || 'unregistered';
+
+    req.session.user.roles = roles;
+    req.session.user.level = level;
+    req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.registered = typeof freshRolesData.registered === 'boolean' ? freshRolesData.registered : undefined;
+    req.session.user.inGuild = true;
+    req.session.user.rolesSyncedAt = Date.now();
+
+    if (!isDeveloper(roles, level)) {
+      return next('router');
+    }
+    req.freshActorRoles = freshRolesData;
+    return next();
+  } catch (err) {
+    if (err && err.statusCode === 404) {
+      return next('router');
+    }
+    return next(err);
+  }
+}
+
+/**
+ * Yönetim İhlal Bildirim Paneli (/yonetim/bildirimler): Her istekte Bot API'den TAZE
+ * Developer veya Yönetmenlik rolü doğrular. Yetkisiz herkese (panelin varlığını gizleyerek) 404 döndürür.
+ */
+async function requireFreshManagementOr404(req, res, next) {
+  markNoIndex(req, res);
+  if (!req.session || !req.session.user || !req.session.user.id) {
+    return next('router');
+  }
+  const actorId = String(req.session.user.id);
+  try {
+    const freshRolesData = await botApiClient.getMemberRoles(actorId);
+    const roles = freshRolesData.roles || [];
+    const level = freshRolesData.level || 'unregistered';
+
+    req.session.user.roles = roles;
+    req.session.user.level = level;
+    req.session.user.highestRolePosition = freshRolesData.highestRolePosition || 0;
+    req.session.user.registered = typeof freshRolesData.registered === 'boolean' ? freshRolesData.registered : undefined;
+    req.session.user.inGuild = true;
+    req.session.user.rolesSyncedAt = Date.now();
+
+    if (!isManagement(roles, level)) {
+      return next('router');
+    }
+    req.freshActorRoles = freshRolesData;
+    return next();
+  } catch (err) {
+    if (err && err.statusCode === 404) {
+      return next('router');
+    }
+    return next(err);
+  }
+}
+
 module.exports = {
   syncRolesMiddleware,
   requireLogin,
@@ -313,4 +385,6 @@ module.exports = {
   requireFreshManagement,
   requireFreshCommunityOfficial,
   requireFreshModAuditViewer,
+  requireFreshDeveloper,
+  requireFreshManagementOr404,
 };

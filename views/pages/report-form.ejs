@@ -1,0 +1,296 @@
+<%- include('../layouts/header') %>
+
+<%
+  const langPrefixPath = (typeof lang !== 'undefined' && lang === 'en') ? '/en' : '';
+  const safeForm = formData || {};
+  const reportBootstrap = {
+    csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
+    lang: typeof lang !== 'undefined' ? lang : 'tr',
+    actionUrl: `${langPrefixPath}/bildir`,
+    preselectedCategory: preselectedCategory || '',
+    maxFiles: 3,
+    maxBytes: 5 * 1024 * 1024,
+    i18n: {
+      selectedPrefix: t('reportPage.selectedCategoryPrefix'),
+      errMaxFiles: t('reportPage.errMaxFiles'),
+      errFileTooLarge: t('reportPage.errFileTooLarge'),
+      errInvalidFile: t('reportPage.errInvalidFile'),
+      submittingBtn: t('reportPage.submittingBtn'),
+      submitBtn: t('reportPage.submitBtn'),
+      genericError: t('reportPage.errGeneric'),
+    },
+  };
+  const safeBootstrapJson = JSON.stringify(reportBootstrap).replace(/</g, '\\u003c');
+%>
+
+<script id="reportFormBootstrapData" type="application/json"><%- safeBootstrapJson %></script>
+
+<section class="legal-page report-page">
+  <header class="card legal-header-card">
+    <div class="legal-header-top">
+      <div class="legal-header-badges">
+        <span class="badge badge-primary">🛡️ <%= t('reportPage.badge') %></span>
+        <span class="badge badge-neutral"><%= t('reportPage.noLoginBadge') %></span>
+      </div>
+      <div class="legal-header-actions">
+        <a href="<%= langPrefixPath %>/bildir/sorgula" class="btn btn-secondary btn-xs">
+          🔎 <%= t('reportPage.lookupBtn') %>
+        </a>
+        <a href="<%= langPrefixPath %>/yasal/kotuye-kullanim" class="btn btn-secondary btn-xs">
+          📜 <%= t('reportPage.procedureLink') %>
+        </a>
+      </div>
+    </div>
+    <h1 class="legal-page-title"><%= t('reportPage.heading') %></h1>
+    <p class="legal-page-subtitle"><%= t('reportPage.subtitle') %></p>
+  </header>
+
+  <!-- Başarılı Gönderim Kartı (Sunucu PRG veya JS AJAX) -->
+  <div
+    class="card legal-success-card"
+    id="reportSuccessCard"
+    role="status"
+    data-report-success="true"
+    <%= submittedResult ? '' : 'hidden' %>
+  >
+    <div class="legal-success-icon" aria-hidden="true">✅</div>
+    <h2 class="legal-success-title"><%= t('reportPage.successTitle') %></h2>
+    <p class="legal-success-desc"><%= t('reportPage.successDesc') %></p>
+    <div class="legal-tracking-box">
+      <span class="legal-tracking-label"><%= t('reportPage.trackingCodeLabel') %></span>
+      <strong class="legal-tracking-code" id="reportTrackingCodeValue"><%= submittedResult ? submittedResult.trackingCode : '' %></strong>
+    </div>
+    <div class="legal-success-actions">
+      <a
+        id="reportLookupDirectLink"
+        href="<%= langPrefixPath %>/bildir/sorgula<%= submittedResult ? ('?kod=' + encodeURIComponent(submittedResult.trackingCode)) : '' %>"
+        class="btn btn-primary btn-sm"
+      >
+        🔎 <%= t('reportPage.lookupBtn') %>
+      </a>
+      <a href="<%= langPrefixPath %>/yasal/kotuye-kullanim" class="btn btn-secondary btn-sm">
+        📜 <%= t('reportPage.procedureLink') %>
+      </a>
+    </div>
+  </div>
+
+  <!-- 10 KATEGORİLİ CAM TUŞ TAKIMI -->
+  <div class="card report-keypad-card">
+    <div class="report-keypad-head">
+      <h2 class="report-keypad-title">1. <%= t('reportPage.chooseCategoryTitle') %></h2>
+      <p class="report-keypad-hint"><%= t('reportPage.chooseCategoryHint') %></p>
+    </div>
+
+    <div class="report-keypad-grid" role="group" aria-label="<%= t('reportPage.chooseCategoryTitle') %>">
+      <% categories.forEach(function (cat) {
+        const isSelected = safeForm.category === cat.id;
+      %>
+        <button
+          type="button"
+          class="report-key-btn <%= isSelected ? 'is-selected' : '' %> <%= cat.priority === 'critical' ? 'is-critical' : '' %>"
+          data-report-cat="<%= cat.id %>"
+          data-report-label="<%= lang === 'en' ? cat.labelEn : cat.labelTr %>"
+          data-report-emoji="<%= cat.emoji %>"
+          aria-pressed="<%= isSelected ? 'true' : 'false' %>"
+        >
+          <span class="report-key-emoji" aria-hidden="true"><%= cat.emoji %></span>
+          <span class="report-key-name"><%= lang === 'en' ? cat.labelEn : cat.labelTr %></span>
+          <span class="report-key-desc"><%= lang === 'en' ? cat.descEn : cat.descTr %></span>
+        </button>
+      <% }); %>
+    </div>
+  </div>
+
+  <!-- YAYLANARAK AÇILAN BİLDİRİM FORMU (NexusSpring) -->
+  <div
+    class="card legal-form-card report-form-panel <%= safeForm.category ? 'is-open' : '' %>"
+    id="reportFormPanel"
+    <%= safeForm.category ? '' : 'hidden' %>
+  >
+    <div class="report-form-head">
+      <h2 class="legal-form-title" id="reportSelectedHeading">
+        2. <%= t('reportPage.formDetailsTitle') %>
+      </h2>
+      <span class="badge badge-primary" id="reportSelectedBadge">
+        <%
+          const activeCatObj = categories.find(function (c) { return c.id === safeForm.category; });
+        %>
+        <%= activeCatObj ? (activeCatObj.emoji + ' ' + (lang === 'en' ? activeCatObj.labelEn : activeCatObj.labelTr)) : '' %>
+      </span>
+    </div>
+
+    <div id="reportFormError" class="alert alert-danger legal-alert" role="alert" <%= formError ? '' : 'hidden' %>>
+      <%= formError || '' %>
+    </div>
+
+    <form
+      id="abuseReportForm"
+      method="POST"
+      action="<%= langPrefixPath %>/bildir?_csrf=<%= encodeURIComponent(csrfToken) %>"
+      enctype="multipart/form-data"
+      class="legal-form"
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <input type="hidden" name="_formStartedAt" value="<%= formStartToken %>" />
+      <input type="hidden" id="reportCategoryInput" name="category" value="<%= safeForm.category || '' %>" />
+
+      <!-- Honeypot -->
+      <div class="legal-hp-field" aria-hidden="true">
+        <label for="reportWebsiteHp">Website</label>
+        <input type="text" id="reportWebsiteHp" name="website_url" tabindex="-1" autocomplete="off" value="" />
+      </div>
+
+      <div class="legal-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="reportLocation"><%= t('reportPage.locationLabel') %> *</label>
+          <select id="reportLocation" name="location" class="form-control" required>
+            <option value="site" <%= safeForm.location === 'site' ? 'selected' : '' %>><%= t('reportPage.locSite') %></option>
+            <option value="chat" <%= safeForm.location === 'chat' ? 'selected' : '' %>><%= t('reportPage.locChat') %></option>
+            <option value="discord" <%= safeForm.location === 'discord' ? 'selected' : '' %>><%= t('reportPage.locDiscord') %></option>
+            <option value="other" <%= safeForm.location === 'other' ? 'selected' : '' %>><%= t('reportPage.locOther') %></option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reportTargetRef"><%= t('reportPage.targetRefLabel') %></label>
+          <input
+            type="text"
+            id="reportTargetRef"
+            name="targetRef"
+            class="form-control"
+            maxlength="500"
+            value="<%= safeForm.targetRef || '' %>"
+            placeholder="<%= t('reportPage.targetRefPlaceholder') %>"
+          />
+        </div>
+      </div>
+
+      <!-- TELİF HAKKI / DMCA EK ZORUNLU ALANLARI -->
+      <div
+        class="report-dmca-box"
+        id="reportDmcaSection"
+        <%= safeForm.category === 'copyright_dmca' ? '' : 'hidden' %>
+      >
+        <h3 class="report-dmca-title">©️ <%= t('reportPage.dmcaSectionTitle') %></h3>
+        <p class="legal-field-hint"><%= t('reportPage.dmcaSectionHint') %></p>
+
+        <div class="legal-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="dmcaRightsHolder"><%= t('reportPage.dmcaRightsHolderLabel') %> *</label>
+            <input
+              type="text"
+              id="dmcaRightsHolder"
+              name="dmcaRightsHolder"
+              class="form-control"
+              maxlength="160"
+              value="<%= safeForm.dmcaRightsHolder || '' %>"
+              placeholder="<%= t('reportPage.dmcaRightsHolderPlaceholder') %>"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="dmcaInfringingUrl"><%= t('reportPage.dmcaInfringingUrlLabel') %> *</label>
+            <input
+              type="text"
+              id="dmcaInfringingUrl"
+              name="dmcaInfringingUrl"
+              class="form-control"
+              maxlength="500"
+              value="<%= safeForm.dmcaInfringingUrl || '' %>"
+              placeholder="<%= t('reportPage.dmcaInfringingUrlPlaceholder') %>"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="dmcaWorkDescription"><%= t('reportPage.dmcaWorkDescLabel') %> *</label>
+          <textarea
+            id="dmcaWorkDescription"
+            name="dmcaWorkDescription"
+            class="form-control"
+            rows="3"
+            maxlength="1000"
+            placeholder="<%= t('reportPage.dmcaWorkDescPlaceholder') %>"
+          ><%= safeForm.dmcaWorkDescription || '' %></textarea>
+        </div>
+
+        <label class="legal-checkbox-item">
+          <input
+            type="checkbox"
+            id="dmcaGoodFaith"
+            name="dmcaGoodFaith"
+            value="on"
+            <%= safeForm.dmcaGoodFaith ? 'checked' : '' %>
+          />
+          <span><%= t('reportPage.dmcaGoodFaithLabel') %></span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <div class="report-label-row">
+          <label class="form-label" for="reportDescription"><%= t('reportPage.descriptionLabel') %> *</label>
+          <span class="legal-char-counter" id="reportDescCounter">0 / 2000</span>
+        </div>
+        <textarea
+          id="reportDescription"
+          name="description"
+          class="form-control"
+          rows="5"
+          maxlength="2000"
+          required
+          placeholder="<%= t('reportPage.descriptionPlaceholder') %>"
+        ><%= safeForm.description || '' %></textarea>
+      </div>
+
+      <div class="legal-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="reportEvidenceFiles"><%= t('reportPage.evidenceLabel') %></label>
+          <input
+            type="file"
+            id="reportEvidenceFiles"
+            name="evidenceFiles"
+            class="form-control"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+          />
+          <div class="legal-field-hint"><%= t('reportPage.evidenceHint') %></div>
+          <div id="reportFileList" class="report-file-chips"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reportContactEmail">
+            <%= t('reportPage.contactEmailLabel') %>
+            <span id="reportEmailReqMark" <%= safeForm.category === 'copyright_dmca' ? '' : 'hidden' %>>*</span>
+          </label>
+          <input
+            type="email"
+            id="reportContactEmail"
+            name="contactEmail"
+            class="form-control"
+            maxlength="160"
+            value="<%= safeForm.contactEmail || '' %>"
+            placeholder="<%= t('reportPage.contactEmailPlaceholder') %>"
+          />
+          <div class="legal-field-hint"><%= t('reportPage.contactEmailHint') %></div>
+        </div>
+      </div>
+
+      <div class="legal-info-notes">
+        <p>💬 <%= t('reportPage.inChatReminder') %></p>
+        <p>🔒 <%= t('reportPage.evidencePrivacyNote') %></p>
+      </div>
+
+      <div class="legal-form-actions">
+        <button type="submit" id="reportSubmitBtn" class="btn btn-primary">
+          📨 <%= t('reportPage.submitBtn') %>
+        </button>
+        <a href="<%= langPrefixPath %>/bildir/sorgula" class="btn btn-secondary">
+          🔎 <%= t('reportPage.lookupBtn') %>
+        </a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

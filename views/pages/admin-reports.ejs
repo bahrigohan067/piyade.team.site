@@ -1,0 +1,144 @@
+<%- include('../layouts/header') %>
+
+<%
+  const catMap = {};
+  categories.forEach(function (c) {
+    catMap[c.id] = `${c.emoji} ${lang === 'en' ? c.labelEn : c.labelTr}`;
+  });
+  const adminBootstrap = {
+    mode: 'management_reports',
+    csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
+    lang: typeof lang !== 'undefined' ? lang : 'tr',
+    categoryLabels: catMap,
+    i18n: {
+      emptyList: t('adminReports.emptyList'),
+      emptyAudit: t('adminReports.emptyAudit'),
+      openBtn: t('adminReports.openBtn'),
+      revealEvidence: t('chatMod.revealAttachment'),
+      errNoteRequired: t('adminReports.errNoteRequired'),
+      savedToast: t('adminReports.savedToast'),
+      statusLabels: {
+        new: t('reportPage.statusNew'),
+        in_review: t('reportPage.statusInReview'),
+        action_taken: t('reportPage.statusActionTaken'),
+        no_basis: t('reportPage.statusNoBasis'),
+        closed: t('reportPage.statusClosed'),
+      },
+      priorityLabels: {
+        critical: t('chatMod.filterPriorityCritical'),
+        high: t('chatMod.filterPriorityHigh'),
+        normal: t('chatMod.filterPriorityNormal'),
+        low: t('chatMod.filterPriorityLow'),
+      },
+    },
+  };
+  const safeJson = JSON.stringify(adminBootstrap).replace(/</g, '\\u003c');
+%>
+
+<script id="adminLegalBootstrapData" type="application/json"><%- safeJson %></script>
+
+<section class="chat-mod-page admin-legal-page">
+  <div class="chat-mod-header-card">
+    <div class="chat-mod-title-row">
+      <div>
+        <span class="badge badge-warning">🛡️ <%= t('adminReports.roleBadge') %></span>
+        <h1 class="chat-mod-heading"><%= t('adminReports.heading') %></h1>
+      </div>
+      <a href="/bildir" class="btn btn-secondary btn-sm">🛡️ /bildir</a>
+    </div>
+
+    <div class="chat-mod-principle-banner">
+      <span>⚖️</span>
+      <span><%= t('adminReports.principleBanner') %></span>
+    </div>
+
+    <div class="chat-mod-tabs" role="tablist">
+      <button type="button" class="chat-mod-tab active" data-legal-tab="list" role="tab" aria-selected="true">
+        🚩 <%= t('adminReports.tabList') %>
+      </button>
+      <button type="button" class="chat-mod-tab" data-legal-tab="audit" role="tab" aria-selected="false">
+        📜 <%= t('adminReports.tabAudit') %>
+      </button>
+    </div>
+  </div>
+
+  <div id="adminLegalListPanel" class="chat-mod-panel">
+    <div id="adminLegalListView">
+      <div class="chat-mod-filters">
+        <select id="adminLegalFilterStatus" class="form-control">
+          <option value=""><%= t('adminReports.filterAllStatuses') %></option>
+          <option value="new"><%= t('reportPage.statusNew') %></option>
+          <option value="in_review"><%= t('reportPage.statusInReview') %></option>
+          <option value="action_taken"><%= t('reportPage.statusActionTaken') %></option>
+          <option value="no_basis"><%= t('reportPage.statusNoBasis') %></option>
+          <option value="closed"><%= t('reportPage.statusClosed') %></option>
+        </select>
+        <select id="adminLegalFilterCategory" class="form-control">
+          <option value=""><%= t('adminReports.filterAllCategories') %></option>
+          <% categories.forEach(function (c) { %>
+            <option value="<%= c.id %>"><%= c.emoji %> <%= lang === 'en' ? c.labelEn : c.labelTr %></option>
+          <% }); %>
+        </select>
+        <button type="button" id="adminLegalRefreshBtn" class="btn btn-secondary btn-sm">🔄</button>
+      </div>
+
+      <div id="adminLegalListContainer" class="chat-mod-list"></div>
+    </div>
+
+    <div id="adminLegalDetailView" class="chat-mod-detail" hidden>
+      <div class="chat-mod-detail-top">
+        <button type="button" class="btn btn-secondary btn-sm" id="adminLegalBackBtn">
+          ← <%= t('adminReports.backBtn') %>
+        </button>
+        <div id="adminLegalDetailBadges" class="chat-mod-badges"></div>
+      </div>
+
+      <div class="chat-mod-detail-grid">
+        <div class="chat-mod-snapshot-box">
+          <h2 class="chat-mod-subhead">📄 <%= t('adminReports.detailTitle') %></h2>
+          <div id="adminLegalDetailMeta" class="chat-mod-meta-box"></div>
+          <div id="adminLegalDetailBody" class="legal-detail-body"></div>
+          <div id="adminLegalEvidenceList" class="chat-mod-att-list"></div>
+          <h3 class="chat-mod-subhead legal-notes-subhead">📝 <%= t('adminReports.notesTitle') %></h3>
+          <div id="adminLegalNotesList" class="legal-notes-list"></div>
+        </div>
+
+        <aside class="chat-mod-actions-box">
+          <h2 class="chat-mod-subhead">⚖️ <%= t('adminReports.updateTitle') %></h2>
+          <div class="form-group">
+            <label class="form-label" for="adminLegalStatusSelect"><%= t('adminReports.statusLabel') %></label>
+            <select id="adminLegalStatusSelect" class="form-control">
+              <option value="new"><%= t('reportPage.statusNew') %></option>
+              <option value="in_review"><%= t('reportPage.statusInReview') %></option>
+              <option value="action_taken"><%= t('reportPage.statusActionTaken') %></option>
+              <option value="no_basis"><%= t('reportPage.statusNoBasis') %></option>
+              <option value="closed"><%= t('reportPage.statusClosed') %></option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="adminLegalNoteInput"><%= t('adminReports.noteLabel') %></label>
+            <textarea
+              id="adminLegalNoteInput"
+              class="form-control"
+              rows="4"
+              maxlength="500"
+              placeholder="<%= t('adminReports.notePlaceholder') %>"
+            ></textarea>
+          </div>
+          <div id="adminLegalActionError" class="chat-inline-error" role="alert" hidden></div>
+          <button type="button" id="adminLegalSaveBtn" class="btn btn-primary btn-sm">
+            💾 <%= t('adminReports.saveBtn') %>
+          </button>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminLegalAuditPanel" class="chat-mod-panel" hidden>
+    <div id="adminLegalAuditContainer" class="chat-mod-list"></div>
+  </div>
+</section>
+
+<div class="chat-toast-stack" id="adminLegalToastStack" aria-live="polite"></div>
+
+<%- include('../layouts/footer') %>

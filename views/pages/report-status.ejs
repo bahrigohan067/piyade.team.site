@@ -1,0 +1,92 @@
+<%- include('../layouts/header') %>
+
+<%
+  const langPrefixPath = (typeof lang !== 'undefined' && lang === 'en') ? '/en' : '';
+  const statusLabels = {
+    new: t('reportPage.statusNew'),
+    in_review: t('reportPage.statusInReview'),
+    action_taken: t('reportPage.statusActionTaken'),
+    no_basis: t('reportPage.statusNoBasis'),
+    closed: t('reportPage.statusClosed'),
+  };
+  const statusBadges = {
+    new: 'badge-primary',
+    in_review: 'badge-warning',
+    action_taken: 'badge-success',
+    no_basis: 'badge-neutral',
+    closed: 'badge-neutral',
+  };
+  const localeTag = lang === 'en' ? 'en-US' : 'tr-TR';
+  const catObj = lookupResult
+    ? categories.find(function (c) { return c.id === lookupResult.category; })
+    : null;
+%>
+
+<section class="legal-page legal-page--narrow">
+  <header class="card legal-header-card">
+    <div class="legal-header-top">
+      <span class="badge badge-primary">🔎 <%= t('reportPage.lookupBadge') %></span>
+      <a href="<%= langPrefixPath %>/bildir" class="btn btn-secondary btn-xs">
+        ← <%= t('reportPage.backToReportBtn') %>
+      </a>
+    </div>
+    <h1 class="legal-page-title"><%= t('reportPage.lookupHeading') %></h1>
+    <p class="legal-page-subtitle"><%= t('reportPage.lookupSubtitle') %></p>
+  </header>
+
+  <div class="card legal-form-card">
+    <% if (lookupError) { %>
+      <div class="alert alert-danger legal-alert" role="alert"><%= lookupError %></div>
+    <% } %>
+
+    <form method="POST" action="<%= langPrefixPath %>/bildir/sorgula" class="legal-form" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div class="form-group">
+        <label class="form-label" for="reportLookupCode"><%= t('reportPage.trackingCodeLabel') %> *</label>
+        <input
+          type="text"
+          id="reportLookupCode"
+          name="trackingCode"
+          class="form-control"
+          required
+          maxlength="32"
+          value="<%= queryCode || '' %>"
+          placeholder="RPT-2026-XXXXX"
+        />
+      </div>
+
+      <button type="submit" class="btn btn-primary">🔎 <%= t('reportPage.lookupSubmitBtn') %></button>
+    </form>
+
+    <% if (lookupResult) { %>
+      <div class="legal-status-result" data-report-status-result="true">
+        <div class="legal-status-row">
+          <span><%= t('reportPage.trackingCodeLabel') %></span>
+          <strong><%= lookupResult.trackingCode %></strong>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('reportPage.categoryLabel') %></span>
+          <span><%= catObj ? (catObj.emoji + ' ' + (lang === 'en' ? catObj.labelEn : catObj.labelTr)) : lookupResult.category %></span>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('reportPage.statusLabel') %></span>
+          <span class="badge <%= statusBadges[lookupResult.status] || 'badge-neutral' %>">
+            <%= statusLabels[lookupResult.status] || lookupResult.status %>
+          </span>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('reportPage.submittedAtLabel') %></span>
+          <span><%= new Date(lookupResult.createdAt).toLocaleString(localeTag, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+        </div>
+        <div class="legal-status-row">
+          <span><%= t('reportPage.updatedAtLabel') %></span>
+          <span><%= new Date(lookupResult.updatedAt).toLocaleString(localeTag, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+        </div>
+        <p class="legal-field-hint"><%= t('reportPage.statusPrivacyNote') %></p>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include('../layouts/footer') %>

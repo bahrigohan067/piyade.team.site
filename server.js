@@ -22,8 +22,13 @@ const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
 const chatRoutes = require('./routes/chat');
 const chatModRoutes = require('./routes/chatMod');
+const legalRoutes = require('./routes/legal');
+const reportRoutes = require('./routes/reports');
+const legalAdminRoutes = require('./routes/legalAdmin');
 const { getChatStore } = require('./services/chatStore');
 const { getChatModStore } = require('./services/chatModStore');
+const { getLegalStore } = require('./services/legalStore');
+const { getReportStore } = require('./services/reportStore');
 const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
@@ -161,7 +166,10 @@ function createServerApp() {
     next();
   }, authRoutes);
   app.use('/', publicRoutes);
+  app.use('/yasal', legalRoutes);
+  app.use('/bildir', reportRoutes);
   app.use('/', memberRoutes);
+  app.use('/yonetim', legalAdminRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
   app.use('/sohbet/moderasyon', chatModRoutes);
@@ -215,6 +223,8 @@ if (require.main === module) {
         cs.flush();
         getChatModStore(cs).flush();
       }
+      getLegalStore().flush();
+      getReportStore().flush();
     } catch (_) {}
     process.exit(0);
   };

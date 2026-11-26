@@ -29,6 +29,24 @@
       prioLow: t('chatMod.filterPriorityLow'),
       confirmBtn: t('chat.confirmBtn'),
       cancelBtn: t('chat.cancelBtn'),
+      noSiteReports: t('chatMod.noSiteReports'),
+      openSiteReportBtn: t('chatMod.openSiteReportBtn'),
+      siteReportSaved: t('chatMod.siteReportSaved'),
+      reportStatusLabels: {
+        new: t('reportPage.statusNew'),
+        in_review: t('reportPage.statusInReview'),
+        action_taken: t('reportPage.statusActionTaken'),
+        no_basis: t('reportPage.statusNoBasis'),
+        closed: t('reportPage.statusClosed'),
+      },
+      siteCatLabels: {
+        harassment: t('chat.reportCatHarassment'),
+        sexual: t('chat.reportCatSexual'),
+        child_safety: t('chat.reportCatChildSafety'),
+        threat: t('chat.reportCatThreat'),
+        scam_spam: t('chat.reportCatScamSpam'),
+        impersonation: t('chatMod.catImpersonation'),
+      },
     },
   };
   const safeModJson = JSON.stringify(modBootstrap).replace(/</g, '\\u003c');
@@ -56,6 +74,9 @@
       <% if (!auditOnly) { %>
         <button type="button" class="chat-mod-tab active" data-mod-tab="cases" role="tab" aria-selected="true">
           📋 <%= t('chatMod.tabCases') %>
+        </button>
+        <button type="button" class="chat-mod-tab" data-mod-tab="site_reports" role="tab" aria-selected="false">
+          📢 <%= t('chatMod.tabSiteReports') %>
         </button>
         <button type="button" class="chat-mod-tab" data-mod-tab="sanctions" role="tab" aria-selected="false">
           🔇 <%= t('chatMod.tabSanctions') %>
@@ -149,7 +170,83 @@
       </div>
     </div>
 
-    <!-- SEKME 2: YAPTIRIMLAR -->
+    <!-- SEKME 2: SİTE BİLDİRİMLERİ (/bildir -> Topluluk Güvenliği Kategorileri) -->
+    <div id="modPanelSiteReports" class="chat-mod-panel" hidden>
+      <div id="modSiteReportsListView">
+        <div class="chat-mod-filters">
+          <select id="modSiteFilterStatus" class="form-control">
+            <option value=""><%= t('chatMod.filterStatusAll') %></option>
+            <option value="new"><%= t('reportPage.statusNew') %></option>
+            <option value="in_review"><%= t('reportPage.statusInReview') %></option>
+            <option value="action_taken"><%= t('reportPage.statusActionTaken') %></option>
+            <option value="no_basis"><%= t('reportPage.statusNoBasis') %></option>
+            <option value="closed"><%= t('reportPage.statusClosed') %></option>
+          </select>
+          <select id="modSiteFilterCategory" class="form-control">
+            <option value=""><%= t('adminReports.filterAllCategories') %></option>
+            <option value="child_safety">🆘 <%= t('chat.reportCatChildSafety') %></option>
+            <option value="threat">⚠️ <%= t('chat.reportCatThreat') %></option>
+            <option value="sexual">🔞 <%= t('chat.reportCatSexual') %></option>
+            <option value="harassment">🚨 <%= t('chat.reportCatHarassment') %></option>
+            <option value="scam_spam">🎭 <%= t('chat.reportCatScamSpam') %></option>
+            <option value="impersonation">🪪 <%= t('chatMod.catImpersonation') %></option>
+          </select>
+          <button type="button" id="modRefreshSiteReportsBtn" class="btn btn-secondary btn-sm">🔄</button>
+        </div>
+
+        <div id="modSiteReportsContainer" class="chat-mod-list"></div>
+      </div>
+
+      <div id="modSiteReportDetailView" class="chat-mod-detail" hidden>
+        <div class="chat-mod-detail-top">
+          <button type="button" class="btn btn-secondary btn-sm" id="modSiteBackBtn">
+            ← <%= t('chatMod.backToSiteReportsBtn') %>
+          </button>
+          <div id="modSiteDetailBadges" class="chat-mod-badges"></div>
+        </div>
+
+        <div class="chat-mod-detail-grid">
+          <div class="chat-mod-snapshot-box">
+            <h2 class="chat-mod-subhead">📢 <%= t('chatMod.siteReportDetailTitle') %></h2>
+            <div id="modSiteDetailMeta" class="chat-mod-meta-box"></div>
+            <div id="modSiteDetailBody" class="legal-detail-body"></div>
+            <div id="modSiteEvidenceList" class="chat-mod-att-list"></div>
+            <h3 class="chat-mod-subhead legal-notes-subhead">📝 <%= t('adminReports.notesTitle') %></h3>
+            <div id="modSiteNotesList" class="legal-notes-list"></div>
+          </div>
+
+          <aside class="chat-mod-actions-box">
+            <h2 class="chat-mod-subhead">⚖️ <%= t('chatMod.actionsTitle') %></h2>
+            <div class="form-group">
+              <label class="form-label" for="modSiteStatusSelect"><%= t('adminReports.statusLabel') %></label>
+              <select id="modSiteStatusSelect" class="form-control">
+                <option value="new"><%= t('reportPage.statusNew') %></option>
+                <option value="in_review"><%= t('reportPage.statusInReview') %></option>
+                <option value="action_taken"><%= t('reportPage.statusActionTaken') %></option>
+                <option value="no_basis"><%= t('reportPage.statusNoBasis') %></option>
+                <option value="closed"><%= t('reportPage.statusClosed') %></option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="modSiteActionNote"><%= t('chatMod.mandatoryNoteLabel') %></label>
+              <textarea
+                id="modSiteActionNote"
+                class="form-control"
+                rows="3"
+                maxlength="500"
+                placeholder="<%= t('chatMod.mandatoryNotePlaceholder') %>"
+              ></textarea>
+            </div>
+            <div id="modSiteActionError" class="chat-inline-error" role="alert" hidden></div>
+            <button type="button" id="modSiteSaveBtn" class="btn btn-primary btn-sm">
+              💾 <%= t('adminReports.saveBtn') %>
+            </button>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEKME 3: YAPTIRIMLAR -->
     <div id="modPanelSanctions" class="chat-mod-panel" hidden>
       <div id="modSanctionsContainer" class="chat-mod-list"></div>
     </div>

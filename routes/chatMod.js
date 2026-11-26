@@ -7,6 +7,7 @@ const { isCommunityOfficial, isDeveloper } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
 const { getChatStore } = require('../services/chatStore');
 const { getChatModStore, MUTE_DURATIONS_MS } = require('../services/chatModStore');
+const { getReportStore } = require('../services/reportStore');
 const { chatSseHub } = require('../services/chatSseHub');
 const { requireFreshCommunityOfficial, requireFreshModAuditViewer } = require('../middlewares/auth');
 const { chatModLimiter } = require('../middlewares/rateLimiter');
@@ -429,6 +430,145 @@ router.post('/api/yaptirim/:sanctionId/kaldir', requireFreshCommunityOfficial, (
   }
   chatSseHub.sendToUser(lifted.sanction.userId, 'sanction', { sanction: null });
   return res.json({ ok: true, sanction: lifted.sanction });
+});
+
+// ============================================================================
+// SİTE BİLDİRİMLERİ SEKMESİ (/bildir -> Topluluk Güvenliği Kategorileri)
+// Yalnızca Community Official (taze rol) + çıkar çatışması engeli + içeriksiz denetim kaydı
+// ============================================================================
+
+router.get('/api/site-bildirimleri', requireFreshCommunityOfficial, (req, res) => {
+  const modId = String(req.session.user.id);
+  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  const category = typeof req.query.category === 'string' ? req.query.category.trim() : '';
+  const page = Number.parseInt(String(req.query.page || '1'), 10) || 1;
+  const limit = Number.parseInt(String(req.query.limit || '20'), 10) || 20;
+
+  const listed = getReportStore().listReports({
+    audience: 'community',
+    status,
+    category,
+    actorId: modId,
+    page,
+    limit,
+  });
+
+  return res.json({
+    ok: true,
+    ...listed,
+  });
+});
+
+router.get('/api/site-bildirim/:code', requireFreshCommunityOfficial, (req, res) => {
+  const modId = String(req.session.user.id);
+  const modName = req.session.user.displayName || req.session.user.username || modId;
+  const modStore = getChatModStore(getChatStore());
+  const detail = getReportStore().getReportDetail(req.params.code, {
+    expectedAudience: 'community',
+    actorId: modId,
+  });
+
+  if (!detail.ok) {
+    const errMsg =
+      detail.code === 'CONFLICT_OF_INTEREST'
+        ? req.t('chatMod.errConflict')
+        : req.t('chatMod.errCaseNotFound');
+    return res.status(detail.status || 404).json({ ok: false, code: detail.code, error: errMsg });
+  }
+
+  // Mevcut içeriksiz denetim kaydı yapısına (chat/modlog.jsonl) yaz
+  modStore.appendAuditLog({
+    modId,
+    modName,
+    caseId: detail.report.trackingCode,
+    action: 'site_report_view',
+    category: detail.report.category,
+    targetId: 'site_report',
+    note: '',
+  });
+
+  const safeReport = {
+    ...detail.report,
+    evidence: (detail.report.evidence || []).map((f) => ({
+      id: f.id,
+      originalName: f.originalName,
+      ext: f.ext,
+      mimeType: f.mimeType,
+      size: f.size,
+      previewUrl: `/sohbet/moderasyon/api/bildirim-dosya/${f.id}?reportId=${encodeURIComponent(detail.report.trackingCode)}`,
+    })),
+  };
+
+  return res.json({ ok: true, report: safeReport });
+});
+
+router.post('/api/site-bildirim/:code/durum', requireFreshCommunityOfficial, (req, res) => {
+  const modId = String(req.session.user.id);
+  const modName = req.session.user.displayName || req.session.user.username || modId;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const modStore = getChatModStore(getChatStore());
+
+  const updated = getReportStore().updateReportStatus(req.params.code, {
+    expectedAudience: 'community',
+    status: body.status,
+    note: body.note,
+    actorId: modId,
+    actorName: modName,
+  });
+
+  if (!updated.ok) {
+    const errMsg =
+      updated.code === 'CONFLICT_OF_INTEREST'
+        ? req.t('chatMod.errConflict')
+        : updated.code === 'NOTE_REQUIRED'
+          ? req.t('chatMod.errNoteRequired')
+          : req.t('chatMod.errCaseNotFound');
+    return res.status(updated.status || 400).json({ ok: false, code: updated.code, error: errMsg });
+  }
+
+  modStore.appendAuditLog({
+    modId,
+    modName,
+    caseId: updated.report.trackingCode,
+    action: `site_report_${updated.report.status}`,
+    category: updated.report.category,
+    targetId: 'site_report',
+    note: String(body.note || '').trim().slice(0, 120),
+  });
+
+  return res.json({ ok: true, report: updated.report });
+});
+
+router.get('/api/bildirim-dosya/:fileId', requireFreshCommunityOfficial, (req, res) => {
+  const modId = String(req.session.user.id);
+  const modName = req.session.user.displayName || req.session.user.username || modId;
+  const reportId = typeof req.query.reportId === 'string' ? req.query.reportId.trim() : '';
+  const modStore = getChatModStore(getChatStore());
+
+  const fileRes = getReportStore().getEvidenceFile(reportId, req.params.fileId, {
+    expectedAudience: 'community',
+    actorId: modId,
+  });
+  if (!fileRes.ok) {
+    return res.status(fileRes.status === 403 ? 403 : 404).end();
+  }
+
+  modStore.appendAuditLog({
+    modId,
+    modName,
+    caseId: fileRes.report.trackingCode,
+    action: 'site_report_evidence_view',
+    category: fileRes.report.category,
+    targetId: 'site_report',
+    note: '',
+  });
+
+  res.setHeader('Content-Type', fileRes.meta.mimeType || 'image/png');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Disposition', 'inline');
+  return res.sendFile(fileRes.fullPath);
 });
 
 // ============================================================================

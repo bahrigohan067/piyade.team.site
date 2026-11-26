@@ -1,0 +1,131 @@
+<%- include('../layouts/header') %>
+
+<%
+  const adminBootstrap = {
+    mode: 'kvkk',
+    csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '',
+    lang: typeof lang !== 'undefined' ? lang : 'tr',
+    i18n: {
+      emptyList: t('adminKvkk.emptyList'),
+      emptyAudit: t('adminKvkk.emptyAudit'),
+      openBtn: t('adminKvkk.openBtn'),
+      overdueBadge: t('adminKvkk.overdueBadge'),
+      nearDeadlineBadge: t('adminKvkk.nearDeadlineBadge'),
+      daysLeftSuffix: t('adminKvkk.daysLeftSuffix'),
+      overdueDaysSuffix: t('adminKvkk.overdueDaysSuffix'),
+      errNoteRequired: t('adminKvkk.errNoteRequired'),
+      savedToast: t('adminKvkk.savedToast'),
+      statusLabels: {
+        received: t('kvkkForm.statusReceived'),
+        in_review: t('kvkkForm.statusInReview'),
+        answered: t('kvkkForm.statusAnswered'),
+        rejected: t('kvkkForm.statusRejected'),
+      },
+    },
+  };
+  const safeJson = JSON.stringify(adminBootstrap).replace(/</g, '\\u003c');
+%>
+
+<script id="adminLegalBootstrapData" type="application/json"><%- safeJson %></script>
+
+<section class="chat-mod-page admin-legal-page">
+  <div class="chat-mod-header-card">
+    <div class="chat-mod-title-row">
+      <div>
+        <span class="badge badge-danger">🔐 Developer Only</span>
+        <span class="badge badge-neutral"><%= t('adminKvkk.retentionBadge') %>: <%= retentionDays %>g / <%= deadlineDays %>g</span>
+        <h1 class="chat-mod-heading"><%= t('adminKvkk.heading') %></h1>
+      </div>
+      <span class="badge badge-danger" id="kvkkOverdueSummaryBadge" hidden></span>
+    </div>
+
+    <div class="chat-mod-principle-banner">
+      <span>⚖️</span>
+      <span><%= t('adminKvkk.principleBanner') %></span>
+    </div>
+
+    <div class="chat-mod-tabs" role="tablist">
+      <button type="button" class="chat-mod-tab active" data-legal-tab="list" role="tab" aria-selected="true">
+        📋 <%= t('adminKvkk.tabList') %>
+      </button>
+      <button type="button" class="chat-mod-tab" data-legal-tab="audit" role="tab" aria-selected="false">
+        📜 <%= t('adminKvkk.tabAudit') %>
+      </button>
+    </div>
+  </div>
+
+  <div id="adminLegalListPanel" class="chat-mod-panel">
+    <div id="adminLegalListView">
+      <div class="chat-mod-filters">
+        <select id="adminLegalFilterStatus" class="form-control">
+          <option value=""><%= t('adminKvkk.filterAllStatuses') %></option>
+          <option value="received"><%= t('kvkkForm.statusReceived') %></option>
+          <option value="in_review"><%= t('kvkkForm.statusInReview') %></option>
+          <option value="answered"><%= t('kvkkForm.statusAnswered') %></option>
+          <option value="rejected"><%= t('kvkkForm.statusRejected') %></option>
+        </select>
+        <label class="legal-checkbox-item legal-filter-check">
+          <input type="checkbox" id="kvkkFilterOverdueOnly" />
+          <span><%= t('adminKvkk.filterOverdueOnly') %></span>
+        </label>
+        <button type="button" id="adminLegalRefreshBtn" class="btn btn-secondary btn-sm">🔄</button>
+      </div>
+
+      <div id="adminLegalListContainer" class="chat-mod-list"></div>
+    </div>
+
+    <div id="adminLegalDetailView" class="chat-mod-detail" hidden>
+      <div class="chat-mod-detail-top">
+        <button type="button" class="btn btn-secondary btn-sm" id="adminLegalBackBtn">
+          ← <%= t('adminKvkk.backBtn') %>
+        </button>
+        <div id="adminLegalDetailBadges" class="chat-mod-badges"></div>
+      </div>
+
+      <div class="chat-mod-detail-grid">
+        <div class="chat-mod-snapshot-box">
+          <h2 class="chat-mod-subhead">📄 <%= t('adminKvkk.detailTitle') %></h2>
+          <div id="adminLegalDetailMeta" class="chat-mod-meta-box"></div>
+          <div id="adminLegalDetailBody" class="legal-detail-body"></div>
+          <h3 class="chat-mod-subhead legal-notes-subhead">📝 <%= t('adminKvkk.notesTitle') %></h3>
+          <div id="adminLegalNotesList" class="legal-notes-list"></div>
+        </div>
+
+        <aside class="chat-mod-actions-box">
+          <h2 class="chat-mod-subhead">⚙️ <%= t('adminKvkk.updateTitle') %></h2>
+          <div class="form-group">
+            <label class="form-label" for="adminLegalStatusSelect"><%= t('adminKvkk.statusLabel') %></label>
+            <select id="adminLegalStatusSelect" class="form-control">
+              <option value="received"><%= t('kvkkForm.statusReceived') %></option>
+              <option value="in_review"><%= t('kvkkForm.statusInReview') %></option>
+              <option value="answered"><%= t('kvkkForm.statusAnswered') %></option>
+              <option value="rejected"><%= t('kvkkForm.statusRejected') %></option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="adminLegalNoteInput"><%= t('adminKvkk.noteLabel') %></label>
+            <textarea
+              id="adminLegalNoteInput"
+              class="form-control"
+              rows="4"
+              maxlength="1000"
+              placeholder="<%= t('adminKvkk.notePlaceholder') %>"
+            ></textarea>
+          </div>
+          <div id="adminLegalActionError" class="chat-inline-error" role="alert" hidden></div>
+          <button type="button" id="adminLegalSaveBtn" class="btn btn-primary btn-sm">
+            💾 <%= t('adminKvkk.saveBtn') %>
+          </button>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminLegalAuditPanel" class="chat-mod-panel" hidden>
+    <div id="adminLegalAuditContainer" class="chat-mod-list"></div>
+  </div>
+</section>
+
+<div class="chat-toast-stack" id="adminLegalToastStack" aria-live="polite"></div>
+
+<%- include('../layouts/footer') %>

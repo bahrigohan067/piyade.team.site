@@ -29,6 +29,7 @@
     activeTab: boot.auditOnly ? 'audit' : 'cases',
     casesPage: 1,
     activeCase: null,
+    activeSiteReportCode: null,
   };
 
   const els = {
@@ -48,6 +49,22 @@
     actionError: document.getElementById('modActionError'),
     sanctionsContainer: document.getElementById('modSanctionsContainer'),
     auditContainer: document.getElementById('modAuditContainer'),
+    siteListView: document.getElementById('modSiteReportsListView'),
+    siteDetailView: document.getElementById('modSiteReportDetailView'),
+    siteContainer: document.getElementById('modSiteReportsContainer'),
+    siteFilterStatus: document.getElementById('modSiteFilterStatus'),
+    siteFilterCategory: document.getElementById('modSiteFilterCategory'),
+    siteRefreshBtn: document.getElementById('modRefreshSiteReportsBtn'),
+    siteBackBtn: document.getElementById('modSiteBackBtn'),
+    siteDetailBadges: document.getElementById('modSiteDetailBadges'),
+    siteDetailMeta: document.getElementById('modSiteDetailMeta'),
+    siteDetailBody: document.getElementById('modSiteDetailBody'),
+    siteEvidenceList: document.getElementById('modSiteEvidenceList'),
+    siteNotesList: document.getElementById('modSiteNotesList'),
+    siteStatusSelect: document.getElementById('modSiteStatusSelect'),
+    siteActionNote: document.getElementById('modSiteActionNote'),
+    siteActionError: document.getElementById('modSiteActionError'),
+    siteSaveBtn: document.getElementById('modSiteSaveBtn'),
     confirmModal: document.getElementById('modConfirmModal'),
     confirmDesc: document.getElementById('modConfirmDesc'),
     confirmOkBtn: document.getElementById('modConfirmOkBtn'),
@@ -481,6 +498,197 @@
     }
   }
 
+  // ==========================================================================
+  // SİTE BİLDİRİMLERİ SEKMESİ (/bildir -> Community Official)
+  // ==========================================================================
+  async function loadSiteReports() {
+    if (boot.auditOnly || !els.siteContainer) return;
+    const params = new URLSearchParams();
+    if (els.siteFilterStatus && els.siteFilterStatus.value) params.set('status', els.siteFilterStatus.value);
+    if (els.siteFilterCategory && els.siteFilterCategory.value) params.set('category', els.siteFilterCategory.value);
+
+    try {
+      const data = await apiJson(`/sohbet/moderasyon/api/site-bildirimleri?${params.toString()}`);
+      const items = data.items || [];
+      els.siteContainer.replaceChildren();
+      if (items.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty-card';
+        empty.textContent = i18n.noSiteReports || 'Site bildirimi bulunamadı.';
+        els.siteContainer.appendChild(empty);
+        return;
+      }
+
+      for (const r of items) {
+        const row = document.createElement('div');
+        row.className = 'chat-mod-case-row';
+
+        const info = document.createElement('div');
+        info.className = 'chat-mod-case-info';
+
+        const badges = document.createElement('div');
+        badges.className = 'chat-mod-badges';
+
+        const bPrio = document.createElement('span');
+        bPrio.className = `badge ${priorityBadgeClass(r.priority)}`;
+        bPrio.textContent = priorityLabel(r.priority);
+
+        const bCode = document.createElement('span');
+        bCode.className = 'badge badge-neutral';
+        bCode.textContent = r.trackingCode;
+
+        const bSt = document.createElement('span');
+        bSt.className = `badge ${r.status === 'action_taken' ? 'badge-success' : r.status === 'in_review' ? 'badge-warning' : 'badge-primary'}`;
+        bSt.textContent = (i18n.reportStatusLabels && i18n.reportStatusLabels[r.status]) || r.status;
+
+        badges.append(bPrio, bCode, bSt);
+        if (r.evidenceCount > 0) {
+          const bEv = document.createElement('span');
+          bEv.className = 'badge badge-neutral';
+          bEv.textContent = `🖼️ ${r.evidenceCount}`;
+          badges.appendChild(bEv);
+        }
+
+        const title = document.createElement('div');
+        title.className = 'chat-mod-case-title';
+        title.textContent = `${(i18n.siteCatLabels && i18n.siteCatLabels[r.category]) || r.category} • ${r.location}`;
+
+        const sub = document.createElement('div');
+        sub.className = 'chat-mod-case-sub';
+        sub.textContent = `${fmtDate(r.createdAt)}`;
+
+        info.append(badges, title, sub);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-primary btn-xs';
+        btn.textContent = i18n.openSiteReportBtn || 'Bildirimi İncele';
+        btn.addEventListener('click', () => openSiteReportDetail(r.trackingCode));
+
+        row.append(info, btn);
+        els.siteContainer.appendChild(row);
+      }
+    } catch (err) {
+      showToast('Hata', err.message, 'danger');
+    }
+  }
+
+  async function openSiteReportDetail(code) {
+    try {
+      const data = await apiJson(`/sohbet/moderasyon/api/site-bildirim/${encodeURIComponent(code)}`);
+      const r = data.report;
+      state.activeSiteReportCode = r.trackingCode;
+
+      els.siteDetailBadges.replaceChildren();
+      const b1 = document.createElement('span');
+      b1.className = `badge ${priorityBadgeClass(r.priority)}`;
+      b1.textContent = priorityLabel(r.priority);
+      const b2 = document.createElement('span');
+      b2.className = 'badge badge-neutral';
+      b2.textContent = r.trackingCode;
+      const b3 = document.createElement('span');
+      b3.className = 'badge badge-warning';
+      b3.textContent = (i18n.reportStatusLabels && i18n.reportStatusLabels[r.status]) || r.status;
+      els.siteDetailBadges.append(b1, b2, b3);
+
+      els.siteDetailMeta.replaceChildren();
+      const lines = [
+        `Kategori: ${(i18n.siteCatLabels && i18n.siteCatLabels[r.category]) || r.category}`,
+        `Olay Yeri: ${r.location}`,
+        r.targetRef ? `Bağlantı / Kimlik: ${r.targetRef}` : null,
+        r.reporterName ? `Gönderen Üye: ${r.reporterName}` : null,
+        r.contactEmail ? `İletişim E-postası: ${r.contactEmail}` : null,
+        `Tarih: ${fmtDate(r.createdAt)}`,
+      ].filter(Boolean);
+      for (const l of lines) {
+        const d = document.createElement('div');
+        d.textContent = l;
+        els.siteDetailMeta.appendChild(d);
+      }
+
+      els.siteDetailBody.textContent = r.description || '';
+
+      els.siteEvidenceList.replaceChildren();
+      for (const att of r.evidence || []) {
+        const box = document.createElement('div');
+        box.className = 'chat-mod-blur-box is-blurred';
+        const revBtn = document.createElement('button');
+        revBtn.type = 'button';
+        revBtn.className = 'btn btn-secondary btn-xs chat-mod-reveal-btn';
+        revBtn.textContent = `${i18n.revealAttachment} (${att.originalName || att.ext})`;
+        revBtn.addEventListener('click', () => {
+          box.classList.remove('is-blurred');
+          revBtn.remove();
+          const img = document.createElement('img');
+          img.src = att.previewUrl;
+          img.alt = att.originalName || 'kanit';
+          img.className = 'chat-mod-preview-img';
+          box.appendChild(img);
+        });
+        box.appendChild(revBtn);
+        els.siteEvidenceList.appendChild(box);
+      }
+
+      els.siteNotesList.replaceChildren();
+      for (const n of r.notes || []) {
+        const item = document.createElement('div');
+        item.className = 'chat-mod-snap-msg';
+        const head = document.createElement('div');
+        head.className = 'chat-mod-snap-head';
+        const who = document.createElement('strong');
+        who.textContent = `${n.byName || 'Mod'} (${(i18n.reportStatusLabels && i18n.reportStatusLabels[n.status]) || n.status})`;
+        const when = document.createElement('span');
+        when.textContent = fmtDate(n.ts);
+        head.append(who, when);
+        const body = document.createElement('div');
+        body.className = 'chat-mod-snap-text';
+        body.textContent = n.note || '';
+        item.append(head, body);
+        els.siteNotesList.appendChild(item);
+      }
+
+      if (els.siteStatusSelect) els.siteStatusSelect.value = r.status;
+      if (els.siteActionNote) els.siteActionNote.value = '';
+      if (els.siteActionError) els.siteActionError.hidden = true;
+
+      els.siteListView.hidden = true;
+      els.siteDetailView.hidden = false;
+    } catch (err) {
+      showToast('Uyarı', err.message, 'warning');
+    }
+  }
+
+  async function saveSiteReportStatus() {
+    if (!state.activeSiteReportCode) return;
+    const status = els.siteStatusSelect ? els.siteStatusSelect.value : '';
+    const note = els.siteActionNote ? els.siteActionNote.value.trim() : '';
+    if (note.length < 3) {
+      if (els.siteActionError) {
+        els.siteActionError.textContent = i18n.errNoteRequired;
+        els.siteActionError.hidden = false;
+      }
+      return;
+    }
+    if (els.siteActionError) els.siteActionError.hidden = true;
+
+    const ok = await confirmAction(i18n.confirmActionDesc);
+    if (!ok) return;
+
+    try {
+      await apiJson(`/sohbet/moderasyon/api/site-bildirim/${encodeURIComponent(state.activeSiteReportCode)}/durum`, {
+        method: 'POST',
+        body: { status, note },
+      });
+      showToast('✓', i18n.siteReportSaved || 'Bildirim durumu güncellendi.', 'success');
+      await openSiteReportDetail(state.activeSiteReportCode);
+    } catch (err) {
+      if (els.siteActionError) {
+        els.siteActionError.textContent = err.message;
+        els.siteActionError.hidden = false;
+      }
+    }
+  }
+
   // Sekme geçişleri
   document.querySelectorAll('[data-mod-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -492,17 +700,33 @@
         b.setAttribute('aria-selected', active ? 'true' : 'false');
       });
       const pCases = document.getElementById('modPanelCases');
+      const pSite = document.getElementById('modPanelSiteReports');
       const pSanc = document.getElementById('modPanelSanctions');
       const pAudit = document.getElementById('modPanelAudit');
       if (pCases) pCases.hidden = target !== 'cases';
+      if (pSite) pSite.hidden = target !== 'site_reports';
       if (pSanc) pSanc.hidden = target !== 'sanctions';
       if (pAudit) pAudit.hidden = target !== 'audit';
 
       if (target === 'cases') loadCases(state.casesPage);
+      else if (target === 'site_reports') loadSiteReports();
       else if (target === 'sanctions') loadSanctions();
       else if (target === 'audit') loadAuditLog();
     });
   });
+
+  if (els.siteFilterStatus) els.siteFilterStatus.addEventListener('change', loadSiteReports);
+  if (els.siteFilterCategory) els.siteFilterCategory.addEventListener('change', loadSiteReports);
+  if (els.siteRefreshBtn) els.siteRefreshBtn.addEventListener('click', loadSiteReports);
+  if (els.siteBackBtn) {
+    els.siteBackBtn.addEventListener('click', () => {
+      els.siteDetailView.hidden = true;
+      els.siteListView.hidden = false;
+      state.activeSiteReportCode = null;
+      loadSiteReports();
+    });
+  }
+  if (els.siteSaveBtn) els.siteSaveBtn.addEventListener('click', saveSiteReportStatus);
 
   if (els.filterStatus) els.filterStatus.addEventListener('change', () => loadCases(1));
   if (els.filterPriority) els.filterPriority.addEventListener('change', () => loadCases(1));

@@ -5,7 +5,8 @@ const appConfig = require('../config/app.config');
 const chatConfig = require('../config/chat.config');
 const { isCommunityOfficial, isDeveloper } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
-const { getChatStore } = require('../services/chatStore');
+const { getChatStore, isGroupConvId, parseGroupConvId } = require('../services/chatStore');
+const { getMemberStore, parseUnifiedGoogleId } = require('../services/memberStore');
 const { getChatModStore, MUTE_DURATIONS_MS } = require('../services/chatModStore');
 const { getReportStore } = require('../services/reportStore');
 const { chatSseHub } = require('../services/chatSseHub');
@@ -93,6 +94,33 @@ router.get('/denetim', requireFreshModAuditViewer, (req, res) => {
 // VAKA LİSTESİ VE VAKA DETAYI (Yalnızca Community Official — Taze Rol)
 // ============================================================================
 
+async function resolveModPartyNames(modId, ids = []) {
+  const nameMap = new Map();
+  const discordIds = [];
+  const memberStore = getMemberStore();
+  for (const raw of Array.isArray(ids) ? ids : []) {
+    const clean = String(raw || '').trim();
+    if (!clean) continue;
+    if (parseUnifiedGoogleId(clean)) {
+      const gm = memberStore.findByUnifiedId(clean);
+      if (gm) {
+        nameMap.set(clean, { id: clean, displayName: gm.displayName || gm.nickname || clean });
+      }
+    } else if (/^\d{15,25}$/.test(clean)) {
+      discordIds.push(clean);
+    }
+  }
+  if (discordIds.length > 0) {
+    try {
+      const lookup = await botApiClient.lookupDirectoryMembers(modId, [...new Set(discordIds)]);
+      for (const [k, v] of lookup.byId.entries()) {
+        nameMap.set(k, v);
+      }
+    } catch (_) {}
+  }
+  return nameMap;
+}
+
 router.get('/api/vakalar', requireFreshCommunityOfficial, async (req, res) => {
   const chatStore = getChatStore();
   const modStore = getChatModStore(chatStore);
@@ -106,19 +134,13 @@ router.get('/api/vakalar', requireFreshCommunityOfficial, async (req, res) => {
 
   const listed = modStore.listCases({ modUserId: modId, status, priority, source, page, limit });
 
-  // İsim çözümleme (sadece vaka tarafları için Discord adı)
+  // İsim çözümleme (hem Discord hem Google site üyeleri için)
   const ids = [];
   for (const c of listed.items) {
     if (c.reportedUserId) ids.push(c.reportedUserId);
     if (c.reporterId) ids.push(c.reporterId);
   }
-  let nameMap = new Map();
-  if (ids.length > 0) {
-    try {
-      const lookup = await botApiClient.lookupDirectoryMembers(modId, ids);
-      nameMap = lookup.byId;
-    } catch (_) {}
-  }
+  const nameMap = await resolveModPartyNames(modId, ids);
 
   const enriched = listed.items.map((c) => ({
     ...c,
@@ -162,14 +184,14 @@ router.get('/api/vaka/:caseId', requireFreshCommunityOfficial, async (req, res) 
   }
 
   const c = opened.caseMeta;
-  const participantIds = [...new Set([...(c.participants || []), c.reporterId, c.reportedUserId].filter(Boolean))];
-  let nameMap = new Map();
-  if (participantIds.length > 0) {
-    try {
-      const lookup = await botApiClient.lookupDirectoryMembers(modId, participantIds);
-      nameMap = lookup.byId;
-    } catch (_) {}
-  }
+  const snapSenderIds =
+    opened.snapshot && Array.isArray(opened.snapshot.messages)
+      ? opened.snapshot.messages.map((m) => m.from).filter(Boolean)
+      : [];
+  const participantIds = [
+    ...new Set([...(c.participants || []), ...snapSenderIds, c.reporterId, c.reportedUserId].filter(Boolean)),
+  ];
+  const nameMap = await resolveModPartyNames(modId, participantIds);
 
   const names = {};
   for (const pid of participantIds) {
@@ -217,6 +239,7 @@ router.get('/api/vaka/:caseId', requireFreshCommunityOfficial, async (req, res) 
 // ============================================================================
 
 async function isTargetProtectedOfficial(targetUserId) {
+  if (parseUnifiedGoogleId(targetUserId)) return false;
   try {
     const rolesData = await botApiClient.getMemberRoles(targetUserId);
     return isCommunityOfficial(rolesData.roles || []);
@@ -284,10 +307,24 @@ router.post('/api/vaka/:caseId/eylem', requireFreshCommunityOfficial, async (req
       }
       const del = chatStore.deleteMessage(caseMeta.convId, msgId, { by: modId, modRemoved: true });
       if (del.ok) {
-        const payload = { convId: caseMeta.convId, msgId, modRemoved: true };
-        for (const pid of caseMeta.participants || []) {
-          chatSseHub.sendToUser(pid, 'deleted', payload);
-          chatSseHub.sendToUser(pid, 'unread', { unread: chatStore.getTotalUnreadCount(pid) });
+        if (isGroupConvId(caseMeta.convId)) {
+          chatSseHub.broadcastGroupEvent(
+            'group_deleted',
+            {
+              convId: caseMeta.convId,
+              groupId: parseGroupConvId(caseMeta.convId),
+              msgId,
+              modRemoved: true,
+              adminRemoved: false,
+            },
+            { buffer: true }
+          );
+        } else {
+          const payload = { convId: caseMeta.convId, msgId, modRemoved: true };
+          for (const pid of caseMeta.participants || []) {
+            chatSseHub.sendToUser(pid, 'deleted', payload);
+            chatSseHub.sendToUser(pid, 'unread', { unread: chatStore.getTotalUnreadCount(pid) });
+          }
         }
       }
       modStore.appendAuditLog({
@@ -342,12 +379,16 @@ router.post('/api/vaka/:caseId/eylem', requireFreshCommunityOfficial, async (req
       const warnText = typeof body.warningText === 'string' && body.warningText.trim()
         ? body.warningText.trim().slice(0, 400)
         : req.t('chatMod.defaultWarningText');
-      const sysMsg = chatStore.appendMessage(caseMeta.convId, {
-        from: 'system',
-        text: `🛡️ ${warnText}`,
-        system: true,
-        systemType: 'mod_warning',
-      });
+      const isGroupCase = isGroupConvId(caseMeta.convId);
+      let sysMsg = null;
+      if (!isGroupCase) {
+        sysMsg = chatStore.appendMessage(caseMeta.convId, {
+          from: 'system',
+          text: `🛡️ ${warnText}`,
+          system: true,
+          systemType: 'mod_warning',
+        });
+      }
       modStore.addUserNotice(targetUserId, {
         type: 'mod_warning',
         category: caseMeta.category,
@@ -364,12 +405,14 @@ router.post('/api/vaka/:caseId/eylem', requireFreshCommunityOfficial, async (req
         note,
       });
       modStore.recordCaseAction(caseId, { action: 'warn_note', targetUserId, modId, note });
-      for (const pid of caseMeta.participants || []) {
-        chatSseHub.sendToUser(pid, 'message', {
-          convId: caseMeta.convId,
-          otherId: caseMeta.participants.find((x) => x !== pid),
-          message: sysMsg.message,
-        });
+      if (sysMsg) {
+        for (const pid of caseMeta.participants || []) {
+          chatSseHub.sendToUser(pid, 'message', {
+            convId: caseMeta.convId,
+            otherId: caseMeta.participants.find((x) => x !== pid),
+            message: sysMsg.message,
+          });
+        }
       }
       return res.json({ ok: true, action: 'warn_note' });
     }
@@ -405,13 +448,7 @@ router.get('/api/yaptirimlar', requireFreshCommunityOfficial, async (req, res) =
   const activeOnly = req.query.active === '1';
   const list = modStore.listSanctions({ activeOnly });
   const ids = [...new Set(list.map((s) => s.userId).filter(Boolean))];
-  let nameMap = new Map();
-  if (ids.length > 0) {
-    try {
-      const lookup = await botApiClient.lookupDirectoryMembers(modId, ids);
-      nameMap = lookup.byId;
-    } catch (_) {}
-  }
+  const nameMap = await resolveModPartyNames(modId, ids);
   return res.json({
     ok: true,
     items: list.map((s) => ({

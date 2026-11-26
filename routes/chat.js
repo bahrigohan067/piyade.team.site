@@ -9,23 +9,46 @@ const appConfig = require('../config/app.config');
 const authConfig = require('../config/auth.config');
 const brandConfig = require('../config/brand.config');
 const chatConfig = require('../config/chat.config');
+const gamesConfig = require('../config/games.config');
 const { isRegisteredMember } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
 const {
   getChatStore,
   makeConvId,
   parseConvId,
+  makeGroupConvId,
+  parseGroupConvId,
+  isGroupConvId,
   isValidDiscordId,
   isValidChatUserId,
   sanitizeChatText,
 } = require('../services/chatStore');
 const { getMemberStore, parseUnifiedGoogleId } = require('../services/memberStore');
 const { chatSseHub } = require('../services/chatSseHub');
-const { chatMessageLimiter, chatUploadLimiter } = require('../middlewares/rateLimiter');
+const { chatMessageLimiter, chatGroupMessageLimiter, chatUploadLimiter } = require('../middlewares/rateLimiter');
 const chatFileValidator = require('../utils/chatFileValidator');
 const chatAutoFilter = require('../services/chatAutoFilter');
 const { containsExternalLink } = require('../utils/nicknameValidator');
 const { getChatModStore, REPORT_CATEGORIES } = require('../services/chatModStore');
+
+// Profil bilgi kartı (Nebula Glass Card) için 60 saniyelik sunucu bellek önbelleği (yalnızca ham üye kaydı; gizlilik anlık kontrol edilir)
+const profileCardRawCache = new Map(); // targetId -> { item, expiresAt }
+// Grup sohbeti hızlı tekrar eden / aynı mesaj koruma önbelleği (userId -> { normText, ts })
+const groupRecentMsgMap = new Map();
+// Google üye Roblox avatarı 6 saatlik yenileme hata geri çekilme haritası (robloxId -> nextAllowedAttemptTs)
+const robloxAvatarRefreshBackoff = new Map();
+
+function clearProfileCardCache() {
+  profileCardRawCache.clear();
+}
+
+function clearGroupDuplicateTracker() {
+  groupRecentMsgMap.clear();
+}
+
+function clearAvatarRefreshBackoff() {
+  robloxAvatarRefreshBackoff.clear();
+}
 
 // Parça 4 moderasyon dosya erişim kancası (varsayılan kapalı; Parça 4 tarafından bağlanır)
 let modFileAccessAuthorizer = null;
@@ -110,6 +133,7 @@ function isNewGoogleMemberRestricted(user) {
 function isUserChatEligible(user) {
   if (!user || !user.id) return false;
   if (isGoogleChatUser(user)) {
+    if (!chatConfig.isChatGoogleMembersEnabled()) return false;
     if (!isValidChatUserId(String(user.id))) return false;
     const member = getFreshGoogleMember(user);
     if (!member || member.status !== 'active') return false;
@@ -122,10 +146,54 @@ function isUserChatEligible(user) {
 }
 
 /**
+ * Aktif Google üyelerinin kayıtlı Roblox avatarlarını 6 saatlik periyotla
+ * Bot API (POST /api/roblox/avatars, site-service) üzerinden tazeler.
+ */
+async function maybeRefreshGoogleRobloxAvatars(members = []) {
+  const list = Array.isArray(members) ? members.filter(Boolean) : [];
+  if (list.length === 0) return;
+  const now = Date.now();
+  const refreshMs = chatConfig.LIMITS.ROBLOX_AVATAR_REFRESH_MS || 6 * 60 * 60 * 1000;
+  const staleRobloxIds = [];
+
+  for (const m of list) {
+    if (!m || m.status !== 'active' || !Array.isArray(m.games)) continue;
+    const rbGame = m.games.find((g) => g && g.id === 'roblox' && g.robloxId);
+    if (!rbGame) continue;
+    const rid = String(rbGame.robloxId).trim();
+    if (!/^\d{1,20}$/.test(rid)) continue;
+    const lastRef = Number(m.robloxAvatarRefreshedAt) || Number(m.createdAt) || 0;
+    const needsRefresh = !rbGame.robloxAvatarUrl || now - lastRef >= refreshMs;
+    if (!needsRefresh) continue;
+    const backoffUntil = robloxAvatarRefreshBackoff.get(rid) || 0;
+    if (backoffUntil > now) continue;
+    if (!staleRobloxIds.includes(rid)) staleRobloxIds.push(rid);
+  }
+
+  if (staleRobloxIds.length === 0) return;
+
+  try {
+    const resp = await botApiClient.fetchRobloxAvatarsAsService(staleRobloxIds.slice(0, 50));
+    const avatarsObj = (resp && (resp.avatars || resp.items || resp.data)) || {};
+    if (avatarsObj && typeof avatarsObj === 'object' && Object.keys(avatarsObj).length > 0) {
+      getMemberStore().updateRobloxAvatarsByRobloxId(avatarsObj, now);
+    } else {
+      for (const rid of staleRobloxIds) {
+        robloxAvatarRefreshBackoff.set(rid, now + 5 * 60 * 1000);
+      }
+    }
+  } catch (_) {
+    for (const rid of staleRobloxIds) {
+      robloxAvatarRefreshBackoff.set(rid, now + 5 * 60 * 1000);
+    }
+  }
+}
+
+/**
  * Hem Discord üyelerini (Bot API üzerinden) hem de Google site üyelerini (memberStore üzerinden)
  * tek bir ortak rehber haritasında çözümler. E-posta ve Google adı ASLA dönmez.
  */
-async function lookupUnifiedMembers(requesterUser, ids = []) {
+async function lookupUnifiedMembers(requesterUser, ids = [], { includeGames = false, forceService = false } = {}) {
   const byId = new Map();
   const discordIds = [];
   const googleIds = [];
@@ -140,22 +208,33 @@ async function lookupUnifiedMembers(requesterUser, ids = []) {
   }
 
   const memberStore = getMemberStore();
+  const matchedGoogleMembers = [];
   for (const gid of [...new Set(googleIds)]) {
     const member = memberStore.findByUnifiedId(gid);
-    const pub = memberStore.toPublicChatDirectoryItem(member);
-    if (pub) {
-      byId.set(pub.id, pub);
+    if (member && member.status === 'active') {
+      matchedGoogleMembers.push(member);
+    }
+  }
+  if (matchedGoogleMembers.length > 0) {
+    await maybeRefreshGoogleRobloxAvatars(matchedGoogleMembers);
+    for (const gm of matchedGoogleMembers) {
+      const freshGm = memberStore.findById(gm.id) || gm;
+      const pub = memberStore.toPublicChatDirectoryItem(freshGm);
+      if (pub) {
+        byId.set(pub.id, pub);
+      }
     }
   }
 
   let botFailed = false;
   if (discordIds.length > 0) {
     const requesterIsGoogle = isGoogleChatUser(requesterUser);
+    const useService = Boolean(forceService || requesterIsGoogle || includeGames);
     try {
       const lookup = await botApiClient.lookupDirectoryMembers(
-        requesterIsGoogle ? 'site' : String(requesterUser.id),
+        useService ? 'site' : String(requesterUser.id),
         [...new Set(discordIds)],
-        { asService: requesterIsGoogle, includeGames: true }
+        { asService: useService, includeGames: Boolean(includeGames) }
       );
       for (const [k, v] of lookup.byId.entries()) {
         byId.set(k, v);
@@ -193,6 +272,23 @@ function requireChatMember(req, res, next) {
 
   if (!isUserChatEligible(user)) {
     if (isGoogleChatUser(user)) {
+      if (!chatConfig.isChatGoogleMembersEnabled()) {
+        const msg = req.t
+          ? req.t('chat.errGoogleMembersDisabled')
+          : 'Google site üyeleri için sohbet erişimi şu anda kapalıdır.';
+        if (isJson) {
+          return res.status(403).json({
+            ok: false,
+            code: 'GOOGLE_CHAT_DISABLED',
+            error: msg,
+          });
+        }
+        const siteName = brandConfig.getSiteName ? brandConfig.getSiteName() : 'Piyade World';
+        return res.status(403).render('errors/403', {
+          title: req.t ? req.t('errors.403Title') : `Yetkisiz Erişim — ${siteName}`,
+          message: msg,
+        });
+      }
       if (isJson) {
         return res.status(403).json({
           ok: false,
@@ -272,11 +368,14 @@ function requireNotBannedFromChat(req, res, next) {
 function buildMemberPublicInfo(memberObj, fallbackId, store) {
   const id = String((memberObj && memberObj.id) || fallbackId || '');
   const ring = store.getPublicRingForUser(id);
+  const kind = (memberObj && memberObj.kind) || (parseUnifiedGoogleId(id) ? 'google' : 'discord');
   const avatarUrl =
     (memberObj && (memberObj.robloxAvatarUrl || memberObj.discordAvatarUrl)) || null;
   return {
     id,
-    kind: (memberObj && memberObj.kind) || (parseUnifiedGoogleId(id) ? 'google' : 'discord'),
+    kind,
+    badgeKind: kind === 'google' ? 'site_member' : 'discord_member',
+    isGroupAdmin: kind === 'discord' && chatConfig.isDiscordIdGroupAdmin(id),
     displayName: (memberObj && memberObj.displayName) || id,
     avatarUrl,
     discordAvatarUrl: (memberObj && memberObj.discordAvatarUrl) || null,
@@ -284,9 +383,59 @@ function buildMemberPublicInfo(memberObj, fallbackId, store) {
     robloxUsername: (memberObj && memberObj.robloxUsername) || null,
     robloxId: (memberObj && memberObj.robloxId) || null,
     hasRoblox: Boolean(memberObj && memberObj.hasRoblox),
-    games: Array.isArray(memberObj && memberObj.games) ? memberObj.games : [],
     ring,
   };
+}
+
+function formatProfileCardGames(rawGames = [], fallbackRoblox = null) {
+  const list = [];
+  const seen = new Set();
+
+  for (const g of Array.isArray(rawGames) ? rawGames : []) {
+    if (!g || !g.id || !g.username) continue;
+    const gid = String(g.id).trim().toLowerCase();
+    const uname = String(g.username).trim().slice(0, 80);
+    if (!gid || !uname || seen.has(gid)) continue;
+    seen.add(gid);
+    const catalog = gamesConfig.getFallbackGameById(gid);
+    const robloxId =
+      gid === 'roblox'
+        ? String(g.robloxId || (fallbackRoblox && fallbackRoblox.robloxId) || '').trim() || null
+        : null;
+    let profileUrl = null;
+    if (typeof g.profileUrl === 'string' && /^https?:\/\//i.test(g.profileUrl.trim())) {
+      profileUrl = g.profileUrl.trim();
+    } else if (gid === 'roblox' && robloxId && /^\d{1,20}$/.test(robloxId)) {
+      profileUrl = `https://www.roblox.com/users/${robloxId}/profile`;
+    }
+    list.push({
+      id: gid,
+      emoji: (catalog && catalog.emoji) || '🎮',
+      name: (catalog && catalog.name) || { tr: gid.toUpperCase(), en: gid.toUpperCase() },
+      username: uname,
+      ...(robloxId ? { robloxId } : {}),
+      ...(profileUrl ? { profileUrl } : {}),
+    });
+  }
+
+  // Bot includeGames boş döndü ancak robloxUsername varsa Roblox'u otomatik ekle
+  if (!seen.has('roblox') && fallbackRoblox && fallbackRoblox.robloxUsername) {
+    const catalog = gamesConfig.getFallbackGameById('roblox');
+    const robloxId = fallbackRoblox.robloxId ? String(fallbackRoblox.robloxId).trim() : null;
+    const profileUrl =
+      fallbackRoblox.robloxProfileUrl ||
+      (robloxId && /^\d{1,20}$/.test(robloxId) ? `https://www.roblox.com/users/${robloxId}/profile` : null);
+    list.unshift({
+      id: 'roblox',
+      emoji: (catalog && catalog.emoji) || '🧱',
+      name: (catalog && catalog.name) || { tr: 'Roblox', en: 'Roblox' },
+      username: String(fallbackRoblox.robloxUsername).trim().slice(0, 80),
+      ...(robloxId ? { robloxId } : {}),
+      ...(profileUrl ? { profileUrl } : {}),
+    });
+  }
+
+  return list;
 }
 
 function formatLastMessagePreview(msg, req) {
@@ -298,9 +447,12 @@ function formatLastMessagePreview(msg, req) {
       ts: msg.ts,
       deleted: true,
       modRemoved: Boolean(msg.modRemoved),
+      adminRemoved: Boolean(msg.adminRemoved),
       text: msg.modRemoved
         ? req.t('chat.msgModRemoved')
-        : req.t('chat.msgDeleted'),
+        : msg.adminRemoved
+          ? req.t('chat.msgAdminRemoved')
+          : req.t('chat.msgDeleted'),
       attachmentCount: 0,
     };
   }
@@ -311,6 +463,7 @@ function formatLastMessagePreview(msg, req) {
     ts: msg.ts,
     deleted: false,
     modRemoved: false,
+    adminRemoved: false,
     text: (msg.text || '').slice(0, 120),
     attachmentCount: attCount,
   };
@@ -379,6 +532,29 @@ router.get('/', requireChatMember, async (req, res) => {
       ? req.query.kisi.trim()
       : '';
 
+  const lang = req.lang === 'en' ? 'en' : 'tr';
+  let effectiveShowGames = profile.showGamesInChat !== false;
+  if (isGoogleChatUser(user)) {
+    const gm = getFreshGoogleMember(user);
+    effectiveShowGames = Boolean(
+      gm &&
+        gm.privacy &&
+        gm.privacy.showGamesInChat !== false &&
+        getMemberStore().hasConsent(gm, 'chat_profile_game_usernames')
+    );
+  }
+
+  const chatGroupsMeta = chatConfig.GROUPS.map((grp) => ({
+    id: grp.id,
+    convId: makeGroupConvId(grp.id),
+    icon: grp.icon,
+    name: grp.name[lang] || grp.name.tr,
+    description: grp.description[lang] || grp.description.tr,
+    avatarUrl: brandConfig.ASSETS.icon192,
+    allowAttachments: Boolean(grp.allowAttachments),
+    muted: store.isGroupMuted(userId, grp.id),
+  }));
+
   return res.render('pages/chat', {
     title: req.t('chat.pageTitle'),
     isChatPage: true,
@@ -394,18 +570,23 @@ router.get('/', requireChatMember, async (req, res) => {
       : null,
     unreadNotices,
     reportCategories: REPORT_CATEGORIES,
-    firstContactRequestGlobal: chatConfig.isFirstContactRequestEnabled(),
+    isGroupAdmin: chatConfig.isChatGroupAdmin(req),
+    chatGroups: chatGroupsMeta,
+    defaultGroupId: chatConfig.DEFAULT_GROUP_ID,
+    brandIconUrl: brandConfig.ASSETS.icon192,
     chatProfile: {
       ringId: profile.ringId,
       ring: profile.ring,
       effectiveRing,
       readReceipts: profile.readReceipts,
+      showGamesInChat: effectiveShowGames,
+      mutedGroups: profile.mutedGroups || [],
       notify: profile.notify,
       whoCanMessage: profile.whoCanMessage,
-      requireMessageRequest: profile.requireMessageRequest,
       blocked: profile.blocked,
       avatarUrl: selfAvatarUrl,
       displayName: user.displayName || user.username,
+      kind: isGoogleChatUser(user) ? 'google' : 'discord',
     },
     ringCategories: chatConfig.RING_CATEGORIES,
     ringPresets: chatConfig.RING_PRESETS,
@@ -413,6 +594,7 @@ router.get('/', requireChatMember, async (req, res) => {
     requestedOtherId,
     chatLimits: {
       maxMessageLength: chatConfig.LIMITS.MAX_MESSAGE_LENGTH,
+      maxGroupMessagesPerMin: chatConfig.LIMITS.MAX_GROUP_MESSAGES_PER_MIN,
       maxAnimatedDirectoryRings: chatConfig.LIMITS.MAX_ANIMATED_DIRECTORY_RINGS,
       retentionDays: chatConfig.RETENTION_DAYS,
       maxFilesPerMessage: chatConfig.FILES.MAX_FILES_PER_MESSAGE,
@@ -515,10 +697,13 @@ router.get('/api/rehber', requireChatMember, requireChatConsent, requireNotBanne
     }
 
     // İlk sayfada (cursor yoksa) aktif Google site üyelerini de rehbere ekle (e-posta & Google adı ASLA dahil edilmez)
-    if (!cursor) {
+    if (!cursor && chatConfig.isChatGoogleMembersEnabled()) {
       const qLower = query.toLowerCase();
       const memberStore = getMemberStore();
-      for (const gm of memberStore.listActiveMembers()) {
+      const activeGoogleMembers = memberStore.listActiveMembers();
+      await maybeRefreshGoogleRobloxAvatars(activeGoogleMembers);
+      for (const gmRaw of activeGoogleMembers) {
+        const gm = memberStore.findById(gmRaw.id) || gmRaw;
         const pub = memberStore.toPublicChatDirectoryItem(gm);
         if (!pub || pub.id === userId || seenIds.has(pub.id)) continue;
         if (qLower) {
@@ -548,41 +733,207 @@ router.get('/api/rehber', requireChatMember, requireChatConsent, requireNotBanne
   }
 });
 
+/**
+ * GET /sohbet/api/uye-karti/:targetId
+ * Profil Bilgi Kartı (Nebula Glass Card) verisini döndürür.
+ * - Discord üyeleri için Bot POST /api/directory/lookup { includeGames: true } (site-service, 60 sn önbellek)
+ * - Google üyeleri için memberStore (6 saatlik Roblox avatar yenilemesiyle)
+ * - Gizlilik kontrolü SUNUCUDA yapılır: üye "oyun kullanıcı adlarımı göster" ayarını kapattıysa
+ *   oyun verileri istemciye ASLA gönderilmez.
+ */
+router.get('/api/uye-karti/:targetId', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
+  const store = getChatStore();
+  const userId = String(req.session.user.id);
+  const targetId = String(req.params.targetId || '').trim();
+
+  if (!isValidChatUserId(targetId)) {
+    return res.status(400).json({
+      ok: false,
+      code: 'INVALID_TARGET',
+      error: req.t('chat.errInvalidTarget'),
+    });
+  }
+
+  const isGoogleTarget = Boolean(parseUnifiedGoogleId(targetId));
+  const targetChatProfile = store.getProfile(targetId);
+  const blockInfo = store.isBlockedBetween(userId, targetId);
+  const ring = store.getPublicRingForUser(targetId);
+  const nebulaHues = chatConfig.extractNebulaHuesFromRing(ring);
+  const now = Date.now();
+  const cacheTtl = chatConfig.LIMITS.PROFILE_CARD_CACHE_TTL_MS || 60 * 1000;
+
+  if (isGoogleTarget) {
+    const memberStore = getMemberStore();
+    const gmInitial = memberStore.findByUnifiedId(targetId);
+    if (!gmInitial || gmInitial.status !== 'active') {
+      return res.status(404).json({
+        ok: false,
+        code: 'TARGET_NOT_FOUND',
+        error: req.t('chat.errTargetNotFound'),
+      });
+    }
+    await maybeRefreshGoogleRobloxAvatars([gmInitial]);
+    const gm = memberStore.findById(gmInitial.id) || gmInitial;
+    const rbGame = Array.isArray(gm.games) ? gm.games.find((g) => g && g.id === 'roblox') : null;
+    const showGames = Boolean(
+      gm.privacy &&
+        gm.privacy.showGamesInChat !== false &&
+        memberStore.hasConsent(gm, 'chat_profile_game_usernames')
+    );
+
+    const formattedGames = showGames
+      ? formatProfileCardGames(gm.games, rbGame ? { robloxId: rbGame.robloxId, robloxUsername: rbGame.username, robloxProfileUrl: rbGame.robloxProfileUrl } : null)
+      : [];
+
+    return res.json({
+      ok: true,
+      cached: false,
+      card: {
+        id: targetId,
+        kind: 'google',
+        badgeKind: 'site_member',
+        isSelf: targetId === userId,
+        isGroupAdmin: false,
+        displayName: gm.displayName || gm.nickname || targetId,
+        avatarUrl: (rbGame && rbGame.robloxAvatarUrl) || null,
+        ring,
+        nebulaHues,
+        gamesHidden: !showGames,
+        games: formattedGames,
+        blockedByMe: blockInfo.blockedByA,
+        blockedByOther: blockInfo.blockedByB,
+        whoCanMessage: targetChatProfile.whoCanMessage,
+      },
+    });
+  }
+
+  // Discord üyesi: 60 sn bellek önbelleği + Bot POST /api/directory/lookup { includeGames: true } (site-service)
+  let rawMember = null;
+  let fromCache = false;
+  const cachedEntry = profileCardRawCache.get(targetId);
+  if (cachedEntry && cachedEntry.expiresAt > now) {
+    rawMember = cachedEntry.item;
+    fromCache = true;
+  } else {
+    try {
+      const lookup = await botApiClient.lookupDirectoryMembers('site', [targetId], {
+        asService: true,
+        includeGames: true,
+      });
+      rawMember = lookup.byId.get(targetId) || null;
+      if (rawMember) {
+        if (profileCardRawCache.size > 500) {
+          for (const [k, v] of profileCardRawCache.entries()) {
+            if (v.expiresAt <= now) profileCardRawCache.delete(k);
+          }
+        }
+        profileCardRawCache.set(targetId, { item: rawMember, expiresAt: now + cacheTtl });
+      }
+    } catch (err) {
+      return res.status(err && err.isOffline ? 503 : 502).json({
+        ok: false,
+        code: 'DIRECTORY_UNAVAILABLE',
+        error: req.t('chat.errDirectoryUnavailable'),
+      });
+    }
+  }
+
+  if (!rawMember) {
+    return res.status(404).json({
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      error: req.t('chat.errTargetNotFound'),
+    });
+  }
+
+  // Gizlilik kontrolü SUNUCUDA her istekte taze yapılır
+  const showGames = targetChatProfile.showGamesInChat !== false;
+  const formattedGames = showGames
+    ? formatProfileCardGames(rawMember.games, {
+        robloxId: rawMember.robloxId,
+        robloxUsername: rawMember.robloxUsername,
+      })
+    : [];
+
+  return res.json({
+    ok: true,
+    cached: fromCache,
+    card: {
+      id: targetId,
+      kind: 'discord',
+      badgeKind: 'discord_member',
+      isSelf: targetId === userId,
+      isGroupAdmin: chatConfig.isDiscordIdGroupAdmin(targetId),
+      displayName: rawMember.displayName || targetId,
+      avatarUrl: rawMember.robloxAvatarUrl || rawMember.discordAvatarUrl || null,
+      ring,
+      nebulaHues,
+      gamesHidden: !showGames,
+      games: formattedGames,
+      blockedByMe: blockInfo.blockedByA,
+      blockedByOther: blockInfo.blockedByB,
+      whoCanMessage: targetChatProfile.whoCanMessage,
+    },
+  });
+});
+
 router.get('/api/sohbetler', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
   const user = req.session.user;
   const userId = String(user.id);
+  const lang = req.lang === 'en' ? 'en' : 'tr';
   const myProfile = store.getProfile(userId);
   const rawList = store.listConversations(userId);
-  const otherIds = rawList.map((c) => c.otherId);
+
+  // Zorunlu grupların özetlerini al ve son mesaj gönderenlerini de ortak rehberden çözümle
+  const groupSummaries = chatConfig.GROUPS.map((grp) => ({
+    grp,
+    summary: store.getGroupSummary(grp.id, userId),
+  }));
+
+  const lookupIds = new Set(rawList.map((c) => c.otherId));
+  for (const { summary } of groupSummaries) {
+    if (summary && summary.lastMessage && summary.lastMessage.from && isValidChatUserId(summary.lastMessage.from)) {
+      lookupIds.add(summary.lastMessage.from);
+    }
+  }
 
   let memberMap = new Map();
-  if (otherIds.length > 0) {
-    const lookup = await lookupUnifiedMembers(user, otherIds);
+  if (lookupIds.size > 0) {
+    const lookup = await lookupUnifiedMembers(user, [...lookupIds]);
     memberMap = lookup.byId;
   }
+
+  const groups = groupSummaries.map(({ grp, summary }) => {
+    const lastMsg = summary ? formatLastMessagePreview(summary.lastMessage, req) : null;
+    if (lastMsg && lastMsg.from && isValidChatUserId(lastMsg.from)) {
+      const senderObj = memberMap.get(lastMsg.from);
+      lastMsg.senderName = (senderObj && senderObj.displayName) || lastMsg.from;
+    }
+    return {
+      id: grp.id,
+      convId: makeGroupConvId(grp.id),
+      icon: grp.icon,
+      name: grp.name[lang] || grp.name.tr,
+      description: grp.description[lang] || grp.description.tr,
+      avatarUrl: brandConfig.ASSETS.icon192,
+      allowAttachments: Boolean(grp.allowAttachments),
+      lastMessage: lastMsg,
+      lastActivityAt: summary ? summary.lastActivityAt : 0,
+      unreadCount: summary ? summary.unreadCount : 0,
+      muted: summary ? Boolean(summary.muted) : false,
+    };
+  });
 
   const conversations = rawList.map((entry) => {
     const otherProfile = store.getProfile(entry.otherId);
     const blockInfo = store.isBlockedBetween(userId, entry.otherId);
     const canSeeOtherRead = Boolean(myProfile.readReceipts && otherProfile.readReceipts);
-    const isPendingIncoming =
-      entry.state.requestStatus === 'pending' && entry.state.requestFrom === entry.otherId;
 
     return {
       convId: entry.convId,
       other: buildMemberPublicInfo(memberMap.get(entry.otherId), entry.otherId, store),
-      lastMessage: isPendingIncoming
-        ? {
-            id: entry.lastMessage ? entry.lastMessage.id : null,
-            from: entry.otherId,
-            ts: entry.lastActivityAt,
-            deleted: false,
-            text: req.t('chat.messageRequestPreview'),
-            attachmentCount: 0,
-            masked: true,
-          }
-        : formatLastMessagePreview(entry.lastMessage, req),
+      lastMessage: formatLastMessagePreview(entry.lastMessage, req),
       lastActivityAt: entry.lastActivityAt,
       unreadCount: blockInfo.blockedByA ? 0 : entry.unreadCount,
       otherLastRead: canSeeOtherRead ? entry.state.lastRead[entry.otherId] || 0 : 0,
@@ -590,16 +941,470 @@ router.get('/api/sohbetler', requireChatMember, requireChatConsent, requireNotBa
       canSeeOtherRead,
       blockedByMe: blockInfo.blockedByA,
       blockedByOther: blockInfo.blockedByB,
-      requestStatus: entry.state.requestStatus,
-      requestFrom: entry.state.requestFrom,
     };
   });
 
   return res.json({
     ok: true,
+    groups,
     conversations,
     totalUnread: store.getTotalUnreadCount(userId),
     retentionInfo: store.getRetentionInfo(),
+  });
+});
+
+// ============================================================================
+// ZORUNLU GRUP SOHBETİ ("Genel Sohbet"): OKUMA, GÖNDERME, SİLME, SESSİZE ALMA
+// ============================================================================
+
+router.get('/api/grup/:grupId/mesajlar', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
+  const store = getChatStore();
+  const userId = String(req.session.user.id);
+  const lang = req.lang === 'en' ? 'en' : 'tr';
+  const grp = chatConfig.getGroupById(req.params.grupId);
+
+  if (!grp) {
+    return res.status(404).json({
+      ok: false,
+      code: 'GROUP_NOT_FOUND',
+      error: req.t('chat.errGroupNotFound'),
+    });
+  }
+
+  const convId = makeGroupConvId(grp.id);
+  const before = typeof req.query.before === 'string' && req.query.before.trim() ? req.query.before.trim() : null;
+  const after = typeof req.query.after === 'string' && req.query.after.trim() ? req.query.after.trim() : null;
+  const limit = Math.min(
+    chatConfig.LIMITS.MAX_PAGE_LIMIT,
+    Math.max(1, Number.parseInt(String(req.query.limit || chatConfig.LIMITS.DEFAULT_PAGE_LIMIT), 10) || 40)
+  );
+
+  const page = store.getMessages(convId, { before, after, limit });
+  const senderIds = [
+    ...new Set(
+      page.messages
+        .map((m) => m.from)
+        .filter((fid) => fid && fid !== 'system' && isValidChatUserId(fid))
+    ),
+  ];
+
+  let memberMap = new Map();
+  if (senderIds.length > 0) {
+    try {
+      const lookup = await lookupUnifiedMembers(req.session.user, senderIds);
+      memberMap = lookup.byId;
+    } catch (_) {}
+  }
+
+  const senders = {};
+  for (const sid of senderIds) {
+    senders[sid] = buildMemberPublicInfo(memberMap.get(sid), sid, store);
+  }
+
+  return res.json({
+    ok: true,
+    convId,
+    group: {
+      id: grp.id,
+      convId,
+      icon: grp.icon,
+      name: grp.name[lang] || grp.name.tr,
+      description: grp.description[lang] || grp.description.tr,
+      avatarUrl: brandConfig.ASSETS.icon192,
+      allowAttachments: Boolean(grp.allowAttachments),
+    },
+    messages: page.messages,
+    senders,
+    hasMore: page.hasMore,
+    isGroupAdmin: chatConfig.isChatGroupAdmin(req),
+    muted: store.isGroupMuted(userId, grp.id),
+    state: {
+      myLastRead: page.state.lastRead[userId] || 0,
+    },
+  });
+});
+
+router.post(
+  '/api/grup/:grupId/mesaj',
+  requireChatMember,
+  requireChatConsent,
+  requireNotBannedFromChat,
+  chatGroupMessageLimiter,
+  async (req, res) => {
+    const store = getChatStore();
+    const modStore = getChatModStore(store);
+    const userId = String(req.session.user.id);
+    const grp = chatConfig.getGroupById(req.params.grupId);
+
+    if (!grp) {
+      return res.status(404).json({
+        ok: false,
+        code: 'GROUP_NOT_FOUND',
+        error: req.t('chat.errGroupNotFound'),
+      });
+    }
+
+    // Susturulmuş kullanıcı gruba yazamaz (okuma serbesttir)
+    const activeSanction = req.activeChatSanction || modStore.getActiveSanction(userId);
+    if (activeSanction && activeSanction.type === 'mute') {
+      return res.status(403).json({
+        ok: false,
+        code: 'USER_MUTED',
+        sanction: {
+          type: 'mute',
+          reasonCategory: activeSanction.reasonCategory,
+          expiresAt: activeSanction.expiresAt,
+        },
+        error: req.t('chat.errMutedInChat'),
+      });
+    }
+
+    const convId = makeGroupConvId(grp.id);
+    const rawText = req.body && typeof req.body.text === 'string' ? req.body.text : '';
+    if (rawText.length > chatConfig.LIMITS.MAX_MESSAGE_LENGTH + 500) {
+      return res.status(400).json({
+        ok: false,
+        code: 'TEXT_TOO_LONG',
+        error: req.t('chat.errTextTooLong'),
+      });
+    }
+    const cleanText = sanitizeChatText(rawText, chatConfig.LIMITS.MAX_MESSAGE_LENGTH);
+
+    // Yeni Google üyesi 24 saat sınırı grupta da geçerlidir
+    if (cleanText && isNewGoogleMemberRestricted(req.session.user) && containsExternalLink(cleanText)) {
+      return res.status(403).json({
+        ok: false,
+        code: 'NEW_MEMBER_NO_LINKS',
+        error: req.t('chat.errNewMemberNoLinks'),
+      });
+    }
+
+    const clientId =
+      req.body && typeof req.body.clientId === 'string' ? req.body.clientId.trim().slice(0, 80) : null;
+    const replyTo =
+      req.body && typeof req.body.replyTo === 'string' ? req.body.replyTo.trim().slice(0, 64) : null;
+
+    // Ek dosya doğrulaması (mevcut dosya kuralları grupta aynen geçerlidir)
+    const rawAttachmentIds = req.body && Array.isArray(req.body.attachmentIds) ? req.body.attachmentIds : [];
+    const uniqueAttIds = [...new Set(rawAttachmentIds.map((x) => String(x || '').trim()).filter(Boolean))];
+    if (uniqueAttIds.length > 0 && !grp.allowAttachments) {
+      return res.status(400).json({
+        ok: false,
+        code: 'ATTACHMENTS_DISABLED',
+        error: req.t('chat.errInvalidAttachment'),
+      });
+    }
+    if (uniqueAttIds.length > chatConfig.FILES.MAX_FILES_PER_MESSAGE) {
+      return res.status(400).json({
+        ok: false,
+        code: 'TOO_MANY_ATTACHMENTS',
+        error: req.t('chat.errMaxFiles'),
+      });
+    }
+
+    const resolvedAttachments = [];
+    for (const attId of uniqueAttIds) {
+      if (!/^[0-9a-f]{32}$/.test(attId)) {
+        return res.status(400).json({
+          ok: false,
+          code: 'INVALID_ATTACHMENT',
+          error: req.t('chat.errInvalidAttachment'),
+        });
+      }
+      const meta = store.getFileMeta(attId);
+      if (!meta || meta.uploaderId !== userId || (meta.convId && meta.convId !== convId) || meta.msgId) {
+        return res.status(400).json({
+          ok: false,
+          code: 'INVALID_ATTACHMENT',
+          error: req.t('chat.errInvalidAttachment'),
+        });
+      }
+      resolvedAttachments.push({
+        id: meta.id,
+        originalName: meta.originalName,
+        ext: meta.ext,
+        mimeType: meta.mimeType,
+        category: meta.category,
+        size: meta.size,
+        url: `/sohbet/dosya/${meta.id}`,
+        txtPreview: meta.txtPreview || null,
+      });
+    }
+
+    if (!cleanText && resolvedAttachments.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        code: 'EMPTY_MESSAGE',
+        error: req.t('chat.errEmptyMessage'),
+      });
+    }
+
+    // Aşırı yük / spam koruması: aynı metnin kısa süre içinde tekrar gönderilmesini engelle
+    const dupWindowMs = chatConfig.LIMITS.GROUP_DUPLICATE_WINDOW_MS || 15000;
+    const normText = cleanText ? cleanText.toLowerCase().replace(/\s+/g, ' ').trim() : '';
+    const now = Date.now();
+    if (normText && resolvedAttachments.length === 0) {
+      const prev = groupRecentMsgMap.get(userId);
+      if (prev && prev.normText === normText && prev.clientId !== clientId && now - prev.ts < dupWindowMs) {
+        return res.status(429).json({
+          ok: false,
+          code: 'DUPLICATE_GROUP_MESSAGE',
+          error: req.t('chat.errDuplicateGroupMessage'),
+        });
+      }
+    }
+
+    let appended;
+    try {
+      appended = store.appendMessage(convId, {
+        from: userId,
+        text: cleanText,
+        attachments: resolvedAttachments,
+        replyTo,
+        clientId,
+      });
+    } catch (err) {
+      return res.status(400).json({
+        ok: false,
+        code: err.code || 'SEND_FAILED',
+        error: err.message || req.t('chat.errSendFailed'),
+      });
+    }
+
+    if (appended.duplicate) {
+      return res.status(200).json({
+        ok: true,
+        duplicate: true,
+        convId,
+        groupId: grp.id,
+        message: appended.message,
+      });
+    }
+
+    if (normText) {
+      groupRecentMsgMap.set(userId, { normText, ts: now, clientId });
+      if (groupRecentMsgMap.size > 1000) {
+        for (const [k, v] of groupRecentMsgMap.entries()) {
+          if (now - v.ts > dupWindowMs * 2) groupRecentMsgMap.delete(k);
+        }
+      }
+    }
+
+    for (const att of resolvedAttachments) {
+      const meta = store.getFileMeta(att.id);
+      if (meta) {
+        meta.convId = convId;
+        meta.msgId = appended.message.id;
+        store.registerFileMeta(meta);
+      }
+    }
+
+    // Yerel otomatik filtre grup mesajlarını da kapsar (mesajı engellemez, işaretlenirse vaka açar)
+    if (cleanText) {
+      try {
+        const scan = chatAutoFilter.scanMessageText(cleanText);
+        if (scan.flagged) {
+          const radius = chatConfig.MODERATION.AUTOFLAG_CONTEXT_RADIUS || 5;
+          const ctxMsgs = store.getContextWindow(convId, appended.message.id, { radius });
+          modStore.createOrMergeAutoCase({
+            convId,
+            offendingUserId: userId,
+            targetMsgId: appended.message.id,
+            categories: scan.categories,
+            priority: scan.priority,
+            snapshotMessages: ctxMsgs,
+            chatStore: store,
+          });
+        }
+      } catch (_) {}
+    }
+
+    const msg = appended.message;
+    let senderResolved = null;
+    try {
+      const lkp = await lookupUnifiedMembers(req.session.user, [userId]);
+      senderResolved = lkp.byId.get(userId) || null;
+    } catch (_) {}
+
+    const senderInfo = buildMemberPublicInfo(
+      senderResolved || {
+        id: userId,
+        kind: isGoogleChatUser(req.session.user) ? 'google' : 'discord',
+        displayName: req.session.user.displayName || req.session.user.username || userId,
+        robloxAvatarUrl: isGoogleChatUser(req.session.user) ? req.session.user.avatarUrl || null : null,
+        discordAvatarUrl: !isGoogleChatUser(req.session.user) ? req.session.user.avatarUrl || null : null,
+      },
+      userId,
+      store
+    );
+
+    // Tüm bağlı üyelere SSE üzerinden grup mesajı yayını
+    chatSseHub.broadcastGroupEvent(
+      'group_message',
+      {
+        convId,
+        groupId: grp.id,
+        sender: senderInfo,
+        message: msg,
+      },
+      {
+        buffer: true,
+        computePerUserData: (targetUid, base) => {
+          const isMuted = store.isGroupMuted(targetUid, grp.id);
+          const tProf = store.getProfile(targetUid);
+          return {
+            ...base,
+            selfEcho: targetUid === userId,
+            muted: isMuted,
+            notifyPreview: Boolean(tProf.notify && tProf.notify.preview),
+          };
+        },
+      }
+    );
+
+    // Bağlı diğer üyelere güncel okunmamış sayaç yayını (grubu sessize alanlar hariç)
+    for (const targetUid of [...chatSseHub.clientsByUser.keys()]) {
+      if (targetUid === userId) continue;
+      if (store.isGroupMuted(targetUid, grp.id)) continue;
+      chatSseHub.sendToUser(targetUid, 'unread', { unread: store.getTotalUnreadCount(targetUid) });
+    }
+
+    return res.status(201).json({
+      ok: true,
+      duplicate: false,
+      convId,
+      groupId: grp.id,
+      message: msg,
+      sender: senderInfo,
+    });
+  }
+);
+
+router.post('/api/grup/:grupId/okundu', requireChatMember, requireChatConsent, (req, res) => {
+  const store = getChatStore();
+  const userId = String(req.session.user.id);
+  const grp = chatConfig.getGroupById(req.params.grupId);
+  if (!grp) {
+    return res.status(404).json({ ok: false, code: 'GROUP_NOT_FOUND', error: req.t('chat.errGroupNotFound') });
+  }
+  const convId = makeGroupConvId(grp.id);
+  const upTo = Number(req.body && req.body.upTo) || Date.now();
+  store.markRead(convId, userId, upTo);
+  const myUnread = store.getTotalUnreadCount(userId);
+  // Grupta "Görüldü" yayını YOKTUR; yalnızca kullanıcının kendi okunmamış rozeti güncellenir
+  chatSseHub.sendToUser(userId, 'unread', { unread: myUnread });
+  return res.json({
+    ok: true,
+    convId,
+    groupId: grp.id,
+    unread: myUnread,
+  });
+});
+
+router.post('/api/grup/:grupId/sessize-al', requireChatMember, requireChatConsent, (req, res) => {
+  const store = getChatStore();
+  const userId = String(req.session.user.id);
+  const grp = chatConfig.getGroupById(req.params.grupId);
+  if (!grp) {
+    return res.status(404).json({ ok: false, code: 'GROUP_NOT_FOUND', error: req.t('chat.errGroupNotFound') });
+  }
+  const currentlyMuted = store.isGroupMuted(userId, grp.id);
+  const nextMuted =
+    req.body && typeof req.body.muted === 'boolean' ? req.body.muted : !currentlyMuted;
+  const updated = store.setGroupMuted(userId, grp.id, nextMuted);
+  const myUnread = store.getTotalUnreadCount(userId);
+  chatSseHub.sendToUser(userId, 'settings', { mutedGroups: updated.mutedGroups });
+  chatSseHub.sendToUser(userId, 'unread', { unread: myUnread });
+  return res.json({
+    ok: true,
+    groupId: grp.id,
+    muted: nextMuted,
+    mutedGroups: updated.mutedGroups,
+    unread: myUnread,
+  });
+});
+
+router.delete('/api/grup/:grupId/mesaj/:msgId', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
+  const store = getChatStore();
+  const modStore = getChatModStore(store);
+  const userId = String(req.session.user.id);
+  const grp = chatConfig.getGroupById(req.params.grupId);
+  const msgId = String(req.params.msgId || '').trim();
+
+  if (!grp || !msgId) {
+    return res.status(400).json({ ok: false, code: 'INVALID_REQUEST' });
+  }
+
+  const convId = makeGroupConvId(grp.id);
+  const existing = store.getMessageById(convId, msgId);
+  if (!existing) {
+    return res.status(404).json({
+      ok: false,
+      code: 'NOT_FOUND',
+      error: req.t('chat.errMsgNotFound'),
+    });
+  }
+
+  const isOwn = existing.from === userId;
+  // Grup yöneticisi kontrolü YALNIZCA Discord oturumu ve env CHAT_GROUP_ADMIN_DISCORD_IDS ile yapılır
+  const isGroupAdmin = chatConfig.isChatGroupAdmin(req);
+  if (!isOwn && !isGroupAdmin) {
+    return res.status(403).json({
+      ok: false,
+      code: 'FORBIDDEN',
+      error: req.t('chat.errDeleteForbidden'),
+    });
+  }
+
+  const adminRemoved = !isOwn && isGroupAdmin;
+  const result = store.deleteMessage(convId, msgId, {
+    by: userId,
+    modRemoved: false,
+    adminRemoved,
+  });
+
+  if (!result.ok) {
+    const status = result.code === 'FORBIDDEN' ? 403 : 404;
+    return res.status(status).json({
+      ok: false,
+      code: result.code,
+      error: result.code === 'FORBIDDEN' ? req.t('chat.errDeleteForbidden') : req.t('chat.errMsgNotFound'),
+    });
+  }
+
+  // Korunmayan ek dosyaları diskten sil
+  for (const attId of result.deletedAttachmentIds || []) {
+    store.deleteFileIfUnpreserved(attId);
+  }
+
+  // Yönetici silme işlemini içeriksiz olarak denetim kaydına yaz
+  if (adminRemoved) {
+    modStore.recordGroupAdminDeleteAudit({
+      adminId: userId,
+      adminName: req.session.user.displayName || req.session.user.username || userId,
+      convId,
+      msgId,
+      targetUserId: existing.from,
+    });
+  }
+
+  chatSseHub.broadcastGroupEvent(
+    'group_deleted',
+    {
+      convId,
+      groupId: grp.id,
+      msgId,
+      modRemoved: false,
+      adminRemoved,
+    },
+    { buffer: true }
+  );
+
+  return res.json({
+    ok: true,
+    msgId,
+    groupId: grp.id,
+    adminRemoved,
   });
 });
 
@@ -654,34 +1459,17 @@ router.get('/api/sohbet/:digerId/mesajlar', requireChatMember, requireChatConsen
     otherMember = lookup.byId.get(otherId) || null;
   } catch (_) {}
 
-  const isPendingIncoming =
-    page.state.requestStatus === 'pending' && page.state.requestFrom === otherId;
-
-  const safeMessages = page.messages.map((m) => {
-    if (isPendingIncoming && m.from === otherId && !m.deleted) {
-      return {
-        ...m,
-        text: '',
-        attachments: [],
-        maskedRequest: true,
-      };
-    }
-    return m;
-  });
-
   return res.json({
     ok: true,
     convId,
     other: buildMemberPublicInfo(otherMember, otherId, store),
-    messages: safeMessages,
+    messages: page.messages,
     hasMore: page.hasMore,
     canSeeOtherRead,
     state: {
       myLastRead: page.state.lastRead[userId] || 0,
       otherLastRead: canSeeOtherRead ? page.state.lastRead[otherId] || 0 : 0,
       otherLastDelivered: page.state.lastDelivered[otherId] || 0,
-      requestStatus: page.state.requestStatus,
-      requestFrom: page.state.requestFrom,
     },
     blocked: {
       byMe: blockInfo.blockedByA,
@@ -893,10 +1681,6 @@ router.post(
 
     if (appended.isNewConversation) {
       store.recordNewConversation(userId);
-      // Parça 4: İlk mesaj isteği (global CHAT_FIRST_CONTACT_REQUEST veya alıcının ayarı açıksa)
-      if (chatConfig.isFirstContactRequestEnabled() || otherProfile.requireMessageRequest) {
-        store.setConvRequestStatus(convId, 'pending', userId);
-      }
     }
 
     // Parça 4: Yerel otomatik filtre (mesajı ASLA engellemez; işaretlenirse ±5 mesajla otomatik vaka açar/birleştirir)
@@ -1064,7 +1848,8 @@ router.delete('/api/sohbet/:digerId/mesaj/:msgId', requireChatMember, requireCha
 
 router.post('/api/profil', requireChatMember, requireChatConsent, (req, res) => {
   const store = getChatStore();
-  const userId = String(req.session.user.id);
+  const user = req.session.user;
+  const userId = String(user.id);
   const body = req.body && typeof req.body === 'object' ? req.body : {};
 
   const patch = {};
@@ -1077,19 +1862,43 @@ router.post('/api/profil', requireChatMember, requireChatConsent, (req, res) => 
   if (typeof body.readReceipts === 'boolean') {
     patch.readReceipts = body.readReceipts;
   }
+  if (typeof body.showGamesInChat === 'boolean') {
+    patch.showGamesInChat = body.showGamesInChat;
+  }
   if (body.notify && typeof body.notify === 'object') {
     patch.notify = body.notify;
   }
   if (body.whoCanMessage === 'everyone' || body.whoCanMessage === 'nobody') {
     patch.whoCanMessage = body.whoCanMessage;
   }
-  if (typeof body.requireMessageRequest === 'boolean') {
-    patch.requireMessageRequest = body.requireMessageRequest;
-  }
 
   try {
     const updated = store.setProfile(userId, patch);
     const effectiveRing = chatConfig.resolveEffectiveRing(updated);
+
+    // Google üyesi oyun görünürlüğünü sohbet ayarlarından değiştirdiyse memberStore'u da senkronize et
+    let effectiveShowGames = updated.showGamesInChat !== false;
+    if (typeof body.showGamesInChat === 'boolean' && isGoogleChatUser(user)) {
+      const gm = getFreshGoogleMember(user);
+      if (gm) {
+        const ms = getMemberStore();
+        if (body.showGamesInChat) {
+          ms.grantConsent(gm.id, 'chat_profile_game_usernames', '1.0');
+          effectiveShowGames = true;
+        } else {
+          ms.updateMember(gm.id, { privacy: { showGamesInChat: false } });
+          effectiveShowGames = false;
+        }
+      }
+    } else if (isGoogleChatUser(user)) {
+      const gm = getFreshGoogleMember(user);
+      effectiveShowGames = Boolean(
+        gm &&
+          gm.privacy &&
+          gm.privacy.showGamesInChat !== false &&
+          getMemberStore().hasConsent(gm, 'chat_profile_game_usernames')
+      );
+    }
 
     if (ringTouched) {
       chatSseHub.broadcastProfileRing(userId, effectiveRing);
@@ -1097,9 +1906,10 @@ router.post('/api/profil', requireChatMember, requireChatConsent, (req, res) => 
 
     chatSseHub.sendToUser(userId, 'settings', {
       readReceipts: updated.readReceipts,
+      showGamesInChat: effectiveShowGames,
+      mutedGroups: updated.mutedGroups || [],
       notify: updated.notify,
       whoCanMessage: updated.whoCanMessage,
-      requireMessageRequest: updated.requireMessageRequest,
       ringId: updated.ringId,
       ring: updated.ring,
       effectiveRing,
@@ -1112,9 +1922,10 @@ router.post('/api/profil', requireChatMember, requireChatConsent, (req, res) => 
         ring: updated.ring,
         effectiveRing,
         readReceipts: updated.readReceipts,
+        showGamesInChat: effectiveShowGames,
+        mutedGroups: updated.mutedGroups || [],
         notify: updated.notify,
         whoCanMessage: updated.whoCanMessage,
-        requireMessageRequest: updated.requireMessageRequest,
       },
     });
   } catch (err) {
@@ -1349,9 +2160,17 @@ router.get('/dosya/:id', async (req, res) => {
   let authorized = false;
 
   if (meta.convId) {
-    const participants = parseConvId(meta.convId);
-    if (participants && participants.includes(userId)) {
-      authorized = true;
+    if (isGroupConvId(meta.convId)) {
+      const modStore = getChatModStore(store);
+      const sanction = modStore.getActiveSanction(userId);
+      if (!sanction || sanction.type !== 'ban') {
+        authorized = true;
+      }
+    } else {
+      const participants = parseConvId(meta.convId);
+      if (participants && participants.includes(userId)) {
+        authorized = true;
+      }
     }
   } else if (meta.uploaderId === userId) {
     // Gönderilmeden önceki önizleme yalnızca yükleyenin kendisine açıktır
@@ -1452,12 +2271,12 @@ router.get('/dosya/:id', async (req, res) => {
 });
 
 // ============================================================================
-// PARÇA 4: KULLANICI RAPORLAMA, MESAJ İSTEĞİ YANITLAMA VE BİLDİRİMLER
+// PARÇA 4: KULLANICI RAPORLAMA (DM VE GRUP)
 // ============================================================================
 
 /**
  * POST /sohbet/api/raporla
- * Bir mesajı veya sohbeti raporlar; etrafındaki son 30 mesaj (+ ekleri) anlık görüntü olarak vakaya kopyalanır.
+ * Bir mesajı veya sohbeti (DM veya Genel Sohbet grubu) raporlar; etrafındaki son 30 mesaj (+ ekleri) anlık görüntü olarak vakaya kopyalanır.
  */
 router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
   const store = getChatStore();
@@ -1465,10 +2284,35 @@ router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBan
   const userId = String(req.session.user.id);
   const body = req.body && typeof req.body === 'object' ? req.body : {};
 
-  const otherId = String(body.otherId || '').trim();
-  const convId = makeConvId(userId, otherId);
-  if (!convId) {
-    return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
+  const groupIdRaw = typeof body.groupId === 'string' ? body.groupId.trim() : '';
+  const targetMsgId = typeof body.msgId === 'string' && body.msgId.trim() ? body.msgId.trim().slice(0, 64) : null;
+  let convId = null;
+  let reportedUserId = '';
+
+  if (groupIdRaw) {
+    convId = makeGroupConvId(groupIdRaw);
+    if (!convId) {
+      return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
+    }
+    if (targetMsgId) {
+      const targetMsg = store.getMessageById(convId, targetMsgId);
+      if (targetMsg && targetMsg.from && isValidChatUserId(targetMsg.from)) {
+        reportedUserId = targetMsg.from;
+      }
+    }
+    if (!reportedUserId && typeof body.otherId === 'string' && isValidChatUserId(body.otherId.trim())) {
+      reportedUserId = body.otherId.trim();
+    }
+    if (!reportedUserId || reportedUserId === userId) {
+      return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
+    }
+  } else {
+    const otherId = String(body.otherId || '').trim();
+    convId = makeConvId(userId, otherId);
+    reportedUserId = otherId;
+    if (!convId) {
+      return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
+    }
   }
 
   const category = String(body.category || '').trim();
@@ -1476,7 +2320,6 @@ router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBan
     return res.status(400).json({ ok: false, code: 'INVALID_CATEGORY', error: req.t('chat.errInvalidCategory') });
   }
 
-  const targetMsgId = typeof body.msgId === 'string' && body.msgId.trim() ? body.msgId.trim().slice(0, 64) : null;
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, chatConfig.LIMITS.MAX_REPORT_NOTE_LENGTH) : '';
 
   if (!store.canSubmitReport(userId)) {
@@ -1503,7 +2346,7 @@ router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBan
     const createdCase = modStore.createReportCase({
       convId,
       reporterId: userId,
-      reportedUserId: otherId,
+      reportedUserId,
       targetMsgId,
       category,
       note,
@@ -1522,37 +2365,9 @@ router.post('/api/raporla', requireChatMember, requireChatConsent, requireNotBan
   }
 });
 
-/**
- * POST /sohbet/api/sohbet/:digerId/istek
- * Mesaj isteğini kabul eder, reddeder veya göndereni engeller.
- */
-router.post('/api/sohbet/:digerId/istek', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
-  const store = getChatStore();
-  const userId = String(req.session.user.id);
-  const otherId = String(req.params.digerId || '').trim();
-  const convId = makeConvId(userId, otherId);
-  const action = String((req.body && req.body.action) || '').trim();
-
-  if (!convId || !['accept', 'decline', 'block'].includes(action)) {
-    return res.status(400).json({ ok: false, code: 'INVALID_REQUEST' });
-  }
-
-  if (action === 'accept') {
-    const st = store.setConvRequestStatus(convId, 'accepted');
-    return res.json({ ok: true, requestStatus: st.requestStatus });
-  }
-  if (action === 'decline') {
-    const st = store.setConvRequestStatus(convId, 'declined');
-    chatSseHub.sendToUser(userId, 'unread', { unread: store.getTotalUnreadCount(userId) });
-    return res.json({ ok: true, requestStatus: st.requestStatus });
-  }
-  // block
-  store.setConvRequestStatus(convId, 'declined');
-  const updated = store.blockUser(userId, otherId);
-  chatSseHub.sendToUser(userId, 'unread', { unread: store.getTotalUnreadCount(userId) });
-  return res.json({ ok: true, requestStatus: 'declined', blocked: updated.blocked });
-});
-
 router.setModFileAccessAuthorizer = setModFileAccessAuthorizer;
+router.clearProfileCardCache = clearProfileCardCache;
+router.clearGroupDuplicateTracker = clearGroupDuplicateTracker;
+router.clearAvatarRefreshBackoff = clearAvatarRefreshBackoff;
 
 module.exports = router;

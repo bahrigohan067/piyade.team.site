@@ -124,8 +124,8 @@
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>
   <script src="/js/cookie-notice.js?v=<%= assetVer %>" defer></script>
 
-  <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) { %>
-    <!-- Kişisel "Etkinliğim" Paneli İstemci Mantığı -->
+  <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id && (typeof isGoogleMember === 'undefined' || !isGoogleMember)) { %>
+    <!-- Kişisel "Etkinliğim" Paneli İstemci Mantığı (Yalnızca Discord Üyeleri) -->
     <script src="/js/activity-panel.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
@@ -141,6 +141,14 @@
 
   <% if (typeof isRegisterPage !== 'undefined' && isRegisterPage) { %>
     <script src="/js/register.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isGoogleSignupPage !== 'undefined' && isGoogleSignupPage) { %>
+    <script src="/js/google-signup.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isGoogleProfilePage !== 'undefined' && isGoogleProfilePage) { %>
+    <script src="/js/profile-google.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
   <% if (typeof isChatPage !== 'undefined' && isChatPage) { %>

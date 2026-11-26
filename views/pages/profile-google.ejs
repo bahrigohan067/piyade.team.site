@@ -1,0 +1,403 @@
+<%- include('../layouts/header') %>
+
+<%
+  const activeLang = lang === 'en' ? 'en' : 'tr';
+  const langPrefix = activeLang === 'en' ? '/en' : '';
+  const rbGame = (Array.isArray(enrichedGames) ? enrichedGames : []).find((g) => g.id === 'roblox') || null;
+  const avatarUrl = rbGame && rbGame.robloxAvatarUrl ? rbGame.robloxAvatarUrl : null;
+  const initialChar = String(member.nickname || member.displayName || 'P').trim().charAt(0).toUpperCase() || 'P';
+  const selectedIds = new Set((Array.isArray(member.games) ? member.games : []).map((g) => g.id));
+  const usernamesByGame = {};
+  (Array.isArray(member.games) ? member.games : []).forEach((g) => {
+    usernamesByGame[g.id] = g.username || '';
+  });
+  const showGamesInChat = Boolean(
+    member.privacy && member.privacy.showGamesInChat !== false && memberConsentMap.has('chat_profile_game_usernames')
+  );
+  const hasTransferConsent = memberConsentMap.has('international_data_transfer');
+  const hasChatModConsent = memberConsentMap.has('chat_moderation_review');
+
+  function pickName(obj, fallback) {
+    if (typeof obj === 'string') return obj;
+    if (!obj || typeof obj !== 'object') return fallback || '';
+    return activeLang === 'en' ? (obj.en || obj.tr || fallback || '') : (obj.tr || obj.en || fallback || '');
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    try {
+      return new Date(ts).toLocaleString(activeLang === 'en' ? 'en-US' : 'tr-TR', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    } catch (_) {
+      return new Date(ts).toISOString().slice(0, 16);
+    }
+  }
+%>
+
+<div
+  id="googleProfileRoot"
+  data-csrf="<%= csrfToken %>"
+  data-roblox-lookup-url="/profil/roblox-kontrol"
+  data-t-checking="<%= t('register.robloxCheckingBtn') %>"
+  data-t-check="<%= t('register.robloxCheckBtn') %>"
+  data-t-profile="<%= t('register.robloxProfileOpen') %>"
+  data-t-temp-err="<%= t('register.robloxLookupTempError') %>"
+>
+  <% if (typeof profileFlash !== 'undefined' && profileFlash && profileFlash.text) { %>
+    <div class="alert alert-<%= profileFlash.type === 'danger' ? 'danger' : (profileFlash.type === 'warning' ? 'warning' : 'success') %>" role="status">
+      <span><%= profileFlash.type === 'danger' ? '🛑' : (profileFlash.type === 'warning' ? '⚠️' : '✅') %></span>
+      <div><%= profileFlash.text %></div>
+    </div>
+  <% } %>
+
+  <% if (!hasTransferConsent) { %>
+    <div class="alert alert-warning" role="alert">
+      <span>⚠️</span>
+      <div>
+        <strong><%= t('googleProfile.transferWithdrawnBannerTitle') %></strong>
+        <div><%= t('googleProfile.transferWithdrawnBannerDesc') %></div>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Üst Profil Özeti (Google Site Üyesi — Discord ID / Disiplin Kartı YOK) -->
+  <div class="glass-card profile-banner-card">
+    <div class="profile-banner-inner">
+      <div class="profile-banner-identity">
+        <div class="profile-avatar-wrap">
+          <% if (avatarUrl) { %>
+            <img
+              src="<%= avatarUrl %>"
+              alt="<%= member.displayName %>"
+              width="86"
+              height="86"
+              loading="lazy"
+              decoding="async"
+              class="profile-avatar-img"
+            />
+          <% } else { %>
+            <div class="profile-avatar-img profile-avatar-initial" aria-hidden="true"><%= initialChar %></div>
+          <% } %>
+          <span class="status-dot-success profile-avatar-dot"></span>
+        </div>
+        <div>
+          <div class="profile-title-row">
+            <h1 class="profile-display-name"><%= member.displayName %></h1>
+            <span class="badge badge-info"><%= t('nav.roleSiteMember') %></span>
+          </div>
+          <p class="profile-discord-meta">
+            <%= t('googleProfile.nicknameMetaLabel') %>: <strong><%= member.nickname %></strong>
+            • <%= t('googleProfile.joinedLabel') %>: <%= fmtDate(member.createdAt) %>
+          </p>
+        </div>
+      </div>
+
+      <div class="gp-banner-actions">
+        <% if (rbGame && rbGame.profileUrl) { %>
+          <a href="<%= rbGame.profileUrl %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+            <span><%= t('profile.btnOpenRoblox') %></span>
+          </a>
+        <% } %>
+        <a href="#duzenle" class="btn btn-primary btn-sm" id="gpToggleEditBtn">
+          <span><%= t('googleProfile.btnEditProfile') %></span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 Sütunlu Üst Izgara: Oyun Hesapları + Gizlilik -->
+  <div class="grid grid-2 gp-grid">
+    <!-- 1) Oyun Hesaplarım & Düzenleme -->
+    <div class="glass-card gp-card" id="duzenle">
+      <div class="card-header">
+        <h2 class="card-title"><span>🎮</span> <%= t('profile.cardGamesTitle') %></h2>
+        <span class="badge badge-success"><%= t('nav.roleSiteMember') %></span>
+      </div>
+
+      <div class="profile-games-list">
+        <% enrichedGames.forEach((gameItem, idx) => {
+             const codeId = 'gp-game-code-' + idx;
+        %>
+          <div class="profile-game-card">
+            <div class="profile-game-main">
+              <div class="profile-game-head">
+                <span class="profile-game-emoji" aria-hidden="true"><%= gameItem.emoji || '🎮' %></span>
+                <span class="profile-game-name"><%= pickName(gameItem.name, gameItem.id) %></span>
+              </div>
+              <div class="profile-game-user-row">
+                <code class="profile-game-code" id="<%= codeId %>"><%= gameItem.username %></code>
+              </div>
+            </div>
+            <div class="profile-game-actions">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm profile-copy-btn"
+                data-copy-text="<%= gameItem.username %>"
+                data-copy-target="<%= codeId %>"
+                data-copy-label="<%= t('profile.btnCopyUsername') %>"
+                data-copied-label="<%= t('profile.btnCopiedUsername') %>"
+                data-fallback-hint="<%= t('profile.copyFallbackHint') %>"
+              >
+                <span><%= t('profile.btnCopyUsername') %></span>
+              </button>
+              <% if (gameItem.profileUrl) { %>
+                <a href="<%= gameItem.profileUrl %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+                  <span><%= t('register.robloxProfileOpen') %></span>
+                </a>
+              <% } %>
+            </div>
+            <div class="profile-copy-hint" role="status" aria-live="polite" hidden></div>
+          </div>
+        <% }); %>
+      </div>
+
+      <!-- Düzenleme Formu (Açılır / Kapanır) -->
+      <details class="gp-edit-details" id="gpEditDetails">
+        <summary class="gp-edit-summary"><%= t('googleProfile.editSectionToggle') %></summary>
+        <form method="POST" action="/profil/duzenle" class="gp-edit-form" id="gpEditForm">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+          <div class="form-group">
+            <label class="form-label" for="gpEditNickname"><%= t('googleSignup.nicknameLabel') %></label>
+            <input
+              type="text"
+              id="gpEditNickname"
+              name="nickname"
+              class="form-control"
+              value="<%= member.nickname %>"
+              minlength="2"
+              maxlength="32"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <span class="form-label"><%= t('googleProfile.editGamesLabel') %></span>
+            <div class="gp-edit-games-list">
+              <% (Array.isArray(gamesList) ? gamesList : []).forEach((g) => {
+                   const isSel = selectedIds.has(g.id);
+                   const isRb = g.id === 'roblox';
+              %>
+                <div class="gp-edit-game-row" data-gp-edit-game="<%= g.id %>">
+                  <label class="gs-check-row gp-edit-game-toggle">
+                    <input type="checkbox" name="games" value="<%= g.id %>" class="gp-edit-game-check" <%= isSel ? 'checked' : '' %> />
+                    <span><%= g.emoji || '🎮' %> <strong><%= pickName(g.name, g.id) %></strong></span>
+                  </label>
+                  <div class="gp-edit-game-input-wrap <%= isRb ? 'reg-input-with-action' : '' %>" data-gp-input-wrap="<%= g.id %>" <%= isSel ? '' : 'hidden' %>>
+                    <input
+                      type="text"
+                      id="gp-edit-user-<%= g.id %>"
+                      name="usernames[<%= g.id %>]"
+                      class="form-control"
+                      value="<%= usernamesByGame[g.id] || '' %>"
+                      placeholder="<%= pickName(g.usernamePlaceholder, '') %>"
+                      maxlength="<%= (g.validate && g.validate.max) || 32 %>"
+                    />
+                    <% if (isRb) { %>
+                      <button type="button" id="gpBtnRobloxCheck" class="btn btn-secondary btn-sm reg-lookup-btn">
+                        <span><%= t('register.robloxCheckBtn') %></span>
+                      </button>
+                    <% } %>
+                  </div>
+                  <% if (isRb) { %>
+                    <div id="gpRobloxLookupCard" class="reg-lookup-card" hidden aria-live="polite"></div>
+                  <% } %>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="gp-edit-actions">
+            <button type="submit" class="btn btn-primary btn-sm"><%= t('googleProfile.btnSaveChanges') %></button>
+          </div>
+        </form>
+      </details>
+    </div>
+
+    <!-- 2) Gizlilik Ayarları -->
+    <div class="glass-card gp-card" id="gizlilik">
+      <div class="card-header">
+        <h2 class="card-title"><span>🔒</span> <%= t('googleProfile.cardPrivacyTitle') %></h2>
+      </div>
+
+      <p class="gp-card-desc"><%= t('googleProfile.privacyDesc') %></p>
+
+      <form method="POST" action="/profil/gizlilik" class="gp-privacy-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <label class="gs-check-row gp-toggle-row" for="gpShowGamesToggle">
+          <input type="checkbox" id="gpShowGamesToggle" name="showGamesInChat" value="1" <%= showGamesInChat ? 'checked' : '' %> />
+          <span class="gs-check-copy">
+            <strong><%= t('googleProfile.toggleShowGamesLabel') %></strong>
+            <span class="gs-consent-summary"><%= t('googleProfile.toggleShowGamesHelp') %></span>
+          </span>
+        </label>
+        <div class="gp-form-actions">
+          <button type="submit" class="btn btn-secondary btn-sm"><%= t('googleProfile.btnSavePrivacy') %></button>
+        </div>
+      </form>
+
+      <div class="gp-privacy-guarantees">
+        <div class="gp-guarantee-item">✓ <%= t('googleProfile.privacyEmailHidden') %></div>
+        <div class="gp-guarantee-item">✓ <%= t('googleProfile.privacyNoGooglePhoto') %></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3) Rızalarım -->
+  <div class="glass-card gp-card gp-section-card" id="rizalarim">
+    <div class="card-header">
+      <h2 class="card-title"><span>📜</span> <%= t('googleProfile.cardConsentsTitle') %></h2>
+      <a href="<%= langPrefix %>/yasal/acik-riza" class="gs-doc-link"><%= t('googleSignup.readConsentDoc') %> ↗</a>
+    </div>
+    <p class="gp-card-desc"><%= t('googleProfile.consentsDesc') %></p>
+
+    <div class="gp-consents-list">
+      <% (Array.isArray(explicitConsents) ? explicitConsents : []).forEach((item) => {
+           const rec = memberConsentMap.get(item.id) || null;
+           const isGranted = Boolean(rec);
+           const impactKey =
+             item.id === 'chat_profile_game_usernames'
+               ? 'googleProfile.withdrawImpactB'
+               : item.id === 'chat_moderation_review'
+                 ? 'googleProfile.withdrawImpactA'
+                 : 'googleProfile.withdrawImpactC';
+      %>
+        <div class="gp-consent-row">
+          <div class="gp-consent-info">
+            <div class="gp-consent-head">
+              <strong><%= item.code %>: <%= item.title %></strong>
+              <span class="badge <%= isGranted ? 'badge-success' : 'badge-neutral' %> badge-xs">
+                <%= isGranted ? t('googleProfile.consentActive') : t('googleProfile.consentWithdrawn') %>
+              </span>
+            </div>
+            <p class="gp-consent-summary"><%= item.summary %></p>
+            <p class="gp-consent-impact">ℹ️ <%= t(impactKey) %></p>
+            <% if (rec) { %>
+              <div class="gp-consent-meta">v<%= rec.version %> • <%= fmtDate(rec.at) %></div>
+            <% } %>
+          </div>
+          <form method="POST" action="/profil/riza" class="gp-consent-action">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <input type="hidden" name="consentId" value="<%= item.id %>" />
+            <input type="hidden" name="action" value="<%= isGranted ? 'withdraw' : 'grant' %>" />
+            <button type="submit" class="btn <%= isGranted ? 'btn-secondary' : 'btn-primary' %> btn-sm">
+              <%= isGranted ? t('googleProfile.btnWithdrawConsent') : t('googleProfile.btnGrantConsent') %>
+            </button>
+          </form>
+        </div>
+      <% }); %>
+    </div>
+
+    <% if (!hasChatModConsent || !hasTransferConsent) { %>
+      <div class="gp-consent-delete-hint">
+        <span>ℹ️ <%= t('googleProfile.withdrawSuggestDelete') %></span>
+        <a href="#hesap-sil" class="gs-doc-link"><%= t('googleProfile.cardDeleteTitle') %> ↓</a>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- 4) Oturumlarım (pw_remember cihaz listesi) -->
+  <div class="glass-card gp-card gp-section-card" id="oturumlarim">
+    <div class="card-header">
+      <h2 class="card-title"><span>💻</span> <%= t('googleProfile.cardSessionsTitle') %></h2>
+      <% if (Array.isArray(rememberSessions) && rememberSessions.length > 0) { %>
+        <form method="POST" action="/profil/tum-oturumlari-kapat">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <button type="submit" class="btn btn-secondary btn-xs"><%= t('googleProfile.btnRevokeAllSessions') %></button>
+        </form>
+      <% } %>
+    </div>
+    <p class="gp-card-desc"><%= t('googleProfile.sessionsDesc') %></p>
+
+    <% if (!Array.isArray(rememberSessions) || rememberSessions.length === 0) { %>
+      <p class="gp-empty-note"><%= t('googleProfile.sessionsEmpty') %></p>
+    <% } else { %>
+      <div class="gp-sessions-list">
+        <% rememberSessions.forEach((sess) => { %>
+          <div class="gp-session-row">
+            <div class="gp-session-info">
+              <div class="gp-session-title">
+                <strong><%= sess.deviceLabel %></strong>
+                <% if (sess.isCurrent) { %>
+                  <span class="badge badge-success badge-xs"><%= t('googleProfile.currentDeviceBadge') %></span>
+                <% } %>
+              </div>
+              <div class="gp-session-meta">
+                <%= t('googleProfile.lastUsedLabel') %>: <%= fmtDate(sess.lastUsedAt) %>
+                • <%= t('googleProfile.createdLabel') %>: <%= fmtDate(sess.createdAt) %>
+              </div>
+            </div>
+            <form method="POST" action="/profil/oturum-kapat">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <input type="hidden" name="selector" value="<%= sess.selector %>" />
+              <button type="submit" class="btn btn-secondary btn-xs"><%= t('googleProfile.btnRevokeOneSession') %></button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- 5) Hesabımı Sil -->
+  <div class="glass-card gp-card gp-section-card gp-danger-card" id="hesap-sil">
+    <div class="card-header">
+      <h2 class="card-title"><span>🗑️</span> <%= t('googleProfile.cardDeleteTitle') %></h2>
+      <span class="badge badge-danger"><%= t('googleProfile.deleteDangerTag') %></span>
+    </div>
+
+    <p class="gp-card-desc"><%= t('googleProfile.deleteDesc') %></p>
+    <p class="gp-delete-exception">ℹ️ <%= t('googleProfile.deleteModExceptionNote') %></p>
+
+    <% if (typeof deleteError !== 'undefined' && deleteError) { %>
+      <div class="alert alert-danger" role="alert">
+        <span>🛑</span>
+        <div><%= deleteError %></div>
+      </div>
+    <% } %>
+
+    <div class="gp-delete-steps">
+      <div class="gp-delete-step-box">
+        <div class="gp-delete-step-head">
+          <strong>1. <%= t('googleProfile.deleteStep1Title') %></strong>
+          <% if (deleteReauthValid) { %>
+            <span class="badge badge-success badge-xs">✓ <%= t('googleProfile.deleteReauthOkBadge') %></span>
+          <% } else { %>
+            <span class="badge badge-warning badge-xs"><%= t('googleProfile.deleteReauthNeededBadge') %></span>
+          <% } %>
+        </div>
+        <p class="gp-consent-summary"><%= t('googleProfile.deleteStep1Desc') %></p>
+        <% if (googleAuthEnabled) { %>
+          <a href="/auth/google?purpose=reauth_delete" class="btn btn-secondary btn-sm">
+            <span><%= t('googleProfile.btnReauthGoogle') %></span>
+          </a>
+        <% } %>
+      </div>
+
+      <form method="POST" action="/profil/hesap-sil" class="gp-delete-form" id="gpDeleteForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <div class="form-group">
+          <label class="form-label" for="gpConfirmDisplayName">
+            2. <%= t('googleProfile.deleteStep2Label') %>
+            (<code><%= member.displayName %></code>)
+          </label>
+          <input
+            type="text"
+            id="gpConfirmDisplayName"
+            name="confirmDisplayName"
+            class="form-control"
+            placeholder="<%= member.displayName %>"
+            autocomplete="off"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm" <%= deleteReauthValid ? '' : 'disabled' %>>
+          <span><%= t('googleProfile.btnDeleteAccount') %></span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include('../layouts/footer', { isGoogleProfilePage: true }) %>

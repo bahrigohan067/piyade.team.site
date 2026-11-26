@@ -27,6 +27,8 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'js/cookie-notice.js',
       'js/report-form.js',
       'js/admin-legal.js',
+      'js/google-signup.js',
+      'js/profile-google.js',
     ];
     for (const rel of trackedFiles) {
       const fullPath = path.join(publicDir, rel);

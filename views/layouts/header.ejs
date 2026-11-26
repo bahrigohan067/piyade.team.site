@@ -206,16 +206,18 @@
       </a>
 
       <div class="mobile-topbar-actions">
-        <button
-          type="button"
-          class="mobile-activity-quick-btn"
-          id="mobileActivityQuickBtn"
-          aria-label="<%= t('activityPanel.title') %>"
-          title="<%= t('activityPanel.title') %>"
-        >
-          <span aria-hidden="true">🎮</span>
-          <span class="activity-live-dot" id="mobileActivityLiveDot" hidden></span>
-        </button>
+        <% if (typeof isGoogleMember === 'undefined' || !isGoogleMember) { %>
+          <button
+            type="button"
+            class="mobile-activity-quick-btn"
+            id="mobileActivityQuickBtn"
+            aria-label="<%= t('activityPanel.title') %>"
+            title="<%= t('activityPanel.title') %>"
+          >
+            <span aria-hidden="true">🎮</span>
+            <span class="activity-live-dot" id="mobileActivityLiveDot" hidden></span>
+          </button>
+        <% } %>
         <div class="lang-switch-pill" aria-label="<%= t('nav.langSwitchLabel') %>">
           <% langList.forEach(function (code) { %>
             <a href="/lang/<%= code %>" class="lang-switch-link <%= ((typeof lang === 'undefined' ? 'tr' : lang) === code) ? 'active' : '' %>"><%= code.toUpperCase() %></a>
@@ -386,7 +388,8 @@
         <% } %>
       </nav>
 
-      <!-- Kişisel "🎮 Etkinliğim • Bu Ay" Paneli (Sol Kenar Çubuğuna Entegre) -->
+      <!-- Kişisel "🎮 Etkinliğim • Bu Ay" Paneli (Yalnızca Discord Üyeleri İçin) -->
+      <% if (typeof isGoogleMember === 'undefined' || !isGoogleMember) { %>
       <div
         class="sidebar-activity-box"
         id="sidebarActivityBox"
@@ -496,23 +499,32 @@
           </div>
         <% } %>
       </div>
+      <% } %>
 
-      <!-- En Altta Kullanıcı Kartı (Discord Avatarı, Kullanıcı Adı, Rol Rozeti ve Çıkış Yap) -->
+      <!-- En Altta Kullanıcı Kartı (Avatar / Baş Harf, Kullanıcı Adı, Rol Rozeti ve Çıkış Yap) -->
       <div class="sidebar-footer">
         <div class="sidebar-user-card">
-          <img
-            src="<%= currentUser.avatarUrl %>"
-            alt="<%= currentUser.displayName %>"
-            width="38"
-            height="38"
-            loading="lazy"
-            decoding="async"
-            class="sidebar-user-avatar"
-          />
+          <% if (currentUser.avatarUrl) { %>
+            <img
+              src="<%= currentUser.avatarUrl %>"
+              alt="<%= currentUser.displayName %>"
+              width="38"
+              height="38"
+              loading="lazy"
+              decoding="async"
+              class="sidebar-user-avatar"
+            />
+          <% } else { %>
+            <span class="sidebar-user-avatar sidebar-user-avatar--initial" aria-hidden="true">
+              <%= currentUser.initial || String(currentUser.displayName || 'P').trim().charAt(0).toUpperCase() || 'P' %>
+            </span>
+          <% } %>
           <div class="sidebar-user-info">
             <div class="sidebar-user-name" title="<%= currentUser.displayName %>"><%= currentUser.displayName %></div>
             <div class="sidebar-user-role">
-              <% if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
+              <% if (typeof isGoogleMember !== 'undefined' && isGoogleMember) { %>
+                <span class="badge badge-info badge-xs"><%= t('nav.roleSiteMember') %></span>
+              <% } else if (typeof isDeveloper !== 'undefined' && isDeveloper) { %>
                 <span class="badge badge-danger badge-xs"><%= t('nav.roleDev') %></span>
               <% } else if (typeof isManagement !== 'undefined' && isManagement) { %>
                 <span class="badge badge-warning badge-xs"><%= t('nav.roleStaff') %></span>
@@ -543,6 +555,7 @@
       <div id="sidebarDockTooltip" class="sidebar-dock-tooltip" role="tooltip" aria-hidden="true"></div>
     </aside>
 
+    <% if (typeof isGoogleMember === 'undefined' || !isGoogleMember) { %>
     <!-- Kişisel "🎮 Etkinliğim • Bu Ay" Yandan Kayarak Açılan Detay Çekmecesi (Slide-Out Drawer) -->
     <div class="activity-drawer-backdrop" id="activityDrawerBackdrop" hidden aria-hidden="true"></div>
     <aside
@@ -601,6 +614,7 @@
         <% } %>
       </div>
     </aside>
+    <% } %>
 
   <% } else { %>
     <!-- ======================================================================
@@ -662,6 +676,12 @@
               <span class="stats-stale-tag">(<%= t('nav.refreshFailed') %>)</span>
             <% } %>
           </div>
+
+          <% if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled) { %>
+            <a href="/giris" class="btn btn-secondary btn-sm nav-google-login-btn">
+              <span><%= t('googleAuth.navLoginCenterBtn') %></span>
+            </a>
+          <% } %>
 
           <a href="/auth/discord" class="btn btn-discord btn-sm">
             <span><%= t('nav.loginDiscord') %></span>

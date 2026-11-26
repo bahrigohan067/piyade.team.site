@@ -4,6 +4,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 
 const appConfig = require('./config/app.config');
+const authConfig = require('./config/auth.config');
 const siteConfig = require('./config/site.config');
 const PersistentSessionStore = require('./services/sessionStore');
 const botApiClient = require('./services/botApiClient');
@@ -17,6 +18,8 @@ const { notFoundHandler, globalErrorHandler } = require('./middlewares/errorHand
 // Rotalar
 const publicRoutes = require('./routes/public');
 const authRoutes = require('./routes/auth');
+const googleAuthRoutes = require('./routes/googleAuth');
+const googleSignupRoutes = require('./routes/googleSignup');
 const memberRoutes = require('./routes/member');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
@@ -29,6 +32,7 @@ const { getChatStore } = require('./services/chatStore');
 const { getChatModStore } = require('./services/chatModStore');
 const { getLegalStore } = require('./services/legalStore');
 const { getReportStore } = require('./services/reportStore');
+const { getMemberStore } = require('./services/memberStore');
 const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
@@ -165,6 +169,8 @@ function createServerApp() {
     res.locals.disableFeedbackPill = true;
     next();
   }, authRoutes);
+  app.use('/', googleAuthRoutes);
+  app.use('/', googleSignupRoutes);
   app.use('/', publicRoutes);
   app.use('/yasal', legalRoutes);
   app.use('/bildir', reportRoutes);
@@ -198,6 +204,9 @@ if (require.main === module) {
       app.locals.sessionStore.logStartupWriteCheck();
     }
 
+    // Google OAuth env yoksa tek satır uyarı yaz (düğme gizli kalır)
+    authConfig.logGoogleStartupStatus();
+
     // Madde 3: Açılışta BOT_API_URL'e bir kez test isteği at ve sonucu (başarılı/başarısız + sebep sınıfı) loga yaz
     botApiClient.runStartupConnectivityTest().catch(() => null);
 
@@ -225,6 +234,7 @@ if (require.main === module) {
       }
       getLegalStore().flush();
       getReportStore().flush();
+      getMemberStore().flush();
     } catch (_) {}
     process.exit(0);
   };

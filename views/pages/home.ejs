@@ -74,6 +74,31 @@
 <!-- ==============================================================================
  * ANASAYFA HERO ALANI (Piyade World | Piyade Dünyası)
  * ============================================================================== -->
+<% if (typeof welcomeFlash !== 'undefined' && welcomeFlash && welcomeFlash.displayName) { %>
+  <div class="alert alert-success home-auth-flash" role="status">
+    <span aria-hidden="true">🎉</span>
+    <div>
+      <strong><%= t('googleAuth.welcomeFlashTitle').replace('{name}', welcomeFlash.displayName) %></strong>
+      <span><%= t('googleAuth.welcomeFlashDesc') %></span>
+    </div>
+  </div>
+<% } else if (typeof authNotice !== 'undefined' && authNotice === 'discord_continue') { %>
+  <div class="alert alert-info home-auth-flash" role="status">
+    <span aria-hidden="true">🔗</span>
+    <div><%= t('googleAuth.noticeDiscordContinue') %></div>
+  </div>
+<% } else if (typeof authNotice !== 'undefined' && authNotice === 'google_linked_success') { %>
+  <div class="alert alert-success home-auth-flash" role="status">
+    <span aria-hidden="true">✅</span>
+    <div><%= t('googleAuth.noticeGoogleLinked') %></div>
+  </div>
+<% } else if (typeof accountDeletedNotice !== 'undefined' && accountDeletedNotice) { %>
+  <div class="alert alert-info home-auth-flash" role="status">
+    <span aria-hidden="true">🗑️</span>
+    <div><%= t('googleProfile.noticeAccountDeleted') %></div>
+  </div>
+<% } %>
+
 <section class="hero-section">
   <div class="hero-split">
     <!-- Sol Sütun (Mobilde Altta): Marka Adı, Slogan ve Aksiyon Butonları -->

@@ -7,7 +7,7 @@ const gamesConfig = require('../config/games.config');
 const legalConfig = require('../config/legal.config');
 const { getGroupedRules } = require('../rules');
 const botApiClient = require('../services/botApiClient');
-const { requireLogin } = require('../middlewares/auth');
+const { requireDiscordMember, isGoogleSession } = require('../middlewares/auth');
 const { verifyCsrfToken, verifyCsrfRequest } = require('../middlewares/csrf');
 const { formActionLimiter, robloxLookupLimiter, publicStatsLimiter } = require('../middlewares/rateLimiter');
 const { generateIdempotencyKey, consumeIdempotencyKey } = require('../middlewares/idempotency');
@@ -49,6 +49,8 @@ router.get('/robots.txt', (req, res) => {
     'Disallow: /yonetim',
     'Disallow: /profil',
     'Disallow: /auth',
+    'Disallow: /giris',
+    'Disallow: /uye-ol',
     'Disallow: /lang',
     'Disallow: /health',
     'Disallow: /geri-bildirim',
@@ -213,6 +215,7 @@ router.get('/', async (req, res) => {
     title: res.locals.seo ? res.locals.seo.title : req.t('home.pageTitle'),
     activeStats,
     topGames,
+    accountDeletedNotice: req.query && req.query.notice === 'account_deleted',
   });
 });
 
@@ -552,6 +555,9 @@ router.get(
  * Herkese açık, indekslenebilir oyun bazlı kayıt başvuru ve durum sayfası.
  */
 router.get('/kayit', async (req, res, next) => {
+  if (isGoogleSession(req)) {
+    return res.redirect('/profil');
+  }
   const user = req.session?.user;
   const { games: gamesList, source: gamesSource } = await botApiClient.getGames();
   const pageTitle = res.locals.seo ? res.locals.seo.title : req.t('register.pageTitle');
@@ -632,7 +638,7 @@ router.get('/kayit', async (req, res, next) => {
  * Oyun bazlı kayıt başvurusunu sunucu tarafında doğrular ve Bot REST API'sine (POST /api/register) iletir.
  * CSRF, tekil idempotency anahtarı, hız sınırı ve PRG deseni uygular.
  */
-router.post('/kayit', requireLogin, formActionLimiter, verifyCsrfToken, async (req, res, next) => {
+router.post('/kayit', requireDiscordMember, formActionLimiter, verifyCsrfToken, async (req, res, next) => {
   const user = req.session.user;
   const lang = req.lang === 'en' ? 'en' : 'tr';
   const { games: gamesList, source: gamesSource } = await botApiClient.getGames();

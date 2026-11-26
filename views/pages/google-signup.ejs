@@ -1,0 +1,446 @@
+<%- include('../layouts/header') %>
+
+<%
+  const safeForm = (typeof formData !== 'undefined' && formData) ? formData : {
+    ageGroup: '',
+    parentConsent: false,
+    consentKvkk: false,
+    consentRules: false,
+    consentA: false,
+    consentB: true,
+    consentC: false,
+    games: [],
+    nickname: '',
+    usernames: {},
+  };
+  const safeErrors = (typeof fieldErrors !== 'undefined' && fieldErrors) ? fieldErrors : {};
+  const activeGames = Array.isArray(gamesList) ? gamesList : [];
+  const selectedSet = new Set(Array.isArray(safeForm.games) ? safeForm.games : []);
+  const activeLang = lang === 'en' ? 'en' : 'tr';
+  const langPrefix = activeLang === 'en' ? '/en' : '';
+  const consentsArr = Array.isArray(explicitConsents) ? explicitConsents : [];
+  const consentAObj = consentsArr.find((c) => c.id === 'chat_moderation_review');
+  const consentBObj = consentsArr.find((c) => c.id === 'chat_profile_game_usernames');
+  const consentCObj = consentsArr.find((c) => c.id === 'international_data_transfer');
+
+  function pickGameText(obj, fallback) {
+    if (typeof obj === 'string') return obj;
+    if (!obj || typeof obj !== 'object') return fallback || '';
+    return activeLang === 'en' ? (obj.en || obj.tr || fallback || '') : (obj.tr || obj.en || fallback || '');
+  }
+
+  let initialStep = 0;
+  if (safeErrors.ageGroup || safeErrors.parentConsent || safeErrors.consentKvkk || safeErrors.consentC || safeErrors.consentRules) {
+    initialStep = 0;
+  } else if (safeErrors.games) {
+    initialStep = 1;
+  } else if (safeErrors.nickname || Object.keys(safeErrors).some((k) => k.startsWith('game_'))) {
+    initialStep = 2;
+  }
+
+  const clientConfig = {
+    lang: activeLang,
+    initialStep,
+    focusFieldId: (typeof focusFieldId !== 'undefined' && focusFieldId) ? focusFieldId : '',
+    maxGames: 4,
+    robloxLookupUrl: '/uye-ol/roblox-kontrol',
+    csrfToken: typeof csrfToken === 'string' ? csrfToken : '',
+    games: activeGames.map((g) => ({
+      id: g.id,
+      emoji: g.emoji,
+      name: pickGameText(g.name, g.id),
+      validate: g.validate || { min: 2, max: 32, regex: null },
+      verifier: g.verifier || null,
+    })),
+    i18n: {
+      selectedCountPrefix: t('register.selectedCountPrefix'),
+      robloxCheckBtn: t('register.robloxCheckBtn'),
+      robloxCheckingBtn: t('register.robloxCheckingBtn'),
+      robloxProfileOpen: t('register.robloxProfileOpen'),
+      robloxLookupInvalidQuery: t('register.robloxLookupInvalidQuery'),
+      robloxLookupTempError: t('register.robloxLookupTempError'),
+      errUnder13: t('googleSignup.errUnder13'),
+      errAgeRequired: t('googleSignup.errAgeRequired'),
+      errParentConsentRequired: t('googleSignup.errParentConsentRequired'),
+      errKvkkRequired: t('googleSignup.errKvkkRequired'),
+      errTransferRequired: t('googleSignup.errTransferRequired'),
+      errRulesRequired: t('googleSignup.errRulesRequired'),
+      errNoGameSelected: t('register.errNoGameSelected'),
+      errNickLength: t('googleSignup.errNickLength'),
+      errNickMention: t('googleSignup.errNickMention'),
+      errNickLink: t('googleSignup.errNickLink'),
+      errGameUsernameRequired: t('register.errGameUsernameRequired'),
+      errGameUsernameLength: t('register.errGameUsernameLength'),
+      errMinecraftUsername: t('register.errMinecraftUsername'),
+      errGameUsernamePattern: t('register.errGameUsernamePattern'),
+      errRobloxVerifyRequired: t('googleSignup.errRobloxVerifyRequired'),
+      summaryDisplayPrefix: t('googleSignup.summaryDisplayPrefix'),
+      summaryNoRobloxNote: t('googleSignup.summaryNoRobloxNote'),
+      summaryConsentYes: t('googleSignup.summaryYes'),
+      summaryConsentNo: t('googleSignup.summaryNo'),
+    },
+  };
+%>
+
+<div class="register-page-container google-signup-container" id="googleSignupRoot" data-initial-step="<%= initialStep %>">
+  <div id="googleSignupConfig" data-config="<%= JSON.stringify(clientConfig) %>" hidden></div>
+
+  <div class="register-header-block">
+    <span class="badge badge-primary register-top-badge"><%= t('googleSignup.badgeTop') %></span>
+    <h1 class="register-main-heading"><%= t('googleSignup.heading') %></h1>
+    <p class="register-main-subheading"><%= t('googleSignup.subheading') %></p>
+
+    <!-- 4 Adımlı İlerleme Çubuğu -->
+    <div class="register-steps-bar gs-steps-bar" id="gsStepperBar" role="tablist" aria-label="<%= t('googleSignup.heading') %>">
+      <button type="button" class="register-step-item <%= initialStep === 0 ? 'is-active' : 'is-done' %>" data-gs-step-nav="0" aria-selected="<%= initialStep === 0 ? 'true' : 'false' %>">
+        <span class="register-step-circle"><%= initialStep > 0 ? '✓' : '1' %></span>
+        <span><%= t('googleSignup.step0Label') %></span>
+      </button>
+      <div class="register-step-divider" aria-hidden="true"></div>
+      <button type="button" class="register-step-item <%= initialStep === 1 ? 'is-active' : (initialStep > 1 ? 'is-done' : 'is-idle') %>" data-gs-step-nav="1" aria-selected="<%= initialStep === 1 ? 'true' : 'false' %>">
+        <span class="register-step-circle"><%= initialStep > 1 ? '✓' : '2' %></span>
+        <span><%= t('googleSignup.step1Label') %></span>
+      </button>
+      <div class="register-step-divider" aria-hidden="true"></div>
+      <button type="button" class="register-step-item <%= initialStep === 2 ? 'is-active' : (initialStep > 2 ? 'is-done' : 'is-idle') %>" data-gs-step-nav="2" aria-selected="<%= initialStep === 2 ? 'true' : 'false' %>">
+        <span class="register-step-circle"><%= initialStep > 2 ? '✓' : '3' %></span>
+        <span><%= t('googleSignup.step2Label') %></span>
+      </button>
+      <div class="register-step-divider" aria-hidden="true"></div>
+      <button type="button" class="register-step-item <%= initialStep === 3 ? 'is-active' : 'is-idle' %>" data-gs-step-nav="3" aria-selected="<%= initialStep === 3 ? 'true' : 'false' %>">
+        <span class="register-step-circle">4</span>
+        <span><%= t('googleSignup.step3Label') %></span>
+      </button>
+    </div>
+  </div>
+
+  <% if (typeof globalError !== 'undefined' && globalError) { %>
+    <div class="alert alert-danger" role="alert">
+      <span class="register-alert-icon">🛑</span>
+      <div class="register-alert-body"><div><%= globalError %></div></div>
+    </div>
+  <% } %>
+
+  <div class="glass-card reg-form-shell">
+    <form id="googleSignupForm" action="/uye-ol" method="POST" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <input type="hidden" name="_idempotencyKey" value="<%= typeof idempotencyKey !== 'undefined' ? idempotencyKey : '' %>" />
+
+      <!-- ADIM 0: YAŞ VE AYRILMIŞ RIZALAR -->
+      <section class="reg-step-panel" id="gsStep0" data-gs-step-panel="0" aria-labelledby="gsStep0Heading">
+        <div class="reg-step-head">
+          <h2 id="gsStep0Heading" class="reg-step-title"><%= t('googleSignup.step0Title') %></h2>
+          <p class="reg-step-desc"><%= t('googleSignup.step0Desc') %></p>
+        </div>
+
+        <fieldset class="gs-fieldset">
+          <legend class="form-label"><%= t('googleSignup.ageLegend') %></legend>
+          <div class="gs-age-grid" role="radiogroup">
+            <label class="reg-gender-card gs-age-card <%= safeForm.ageGroup === 'under_13' ? 'is-selected' : '' %>">
+              <input type="radio" class="reg-gender-radio" id="age-under-13" name="ageGroup" value="under_13" <%= safeForm.ageGroup === 'under_13' ? 'checked' : '' %> />
+              <span class="reg-card-surface gs-age-surface">
+                <strong class="gs-age-title"><%= t('googleSignup.ageUnder13') %></strong>
+                <span class="gs-age-sub"><%= t('googleSignup.ageUnder13Sub') %></span>
+              </span>
+            </label>
+            <label class="reg-gender-card gs-age-card <%= safeForm.ageGroup === '13_17' ? 'is-selected' : '' %>">
+              <input type="radio" class="reg-gender-radio" id="age-13-17" name="ageGroup" value="13_17" <%= safeForm.ageGroup === '13_17' ? 'checked' : '' %> />
+              <span class="reg-card-surface gs-age-surface">
+                <strong class="gs-age-title"><%= t('googleSignup.age13to17') %></strong>
+                <span class="gs-age-sub"><%= t('googleSignup.age13to17Sub') %></span>
+              </span>
+            </label>
+            <label class="reg-gender-card gs-age-card <%= safeForm.ageGroup === '18_plus' ? 'is-selected' : '' %>">
+              <input type="radio" class="reg-gender-radio" id="age-18-plus" name="ageGroup" value="18_plus" <%= safeForm.ageGroup === '18_plus' ? 'checked' : '' %> />
+              <span class="reg-card-surface gs-age-surface">
+                <strong class="gs-age-title"><%= t('googleSignup.age18Plus') %></strong>
+                <span class="gs-age-sub"><%= t('googleSignup.age18PlusSub') %></span>
+              </span>
+            </label>
+          </div>
+          <div class="reg-field-error" id="gs-error-age" role="alert" aria-live="polite"><%= safeErrors.ageGroup || '' %></div>
+        </fieldset>
+
+        <!-- 13 Yaş Altı Bilgilendirme Kutusu -->
+        <div id="gsUnder13Block" class="alert alert-danger gs-under13-box" role="alert" <%= safeForm.ageGroup === 'under_13' ? '' : 'hidden' %>>
+          <span aria-hidden="true">🛑</span>
+          <div>
+            <strong><%= t('googleSignup.under13Title') %></strong>
+            <p class="gs-under13-text"><%= t('googleSignup.errUnder13') %></p>
+          </div>
+        </div>
+
+        <!-- 13-17 Veli / Vasi Onay Kutusu -->
+        <div id="gsParentConsentBox" class="gs-consent-item gs-consent-item--parent" <%= safeForm.ageGroup === '13_17' ? '' : 'hidden' %>>
+          <label class="gs-check-row" for="parentConsentCheck">
+            <input type="checkbox" id="parentConsentCheck" name="parentConsent" value="1" <%= safeForm.parentConsent ? 'checked' : '' %> />
+            <span class="gs-check-copy">
+              <strong><%= t('googleSignup.parentConsentLabel') %></strong>
+              <span class="badge badge-warning badge-xs"><%= t('googleSignup.requiredTag') %></span>
+            </span>
+          </label>
+          <div class="reg-field-error" id="gs-error-parent" role="alert" aria-live="polite"><%= safeErrors.parentConsent || '' %></div>
+        </div>
+
+        <!-- Ayrılmış Hukuki Onay ve Açık Rıza Kutuları -->
+        <div class="gs-consents-stack">
+          <h3 class="gs-consents-heading"><%= t('googleSignup.consentsHeading') %></h3>
+
+          <!-- 1) KVKK Aydınlatma (Zorunlu) -->
+          <div class="gs-consent-item <%= safeErrors.consentKvkk ? 'has-error' : '' %>">
+            <label class="gs-check-row" for="consentKvkkCheck">
+              <input type="checkbox" id="consentKvkkCheck" name="consent_kvkk_notice" value="1" <%= safeForm.consentKvkk ? 'checked' : '' %> />
+              <span class="gs-check-copy">
+                <span>
+                  <strong><%= t('googleSignup.consentKvkkLabel') %></strong>
+                  <span class="badge badge-primary badge-xs"><%= t('googleSignup.requiredTag') %></span>
+                </span>
+                <a href="<%= langPrefix %>/yasal/kvkk-aydinlatma" target="_blank" rel="noopener" class="gs-doc-link"><%= t('googleSignup.readDocument') %> ↗</a>
+              </span>
+            </label>
+            <div class="reg-field-error" id="gs-error-kvkk" role="alert"><%= safeErrors.consentKvkk || '' %></div>
+          </div>
+
+          <!-- 2) Açık Rıza Madde C — Yurt Dışı Aktarım (Hesap için zorunlu) -->
+          <% if (consentCObj) { %>
+            <div class="gs-consent-item <%= safeErrors.consentC ? 'has-error' : '' %>">
+              <label class="gs-check-row" for="consentCCheck">
+                <input type="checkbox" id="consentCCheck" name="consent_international_data_transfer" value="1" <%= safeForm.consentC ? 'checked' : '' %> />
+                <span class="gs-check-copy">
+                  <span>
+                    <strong><%= consentCObj.code %>: <%= consentCObj.title %></strong>
+                    <span class="badge badge-primary badge-xs"><%= t('googleSignup.requiredForAccountTag') %></span>
+                  </span>
+                  <span class="gs-consent-summary"><%= consentCObj.summary %></span>
+                  <a href="<%= langPrefix %>/yasal/acik-riza" target="_blank" rel="noopener" class="gs-doc-link"><%= t('googleSignup.readConsentDoc') %> ↗</a>
+                </span>
+              </label>
+              <div class="reg-field-error" id="gs-error-c" role="alert"><%= safeErrors.consentC || '' %></div>
+            </div>
+          <% } %>
+
+          <!-- 3) Açık Rıza Madde A — Sohbet Moderasyon İncelemesi (Sohbet için, bağımsız kutu) -->
+          <% if (consentAObj) { %>
+            <div class="gs-consent-item">
+              <label class="gs-check-row" for="consentACheck">
+                <input type="checkbox" id="consentACheck" name="consent_chat_moderation_review" value="1" <%= safeForm.consentA ? 'checked' : '' %> />
+                <span class="gs-check-copy">
+                  <span>
+                    <strong><%= consentAObj.code %>: <%= consentAObj.title %></strong>
+                    <span class="badge badge-neutral badge-xs"><%= t('googleSignup.optionalTag') %></span>
+                  </span>
+                  <span class="gs-consent-summary"><%= consentAObj.summary %></span>
+                  <a href="<%= langPrefix %>/yasal/acik-riza" target="_blank" rel="noopener" class="gs-doc-link"><%= t('googleSignup.readConsentDoc') %> ↗</a>
+                </span>
+              </label>
+            </div>
+          <% } %>
+
+          <!-- 4) Açık Rıza Madde B — Oyun Adlarının Sohbet Profilinde Gösterilmesi (İsteğe bağlı, bağımsız kutu) -->
+          <% if (consentBObj) { %>
+            <div class="gs-consent-item">
+              <label class="gs-check-row" for="consentBCheck">
+                <input type="checkbox" id="consentBCheck" name="consent_chat_profile_game_usernames" value="1" <%= safeForm.consentB ? 'checked' : '' %> />
+                <span class="gs-check-copy">
+                  <span>
+                    <strong><%= consentBObj.code %>: <%= consentBObj.title %></strong>
+                    <span class="badge badge-neutral badge-xs"><%= t('googleSignup.optionalTag') %></span>
+                  </span>
+                  <span class="gs-consent-summary"><%= consentBObj.summary %></span>
+                  <a href="<%= langPrefix %>/yasal/acik-riza" target="_blank" rel="noopener" class="gs-doc-link"><%= t('googleSignup.readConsentDoc') %> ↗</a>
+                </span>
+              </label>
+            </div>
+          <% } %>
+
+          <!-- 5) Genel Kurallar (Zorunlu) -->
+          <div class="gs-consent-item <%= safeErrors.consentRules ? 'has-error' : '' %>">
+            <label class="gs-check-row" for="consentRulesCheck">
+              <input type="checkbox" id="consentRulesCheck" name="consent_general_rules" value="1" <%= safeForm.consentRules ? 'checked' : '' %> />
+              <span class="gs-check-copy">
+                <span>
+                  <strong><%= t('googleSignup.consentRulesLabel') %></strong>
+                  <span class="badge badge-primary badge-xs"><%= t('googleSignup.requiredTag') %></span>
+                </span>
+                <a href="<%= langPrefix %>/kurallar" target="_blank" rel="noopener" class="gs-doc-link"><%= t('googleSignup.readRules') %> ↗</a>
+              </span>
+            </label>
+            <div class="reg-field-error" id="gs-error-rules" role="alert"><%= safeErrors.consentRules || '' %></div>
+          </div>
+        </div>
+
+        <div class="reg-step-nav reg-step-nav--end" data-js-only hidden>
+          <button type="button" id="gsBtnStep0Next" class="btn btn-primary btn-lg">
+            <span><%= t('register.btnNext') %></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ADIM 1: OYUN SEÇİMİ -->
+      <section class="reg-step-panel" id="gsStep1Games" data-gs-step-panel="1" aria-labelledby="gsStep1Heading">
+        <div class="reg-step-head">
+          <h2 id="gsStep1Heading" class="reg-step-title"><%= t('register.step1Title') %></h2>
+          <p class="reg-step-desc"><%= t('register.step1Desc') %></p>
+        </div>
+
+        <div class="reg-games-grid" role="group" aria-labelledby="gsStep1Heading">
+          <% activeGames.forEach((game) => {
+               const isChecked = selectedSet.has(game.id);
+               const gameTitle = pickGameText(game.name, game.id);
+          %>
+            <label class="reg-game-card <%= isChecked ? 'is-selected' : '' %>" data-gs-game-card="<%= game.id %>">
+              <input type="checkbox" class="reg-game-checkbox" id="gs-game-check-<%= game.id %>" name="games" value="<%= game.id %>" <%= isChecked ? 'checked' : '' %> />
+              <span class="reg-card-surface">
+                <span class="reg-game-selected-badge" aria-hidden="true"><span>✅</span><span><%= t('register.selectedBadge') %></span></span>
+                <span class="reg-game-emoji" aria-hidden="true"><%= game.emoji || '🎮' %></span>
+                <span class="reg-game-title"><%= gameTitle %></span>
+              </span>
+            </label>
+          <% }); %>
+        </div>
+
+        <div class="reg-step-status-row">
+          <span id="gsSelectedGamesCount" class="reg-selected-counter">
+            <%= t('register.selectedCountPrefix') %> <strong><%= selectedSet.size %></strong> / 4
+          </span>
+        </div>
+
+        <div class="reg-field-error" id="gs-error-games" role="alert" aria-live="polite"><%= safeErrors.games || '' %></div>
+
+        <div class="reg-step-nav" data-js-only hidden>
+          <button type="button" id="gsBtnStep1Prev" class="btn btn-secondary"><span><%= t('register.btnPrev') %></span></button>
+          <button type="button" id="gsBtnStep1Next" class="btn btn-primary btn-lg"><span><%= t('register.btnNext') %></span></button>
+        </div>
+      </section>
+
+      <!-- ADIM 2: TAKMA AD VE OYUN KULLANICI ADLARI -->
+      <section class="reg-step-panel" id="gsStep2Details" data-gs-step-panel="2" aria-labelledby="gsStep2Heading">
+        <div class="reg-step-head">
+          <h2 id="gsStep2Heading" class="reg-step-title"><%= t('googleSignup.step2Title') %></h2>
+          <p class="reg-step-desc"><%= t('googleSignup.step2Desc') %></p>
+        </div>
+
+        <div class="form-group reg-survey-group <%= safeErrors.nickname ? 'has-error' : '' %>">
+          <div class="reg-label-row">
+            <label class="form-label" for="gsNickname"><%= t('googleSignup.nicknameLabel') %></label>
+            <span class="reg-char-counter" id="gsNickCounter"><%= (safeForm.nickname || '').length %>/32</span>
+          </div>
+          <input
+            type="text"
+            id="gsNickname"
+            name="nickname"
+            class="form-control"
+            placeholder="<%= t('googleSignup.nicknamePlaceholder') %>"
+            value="<%= safeForm.nickname || '' %>"
+            minlength="2"
+            maxlength="32"
+            autocomplete="nickname"
+          />
+          <div class="form-text"><%= t('googleSignup.nicknameHelp') %></div>
+          <div class="reg-field-error" id="gs-error-nickname" role="alert" aria-live="polite"><%= safeErrors.nickname || '' %></div>
+        </div>
+
+        <div class="reg-game-fields-wrap" id="gsGameFieldsContainer">
+          <h3 class="reg-game-fields-heading"><%= t('register.gamesUsernamesHeading') %></h3>
+          <% activeGames.forEach((game) => {
+               const minLen = (game.validate && game.validate.min) || 2;
+               const maxLen = (game.validate && game.validate.max) || 32;
+               const regexRule = (game.validate && game.validate.regex) || '';
+               const fieldVal = (safeForm.usernames && safeForm.usernames[game.id]) || '';
+               const fieldErr = safeErrors['game_' + game.id] || '';
+               const labelText = pickGameText(game.usernameLabel, pickGameText(game.name, game.id));
+               const placeholderText = pickGameText(game.usernamePlaceholder, '');
+               const isRoblox = game.verifier === 'roblox';
+          %>
+            <div
+              class="form-group reg-game-field <%= fieldErr ? 'has-error' : '' %>"
+              id="gs-game-field-<%= game.id %>"
+              data-gs-game-field="<%= game.id %>"
+              data-min="<%= minLen %>"
+              data-max="<%= maxLen %>"
+              data-regex="<%= regexRule %>"
+              data-verifier="<%= game.verifier || '' %>"
+            >
+              <div class="reg-label-row">
+                <label class="form-label" for="gs-username-<%= game.id %>">
+                  <span aria-hidden="true"><%= game.emoji || '🎮' %></span>
+                  <span><%= labelText %></span>
+                </label>
+                <span class="reg-char-counter" id="gs-counter-<%= game.id %>"><%= fieldVal.length %>/<%= maxLen %></span>
+              </div>
+
+              <div class="<%= isRoblox ? 'reg-input-with-action' : '' %>">
+                <input
+                  type="text"
+                  id="gs-username-<%= game.id %>"
+                  name="usernames[<%= game.id %>]"
+                  class="form-control gs-game-username-input"
+                  value="<%= fieldVal %>"
+                  placeholder="<%= placeholderText %>"
+                  data-game-id="<%= game.id %>"
+                  maxlength="<%= maxLen %>"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <% if (isRoblox) { %>
+                  <button type="button" id="gsBtnRobloxLookup" class="btn btn-secondary reg-lookup-btn" data-js-only hidden>
+                    <span><%= t('register.robloxCheckBtn') %></span>
+                  </button>
+                <% } %>
+              </div>
+
+              <div class="reg-field-error" id="gs-error-game-<%= game.id %>" role="alert" aria-live="polite"><%= fieldErr %></div>
+
+              <% if (isRoblox) { %>
+                <div id="gsRobloxLookupCard" class="reg-lookup-card" hidden aria-live="polite"></div>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+
+        <div class="reg-step-nav" data-js-only hidden>
+          <button type="button" id="gsBtnStep2Prev" class="btn btn-secondary"><span><%= t('register.btnPrev') %></span></button>
+          <button type="button" id="gsBtnStep2Next" class="btn btn-primary btn-lg"><span><%= t('register.btnNext') %></span></button>
+        </div>
+      </section>
+
+      <!-- ADIM 3: ÖZET VE ONAY -->
+      <section class="reg-step-panel" id="gsStep3Summary" data-gs-step-panel="3" aria-labelledby="gsStep3Heading">
+        <div class="reg-step-head">
+          <h2 id="gsStep3Heading" class="reg-step-title"><%= t('googleSignup.step3Title') %></h2>
+          <p class="reg-step-desc"><%= t('googleSignup.step3Desc') %></p>
+        </div>
+
+        <div class="glass-card gs-summary-card">
+          <div class="gs-summary-display-box">
+            <span class="register-meta-label"><%= t('googleSignup.summaryDisplayLabel') %></span>
+            <div class="gs-summary-display-name" id="gsSummaryDisplayName">
+              <%= safeForm.nickname || '—' %><%= (selectedSet.has('roblox') && safeForm.usernames && safeForm.usernames.roblox) ? (' | ' + safeForm.usernames.roblox) : '' %>
+            </div>
+          </div>
+
+          <div class="gs-summary-section">
+            <span class="register-meta-label"><%= t('googleSignup.summaryGamesLabel') %></span>
+            <ul class="reg-games-summary-list" id="gsSummaryGamesList"></ul>
+          </div>
+
+          <div class="gs-summary-privacy-note">
+            <span aria-hidden="true">🔒</span>
+            <span><%= t('googleSignup.summaryPrivacyNote') %></span>
+          </div>
+        </div>
+
+        <div class="register-form-footer">
+          <button type="button" id="gsBtnStep3Prev" class="btn btn-secondary" data-js-only hidden>
+            <span><%= t('register.btnPrev') %></span>
+          </button>
+          <button type="submit" id="gsBtnSubmit" class="btn btn-primary btn-lg reg-submit-btn" data-submitting-text="<%= t('googleSignup.btnSubmitting') %>">
+            <span class="reg-submit-label"><%= t('googleSignup.btnSubmit') %></span>
+          </button>
+        </div>
+      </section>
+    </form>
+  </div>
+</div>
+
+<%- include('../layouts/footer', { isGoogleSignupPage: true }) %>

@@ -6,15 +6,25 @@ const multer = require('multer');
 const router = express.Router();
 
 const appConfig = require('../config/app.config');
+const authConfig = require('../config/auth.config');
 const brandConfig = require('../config/brand.config');
 const chatConfig = require('../config/chat.config');
 const { isRegisteredMember } = require('../config/roles.config');
 const botApiClient = require('../services/botApiClient');
-const { getChatStore, makeConvId, parseConvId, isValidDiscordId, sanitizeChatText } = require('../services/chatStore');
+const {
+  getChatStore,
+  makeConvId,
+  parseConvId,
+  isValidDiscordId,
+  isValidChatUserId,
+  sanitizeChatText,
+} = require('../services/chatStore');
+const { getMemberStore, parseUnifiedGoogleId } = require('../services/memberStore');
 const { chatSseHub } = require('../services/chatSseHub');
 const { chatMessageLimiter, chatUploadLimiter } = require('../middlewares/rateLimiter');
 const chatFileValidator = require('../utils/chatFileValidator');
 const chatAutoFilter = require('../services/chatAutoFilter');
+const { containsExternalLink } = require('../utils/nicknameValidator');
 const { getChatModStore, REPORT_CATEGORIES } = require('../services/chatModStore');
 
 // Parça 4 moderasyon dosya erişim kancası (varsayılan kapalı; Parça 4 tarafından bağlanır)
@@ -76,11 +86,86 @@ function wantsJsonResponse(req) {
   );
 }
 
+function isGoogleChatUser(user) {
+  return Boolean(user && (user.kind === 'google' || parseUnifiedGoogleId(String(user.id || ''))));
+}
+
+function getFreshGoogleMember(user) {
+  if (!isGoogleChatUser(user)) return null;
+  const memberStore = getMemberStore();
+  if (user.memberId) return memberStore.findById(user.memberId);
+  return memberStore.findByUnifiedId(String(user.id || ''));
+}
+
+function isNewGoogleMemberRestricted(user) {
+  if (!isGoogleChatUser(user)) return false;
+  const member = getFreshGoogleMember(user);
+  if (!member) return false;
+  const limitMs = authConfig.getNewMemberRestrictionMs();
+  if (limitMs <= 0) return false;
+  const createdAt = Number(member.createdAt) || 0;
+  return createdAt > 0 && Date.now() - createdAt < limitMs;
+}
+
 function isUserChatEligible(user) {
-  if (!user || !user.id || !isValidDiscordId(String(user.id))) return false;
+  if (!user || !user.id) return false;
+  if (isGoogleChatUser(user)) {
+    if (!isValidChatUserId(String(user.id))) return false;
+    const member = getFreshGoogleMember(user);
+    if (!member || member.status !== 'active') return false;
+    return getMemberStore().hasConsent(member, 'international_data_transfer');
+  }
+  if (!isValidDiscordId(String(user.id))) return false;
   if (user.registered === true) return true;
   if (user.registered === false) return false;
   return isRegisteredMember(user.roles, user.level, user.registered);
+}
+
+/**
+ * Hem Discord üyelerini (Bot API üzerinden) hem de Google site üyelerini (memberStore üzerinden)
+ * tek bir ortak rehber haritasında çözümler. E-posta ve Google adı ASLA dönmez.
+ */
+async function lookupUnifiedMembers(requesterUser, ids = []) {
+  const byId = new Map();
+  const discordIds = [];
+  const googleIds = [];
+  for (const rawId of Array.isArray(ids) ? ids : []) {
+    const clean = String(rawId || '').trim();
+    if (!clean) continue;
+    if (parseUnifiedGoogleId(clean)) {
+      googleIds.push(clean);
+    } else if (isValidDiscordId(clean)) {
+      discordIds.push(clean);
+    }
+  }
+
+  const memberStore = getMemberStore();
+  for (const gid of [...new Set(googleIds)]) {
+    const member = memberStore.findByUnifiedId(gid);
+    const pub = memberStore.toPublicChatDirectoryItem(member);
+    if (pub) {
+      byId.set(pub.id, pub);
+    }
+  }
+
+  let botFailed = false;
+  if (discordIds.length > 0) {
+    const requesterIsGoogle = isGoogleChatUser(requesterUser);
+    try {
+      const lookup = await botApiClient.lookupDirectoryMembers(
+        requesterIsGoogle ? 'site' : String(requesterUser.id),
+        [...new Set(discordIds)],
+        { asService: requesterIsGoogle, includeGames: true }
+      );
+      for (const [k, v] of lookup.byId.entries()) {
+        byId.set(k, v);
+      }
+    } catch (_) {
+      botFailed = true;
+    }
+  }
+
+  return { byId, botFailed };
 }
 
 /**
@@ -107,6 +192,16 @@ function requireChatMember(req, res, next) {
   }
 
   if (!isUserChatEligible(user)) {
+    if (isGoogleChatUser(user)) {
+      if (isJson) {
+        return res.status(403).json({
+          ok: false,
+          code: 'CONSENT_WITHDRAWN',
+          error: req.t ? req.t('googleProfile.flashConsentCWithdrawn') : 'Gerekli açık rıza geri çekildi.',
+        });
+      }
+      return res.redirect('/profil#rizalarim');
+    }
     if (isJson) {
       return res.status(403).json({
         ok: false,
@@ -129,7 +224,19 @@ function requireChatMember(req, res, next) {
  */
 function requireChatConsent(req, res, next) {
   const store = getChatStore();
-  const userId = String(req.session.user.id);
+  const user = req.session.user;
+  const userId = String(user.id);
+  if (isGoogleChatUser(user)) {
+    const member = getFreshGoogleMember(user);
+    if (!member || !getMemberStore().hasConsent(member, 'chat_moderation_review')) {
+      return res.status(403).json({
+        ok: false,
+        code: 'CONSENT_REQUIRED',
+        policyVersion: chatConfig.POLICY_VERSION,
+        error: req.t ? req.t('chat.errConsentRequired') : 'Devam etmek için sohbet kullanım onayını kabul etmelisiniz.',
+      });
+    }
+  }
   if (!store.hasValidConsent(userId, chatConfig.POLICY_VERSION)) {
     return res.status(403).json({
       ok: false,
@@ -169,6 +276,7 @@ function buildMemberPublicInfo(memberObj, fallbackId, store) {
     (memberObj && (memberObj.robloxAvatarUrl || memberObj.discordAvatarUrl)) || null;
   return {
     id,
+    kind: (memberObj && memberObj.kind) || (parseUnifiedGoogleId(id) ? 'google' : 'discord'),
     displayName: (memberObj && memberObj.displayName) || id,
     avatarUrl,
     discordAvatarUrl: (memberObj && memberObj.discordAvatarUrl) || null,
@@ -176,6 +284,7 @@ function buildMemberPublicInfo(memberObj, fallbackId, store) {
     robloxUsername: (memberObj && memberObj.robloxUsername) || null,
     robloxId: (memberObj && memberObj.robloxId) || null,
     hasRoblox: Boolean(memberObj && memberObj.hasRoblox),
+    games: Array.isArray(memberObj && memberObj.games) ? memberObj.games : [],
     ring,
   };
 }
@@ -240,17 +349,23 @@ router.get('/', requireChatMember, async (req, res) => {
   const user = req.session.user;
   const userId = String(user.id);
   const activeSanction = modStore.getActiveSanction(userId);
-  const hasConsented = store.hasValidConsent(userId, chatConfig.POLICY_VERSION);
+  let hasConsented = store.hasValidConsent(userId, chatConfig.POLICY_VERSION);
+  if (hasConsented && isGoogleChatUser(user)) {
+    const gm = getFreshGoogleMember(user);
+    if (!gm || !getMemberStore().hasConsent(gm, 'chat_moderation_review')) {
+      hasConsented = false;
+    }
+  }
   const profile = store.getProfile(userId);
   const effectiveRing = chatConfig.resolveEffectiveRing(profile);
   const retentionInfo = store.getRetentionInfo();
   const unreadNotices = modStore.getUnreadNotices(userId);
   if (unreadNotices.length > 0) modStore.markNoticesRead(userId);
 
-  // Kendi Roblox avatarını da halka önizlemesinde kullanabilmek için rehber lookup yap (başarısızsa Discord avatarı)
+  // Kendi Roblox avatarını da halka önizlemesinde kullanabilmek için rehber lookup yap (başarısızsa profil/Discord avatarı)
   let selfDirectoryInfo = null;
   try {
-    const lookup = await botApiClient.lookupDirectoryMembers(userId, [userId]);
+    const lookup = await lookupUnifiedMembers(user, [userId]);
     selfDirectoryInfo = lookup.byId.get(userId) || null;
   } catch (_) {}
 
@@ -260,7 +375,7 @@ router.get('/', requireChatMember, async (req, res) => {
     null;
 
   const requestedOtherId =
-    typeof req.query.kisi === 'string' && isValidDiscordId(req.query.kisi.trim()) && req.query.kisi.trim() !== userId
+    typeof req.query.kisi === 'string' && isValidChatUserId(req.query.kisi.trim()) && req.query.kisi.trim() !== userId
       ? req.query.kisi.trim()
       : '';
 
@@ -323,7 +438,14 @@ router.post('/api/onay', requireChatMember, (req, res) => {
     });
   }
   const store = getChatStore();
-  const userId = String(req.session.user.id);
+  const user = req.session.user;
+  const userId = String(user.id);
+  if (isGoogleChatUser(user)) {
+    const gm = getFreshGoogleMember(user);
+    if (gm) {
+      getMemberStore().grantConsent(gm.id, 'chat_moderation_review', '1.0');
+    }
+  }
   const updated = store.recordConsent(userId, chatConfig.POLICY_VERSION);
   return res.json({
     ok: true,
@@ -333,8 +455,13 @@ router.post('/api/onay', requireChatMember, (req, res) => {
 
 router.get('/api/okunmamis', requireChatMember, (req, res) => {
   const store = getChatStore();
-  const userId = String(req.session.user.id);
-  if (!store.hasValidConsent(userId, chatConfig.POLICY_VERSION)) {
+  const user = req.session.user;
+  const userId = String(user.id);
+  const googleHasModConsent = !isGoogleChatUser(user) || (() => {
+    const gm = getFreshGoogleMember(user);
+    return Boolean(gm && getMemberStore().hasConsent(gm, 'chat_moderation_review'));
+  })();
+  if (!googleHasModConsent || !store.hasValidConsent(userId, chatConfig.POLICY_VERSION)) {
     return res.json({ ok: true, unread: 0, needsConsent: true });
   }
   return res.json({
@@ -361,25 +488,48 @@ router.get('/akis', requireChatMember, requireChatConsent, requireNotBannedFromC
 
 router.get('/api/rehber', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
-  const userId = String(req.session.user.id);
+  const user = req.session.user;
+  const userId = String(user.id);
+  const requesterIsGoogle = isGoogleChatUser(user);
   const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 64) : '';
   const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || 50), 10) || 50));
   const cursor = typeof req.query.cursor === 'string' ? req.query.cursor.trim() : '';
 
   try {
-    const dir = await botApiClient.getDirectory(userId, {
+    const dir = await botApiClient.getDirectory(requesterIsGoogle ? 'site' : userId, {
       query,
       limit,
       cursor,
-      excludeSelf: true,
+      excludeSelf: !requesterIsGoogle,
+      asService: requesterIsGoogle,
     });
 
     const filtered = [];
+    const seenIds = new Set();
     for (const item of dir.items) {
-      if (!item || item.id === userId) continue;
+      if (!item || item.id === userId || seenIds.has(item.id)) continue;
       const block = store.isBlockedBetween(userId, item.id);
       if (block.any) continue;
+      seenIds.add(item.id);
       filtered.push(buildMemberPublicInfo(item, item.id, store));
+    }
+
+    // İlk sayfada (cursor yoksa) aktif Google site üyelerini de rehbere ekle (e-posta & Google adı ASLA dahil edilmez)
+    if (!cursor) {
+      const qLower = query.toLowerCase();
+      const memberStore = getMemberStore();
+      for (const gm of memberStore.listActiveMembers()) {
+        const pub = memberStore.toPublicChatDirectoryItem(gm);
+        if (!pub || pub.id === userId || seenIds.has(pub.id)) continue;
+        if (qLower) {
+          const hay = `${pub.displayName || ''} ${pub.robloxUsername || ''}`.toLowerCase();
+          if (!hay.includes(qLower)) continue;
+        }
+        const block = store.isBlockedBetween(userId, pub.id);
+        if (block.any) continue;
+        seenIds.add(pub.id);
+        filtered.push(buildMemberPublicInfo(pub, pub.id, store));
+      }
     }
 
     return res.json({
@@ -400,17 +550,16 @@ router.get('/api/rehber', requireChatMember, requireChatConsent, requireNotBanne
 
 router.get('/api/sohbetler', requireChatMember, requireChatConsent, requireNotBannedFromChat, async (req, res) => {
   const store = getChatStore();
-  const userId = String(req.session.user.id);
+  const user = req.session.user;
+  const userId = String(user.id);
   const myProfile = store.getProfile(userId);
   const rawList = store.listConversations(userId);
   const otherIds = rawList.map((c) => c.otherId);
 
   let memberMap = new Map();
   if (otherIds.length > 0) {
-    try {
-      const lookup = await botApiClient.lookupDirectoryMembers(userId, otherIds);
-      memberMap = lookup.byId;
-    } catch (_) {}
+    const lookup = await lookupUnifiedMembers(user, otherIds);
+    memberMap = lookup.byId;
   }
 
   const conversations = rawList.map((entry) => {
@@ -501,7 +650,7 @@ router.get('/api/sohbet/:digerId/mesajlar', requireChatMember, requireChatConsen
 
   let otherMember = null;
   try {
-    const lookup = await botApiClient.lookupDirectoryMembers(userId, [otherId]);
+    const lookup = await lookupUnifiedMembers(req.session.user, [otherId]);
     otherMember = lookup.byId.get(otherId) || null;
   } catch (_) {}
 
@@ -616,22 +765,21 @@ router.post(
         });
       }
 
-      // Hedefin kayıtlı üye olduğunu doğrula
-      try {
-        const lookup = await botApiClient.lookupDirectoryMembers(userId, [otherId]);
-        if (!lookup.byId.has(otherId)) {
-          return res.status(404).json({
-            ok: false,
-            code: 'TARGET_NOT_FOUND',
-            error: req.t('chat.errTargetNotFound'),
-          });
-        }
-      } catch (_) {
+      // Hedefin kayıtlı üye olduğunu doğrula (hem Discord hem Google site üyeleri)
+      const lookup = await lookupUnifiedMembers(req.session.user, [otherId]);
+      if (lookup.botFailed && !parseUnifiedGoogleId(otherId)) {
         // Bot API anlık erişilemezse gönderimi engelle
         return res.status(503).json({
           ok: false,
           code: 'DIRECTORY_UNAVAILABLE',
           error: req.t('chat.errDirectoryUnavailable'),
+        });
+      }
+      if (!lookup.byId.has(otherId)) {
+        return res.status(404).json({
+          ok: false,
+          code: 'TARGET_NOT_FOUND',
+          error: req.t('chat.errTargetNotFound'),
         });
       }
     }
@@ -645,6 +793,15 @@ router.post(
       });
     }
     const cleanText = sanitizeChatText(rawText, chatConfig.LIMITS.MAX_MESSAGE_LENGTH);
+
+    // Yeni Google üyesi sınırı: ilk 24 saat bağlantı içeren mesaj gönderemez
+    if (cleanText && isNewGoogleMemberRestricted(req.session.user) && containsExternalLink(cleanText)) {
+      return res.status(403).json({
+        ok: false,
+        code: 'NEW_MEMBER_NO_LINKS',
+        error: req.t('chat.errNewMemberNoLinks'),
+      });
+    }
     const clientId =
       req.body && typeof req.body.clientId === 'string' ? req.body.clientId.trim().slice(0, 80) : null;
     const replyTo =
@@ -974,7 +1131,7 @@ router.post('/api/engelle', requireChatMember, requireChatConsent, (req, res) =>
   const userId = String(req.session.user.id);
   const targetId = String((req.body && req.body.targetId) || '').trim();
 
-  if (!isValidDiscordId(targetId) || targetId === userId) {
+  if (!isValidChatUserId(targetId) || targetId === userId) {
     return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
   }
 
@@ -989,7 +1146,7 @@ router.post('/api/engeli-kaldir', requireChatMember, requireChatConsent, (req, r
   const userId = String(req.session.user.id);
   const targetId = String((req.body && req.body.targetId) || '').trim();
 
-  if (!isValidDiscordId(targetId) || targetId === userId) {
+  if (!isValidChatUserId(targetId) || targetId === userId) {
     return res.status(400).json({ ok: false, code: 'INVALID_TARGET', error: req.t('chat.errInvalidTarget') });
   }
 
@@ -1013,6 +1170,15 @@ router.post(
     const store = getChatStore();
     const modStore = getChatModStore(store);
     const userId = String(req.session.user.id);
+
+    // Yeni Google üyesi sınırı: ilk 24 saat sohbette dosya yükleyemez
+    if (isNewGoogleMemberRestricted(req.session.user)) {
+      return res.status(403).json({
+        ok: false,
+        code: 'NEW_MEMBER_NO_FILES',
+        error: req.t('chat.errNewMemberNoFiles'),
+      });
+    }
 
     const activeSanction = req.activeChatSanction || modStore.getActiveSanction(userId);
     if (activeSanction && activeSanction.type === 'mute') {

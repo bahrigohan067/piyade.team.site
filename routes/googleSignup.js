@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 
@@ -6,7 +8,7 @@ const gamesConfig = require('../config/games.config');
 const consentsConfig = require('../config/consents.config');
 const botApiClient = require('../services/botApiClient');
 const googleAuthService = require('../services/googleAuthService');
-const legalLoader = require('../services/legalLoader');
+const { parseFrontmatter } = require('../utils/markdownRenderer');
 const {
   getMemberStore,
   generateMemberId,
@@ -129,8 +131,15 @@ function extractSignupForm(body, gamesList) {
 
 function getKvkkNoticeVersion(lang) {
   try {
-    const doc = legalLoader.getLegalDocument('kvkk-aydinlatma', lang);
-    if (doc && doc.version) return String(doc.version);
+    const safeLang = lang === 'en' ? 'en' : 'tr';
+    const filePath = path.join(__dirname, '..', 'content', 'legal', safeLang, 'kvkk-aydinlatma.md');
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const parsed = parseFrontmatter(raw);
+      if (parsed && parsed.meta && parsed.meta.version) {
+        return String(parsed.meta.version);
+      }
+    }
   } catch (_) {}
   return '1.1';
 }

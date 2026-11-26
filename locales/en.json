@@ -959,7 +959,7 @@
     "errInvalidStatus": "Invalid report status."
   },
   "googleAuth": {
-    "navLoginCenterBtn": "Sign In / Join",
+    "navLoginCenterBtn": "Google",
     "loginCenterPageTitle": "Sign In — Piyade World",
     "loginCenterBadge": "🔐 Sign-In Center",
     "loginCenterTitle": "Sign In to Piyade World",
@@ -1069,7 +1069,8 @@
     "errRobloxVerifyRequired": "When Roblox is selected, you must verify your Roblox account using 'Check' before continuing.",
     "errGoogleAlreadyRegistered": "A site membership already exists for this Google account.",
     "errBotOffline": "The main community service (Bot API) is currently unreachable. Account creation is paused temporarily to protect uniqueness; please try again shortly.",
-    "errCreateFailed": "Could not create your membership due to a conflict or error. Please check your details and try again."
+    "errCreateFailed": "Could not create your membership due to a conflict or error. Please check your details and try again.",
+    "errRateLimited": "You have reached the hourly new membership limit (3). Please try again in an hour."
   },
   "googleProfile": {
     "nicknameMetaLabel": "Nickname",

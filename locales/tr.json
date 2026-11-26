@@ -959,7 +959,7 @@
     "errInvalidStatus": "Geçersiz bildirim durumu."
   },
   "googleAuth": {
-    "navLoginCenterBtn": "Giriş / Üye Ol",
+    "navLoginCenterBtn": "Google",
     "loginCenterPageTitle": "Giriş Yap — Piyade World",
     "loginCenterBadge": "🔐 Giriş Merkezi",
     "loginCenterTitle": "Piyade World'e Giriş Yap",
@@ -1069,7 +1069,8 @@
     "errRobloxVerifyRequired": "Roblox seçiliyse devam etmeden önce 'Kontrol Et' düğmesiyle hesabını doğrulamalısın.",
     "errGoogleAlreadyRegistered": "Bu Google hesabıyla zaten bir site üyeliği bulunuyor.",
     "errBotOffline": "Şu an ana topluluk servisine (Bot API) ulaşılamıyor. Hesap benzersizliğini korumak için üyelik oluşturma geçici olarak durduruldu; lütfen birkaç dakika sonra tekrar dene.",
-    "errCreateFailed": "Üyelik oluşturulurken bir çakışma veya hata oluştu. Lütfen bilgilerini kontrol edip tekrar dene."
+    "errCreateFailed": "Üyelik oluşturulurken bir çakışma veya hata oluştu. Lütfen bilgilerini kontrol edip tekrar dene.",
+    "errRateLimited": "Saatlik yeni üyelik sınırına (3) ulaştınız. Lütfen bir saat sonra tekrar deneyiniz."
   },
   "googleProfile": {
     "nicknameMetaLabel": "Takma Ad",

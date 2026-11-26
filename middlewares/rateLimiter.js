@@ -271,6 +271,7 @@ const statusLookupLimiter = rateLimit({
 const googleSignupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
+  skipFailedRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },

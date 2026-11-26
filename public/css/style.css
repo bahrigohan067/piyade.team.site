@@ -8906,6 +8906,33 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   white-space: nowrap;
 }
 
+.nav-mobile-only-item {
+  display: none;
+}
+
+.badge-info {
+  background: var(--color-info-light);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+.gs-age-card {
+  position: relative;
+}
+
+.gs-age-card .reg-gender-radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.gs-age-card:focus-within .gs-age-surface {
+  box-shadow: var(--focus-ring-shadow);
+  border-color: var(--border-focus);
+}
+
 .sidebar-user-avatar--initial {
   display: inline-flex;
   align-items: center;
@@ -9562,7 +9589,10 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   }
 
   .nav-google-login-btn {
-    padding-left: 0.65rem;
-    padding-right: 0.65rem;
+    display: none;
+  }
+
+  .nav-mobile-only-item {
+    display: list-item;
   }
 }

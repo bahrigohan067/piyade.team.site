@@ -649,6 +649,13 @@
                   </a>
                 </li>
               <% }); %>
+              <% if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled) { %>
+                <li class="nav-mobile-only-item">
+                  <a href="/giris" class="nav-link <%= typeof currentPath !== 'undefined' && currentPath === '/giris' ? 'active' : '' %>">
+                    <span><%= t('googleAuth.btnGoogleContinue') %></span>
+                  </a>
+                </li>
+              <% } %>
             <% } else { %>
               <li><a href="/" class="nav-link"><%= t('nav.home') %></a></li>
               <li><a href="/kurallar" class="nav-link"><%= t('nav.rules') %></a></li>
@@ -678,7 +685,7 @@
           </div>
 
           <% if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled) { %>
-            <a href="/giris" class="btn btn-secondary btn-sm nav-google-login-btn">
+            <a href="/giris" class="btn btn-secondary btn-sm nav-google-login-btn" title="<%= t('googleAuth.btnGoogleContinue') %>">
               <span><%= t('googleAuth.navLoginCenterBtn') %></span>
             </a>
           <% } %>

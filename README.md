@@ -30,7 +30,10 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `GET /etkilesim` | Herkese Açık | 🎯 Atış & Gökyüzü (Nexus UI Dart Rating ve Meteors) |
 | `GET /kayit` / `POST /kayit` | Herkese Açık / Girişli | 3 adımlı oyun bazlı kayıt başvurusu (oyunlar, cinsiyet, anket, Orbital Loader & PRG) |
 | `GET /kayit/roblox-kontrol` | Girişli (CSRF + 10/dk) | Roblox hesap kontrol proxy uç noktası (JSON) |
-| `GET /profil` | Kayıtlı Üye+ | Kişisel profil, oyun hesapları + kopyalama düğmeleri ve disiplin durumu |
+| `GET /giris` & `/giris/discord-var-mi` | Herkese Açık (`noindex`) | Giriş merkezi (Discord + Google ile devam et) ve Discord hesap bağlama seçimi |
+| `GET /auth/google` & `/callback` | Herkese Açık (`noindex`) | Google OAuth2/OIDC (PKCE S256 + JWKS doğrulama) giriş ve yeniden doğrulama akışı |
+| `GET /uye-ol` & `POST /uye-ol` | Geçici Google Oturumu (`noindex`) | 4 adımlı doğrudan site üyesi kayıt sihirbazı (yaş/rızalar, oyunlar, Roblox doğrulama, özet) |
+| `GET /profil` | Kayıtlı Discord Üyesi & Google Site Üyesi | Kişisel profil (Discord üyeleri için kayıt + disiplin; Google üyeleri için oyunlar, gizlilik, rızalarım, oturumlarım ve hesabımı sil) |
 | `GET /yonetim/uyeler` | Yönetmenlik / Developer | Üye arama, kayıt/oyun bilgisi ve disiplin sicili inceleme |
 | `GET /yonetim/uyeler/:id` | Yönetmenlik / Developer | Tekil üye detay, kayıtlı oyunlar ve sicil geçmişi |
 | `GET /yonetim/uyari` / `POST /yonetim/uyari` | Yönetmenlik / Developer | Sözlü veya resmi disiplin uyarısı ve kanıt yükleme (Orbital Loader) |
@@ -116,6 +119,11 @@ RAILWAY_VOLUME_MOUNT_PATH=/data
 DISCORD_INVITE_URL=https://discord.gg/davet_kodunuz
 GOOGLE_SITE_VERIFICATION=
 
+# Google ile Devam Et (Opsiyonel — boşsa Google düğmesi gizlenir ve açılışta tek satır uyarı verilir)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEW_MEMBER_RESTRICTION_HOURS=24
+
 # Sohbet Sistemi Özellik Bayrakları (Varsayılan KAPALI)
 CHAT_ENABLED=false
 CHAT_FIRST_CONTACT_REQUEST=false
@@ -196,7 +204,37 @@ Yasal sayfalar (`content/legal/tr/` ve `content/legal/en/`) gerçek sistem veri 
 - [ ] **Hukuki İnceleme Yaptırın:** `kvkk-aydinlatma.md` içindeki KVKK m.5 hukuki sebep eşleştirmelerini (*"hukuki doğrulama gerekli"* notlu alanlar), KVKK m.9 yurt dışı aktarım dayanağını ve `acik-riza.md` maddelerini bir hukukçuya inceletin.
 - [ ] **Taslak Uyarısını Kaldırın:** Hukuki inceleme tamamlandığında Railway Variables üzerinden `LEGAL_REVIEWED=true` yapın (`false` iken her yasal sayfanın en üstünde taslak uyarısı gösterilir).
 - [ ] **Saklama Sürelerini Gözden Geçirin:** `LEGAL_KVKK_RETENTION_DAYS` (varsayılan `1095` gün) ve `LEGAL_REPORT_RETENTION_DAYS` (varsayılan `365` gün) değerlerinin politikanızla uyumlu olduğundan emin olun.
-- [ ] **Gelecek Özellikler Notu:** Yasal metinlerde **GELECEK ÖZELLİK / UPCOMING FEATURE** olarak işaretlenen **Google ile giriş** (`sub`, e-posta, ad), **"beni hatırla" çerezi**, **doğrudan site üyesi kaydı**, **Google üye uyarı sicili** ve **sohbet profilinde oyun kullanıcı adlarının gösterilmesi** özellikleri bir sonraki geliştirme aşamasında yayına alındığında metinlerden "Gelecek Özellik" etiketini kaldırıp `version` / `lastUpdated` alanlarını güncelleyin.
+- [ ] **Gelecek Özellikler Notu:** Google ile giriş, `pw_remember` hatırlama çerezi, doğrudan site üyeliği ve sohbet profilinde oyun kullanıcı adlarının gösterilmesi yayına alınmış ve `kvkk-aydinlatma.md` / `cerez-politikasi.md` (`v1.1`) ile `consents.config.js` güncellenmiştir. Yalnızca **Google üye uyarı sicili** bir sonraki aşamada eklendiğinde metinlerden "Gelecek Özellik" ibaresi kaldırılacaktır.
+
+---
+
+## 🔑 Google ile Devam Et — Google Cloud Console Kurulum Adımları
+
+`GOOGLE_CLIENT_ID` veya `GOOGLE_CLIENT_SECRET` boş bırakılırsa sitedeki **"Google ile devam et"** düğmesi otomatik olarak gizlenir ve sunucu açılışında tek satırlık uyarı yazar; mevcut Discord girişi kesintisiz çalışmaya devam eder. Google ile girişi etkinleştirmek için şu adımları izleyin:
+
+1. **Google Cloud Console'a Giriş Yapın:** [https://console.cloud.google.com/](https://console.cloud.google.com/) adresine gidin ve yeni bir proje oluşturun (örn. `Piyade World`).
+2. **OAuth Onay Ekranını (OAuth Consent Screen / Branding) Ayarlayın:**
+   - Sol menüden **APIs & Services → OAuth consent screen** (veya **Google Auth Platform → Branding / Audience**) bölümüne girin.
+   - Kullanıcı türünü **External** seçin.
+   - Uygulama adı: `Piyade World`, kullanıcı destek e-postası ve geliştirici iletişim e-postası alanlarını doldurun.
+   - Uygulama ana sayfası: `https://<sitenizin-adresi>`, Gizlilik Politikası: `https://<sitenizin-adresi>/yasal/gizlilik-politikasi`, Kullanım/Kurallar: `https://<sitenizin-adresi>/kurallar`.
+   - Kapsamlar (Scopes): yalnızca `openid`, `email`, `profile` yeterlidir (ek hassas kapsam gerekmez).
+   - Test kullanıcılarıyla doğruladıktan sonra uygulamayı **In production (Publish App)** durumuna alın.
+3. **OAuth 2.0 İstemci Kimliği (Client ID) Oluşturun:**
+   - **APIs & Services → Credentials → + Create Credentials → OAuth client ID** yolunu izleyin.
+   - Uygulama türü olarak **Web application** seçin.
+   - **Authorized JavaScript origins** bölümüne sitenizin kök adresini ekleyin:
+     - Canlı (Railway): `https://piyade-team-tsb.up.railway.app` (veya `BASE_URL` değeriniz)
+     - Yerel test için (isteğe bağlı): `http://localhost:3001`
+   - **Authorized redirect URIs** bölümüne tam geri dönüş adresini ekleyin:
+     - Canlı: `${BASE_URL}/auth/google/callback` (örn. `https://piyade-team-tsb.up.railway.app/auth/google/callback`)
+     - Yerel test için (isteğe bağlı): `http://localhost:3001/auth/google/callback`
+4. **Railway Variables'a Ekleyin:**
+   - Oluşturulan **Client ID** değerini Railway'de `GOOGLE_CLIENT_ID` olarak ekleyin.
+   - Oluşturulan **Client Secret** değerini Railway'de `GOOGLE_CLIENT_SECRET` olarak ekleyin.
+   - `BASE_URL` değişkeninin sondaki `/` olmadan canlı adresinizle birebir aynı olduğundan emin olun (`https://piyade-team-tsb.up.railway.app`).
+   - İsteğe bağlı olarak yeni Google üyelerinin sohbette dosya/bağlantı bekleme süresini `NEW_MEMBER_RESTRICTION_HOURS=24` ile ayarlayabilirsiniz.
+5. **Önemli Deploy Sırası:** Google site üyeliği bot API'sindeki `site-guest`, `site-service` ve `/api/roblox/site-claims` uçlarını kullanır. **Önce `tsb.piyade.bot` (Bot), ardından `piyade.team.site` (Site) deploy edilmelidir.**
 
 ---
 

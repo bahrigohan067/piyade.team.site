@@ -205,6 +205,10 @@ test('Parça 4: Sohbet Güvenlik, Raporlama, Otomatik İşaret ve Moderasyon Tes
       '/api/vaka/:caseId/eylem',
       '/api/yaptirimlar',
       '/api/yaptirim/:sanctionId/kaldir',
+      '/api/site-bildirimleri',
+      '/api/site-bildirim/:code',
+      '/api/site-bildirim/:code/durum',
+      '/api/bildirim-dosya/:fileId',
       '/api/denetim',
     ]);
     const routePaths = chatModRoutes.stack

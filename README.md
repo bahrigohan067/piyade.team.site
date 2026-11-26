@@ -37,8 +37,13 @@ Tüm kalıcı üye verileri, oyun bazlı kayıt başvuruları ve disiplin/uyarı
 | `POST /geri-bildirim` | Sunucudaki Girişli Üyeler | Sağ alt Geri Bildirim hapı (Feedback Pill) |
 | `GET /sohbet` | Kayıtlı Üye+ (`CHAT_ENABLED=true`) | Birebir özel sohbet, dosya eki, emoji, 44 profil halkası (`noindex`) |
 | `GET /sohbet/gizlilik` | Herkese Açık (`CHAT_ENABLED=true`) | Sohbet gizlilik, 30 günlük saklama ve moderasyon politikası (`noindex`) |
-| `GET /sohbet/moderasyon` | Yalnızca Community Official (taze rol) | Rapor / otomatik işaret vakaları, yaptırımlar ve denetim kaydı (diğer rollere `404`) |
+| `GET /sohbet/moderasyon` | Yalnızca Community Official (taze rol) | Rapor / otomatik işaret vakaları, **Site Bildirimleri** sekmesi, yaptırımlar ve denetim kaydı (diğer rollere `404`) |
 | `GET /sohbet/moderasyon/denetim` | Community Official / Developer (taze rol) | Salt okunur denetim kaydı (Developer vaka içeriklerine erişemez) |
+| `GET /yasal/:slug` | Herkese Açık (indekslenebilir) | 8 yasal belge (`kvkk-aydinlatma`, `acik-riza`, `gizlilik-politikasi`, `cerez-politikasi`, `kvkk-basvuru`, `kunye`, `telif-dmca`, `kotuye-kullanim`) |
+| `POST /yasal/kvkk-basvuru` & `/sorgula` | Herkese Açık (3/gün/IP) | KVKK m.11 başvuru formu (`KVKK-YYYY-XXXXX`) ve yalnızca durum gösteren `noindex` sorgulama |
+| `GET /bildir` / `POST /bildir` & `/sorgula` | Herkese Açık (5/saat/IP) | 10 kategorili kötüye kullanım / DMCA / KVKK ihlal bildirim tuş takımı (`RPT-YYYY-XXXXX`) |
+| `GET /yonetim/kvkk` | Yalnızca Developer (taze rol) | KVKK başvuruları, 30 günlük süre/gecikme takibi ve içeriksiz denetim kaydı (diğerlerine `404`) |
+| `GET /yonetim/bildirimler` | Developer & Yönetmenlik (taze rol) | Yasa dışı içerik, Telif/DMCA, KVKK ve genel site bildirimleri ile bulanık kanıt inceleme (diğerlerine `404`) |
 | `GET /health` | Sistem | Sunucu, oturum deposu ve Bot API sağlık kontrolü |
 
 ---
@@ -121,6 +126,19 @@ GAME_ROLE_ROBLOX=
 GAME_ROLE_CS2=
 GAME_ROLE_ZULA=
 GAME_ROLE_MINECRAFT=
+
+# Yasal Sayfalar, KVKK & Künye (Boş bırakılan alanlar "[Doldurulacak: ...]" görünür)
+LEGAL_CONTROLLER_NAME=
+LEGAL_ADDRESS=
+LEGAL_EMAIL=
+LEGAL_PHONE=
+LEGAL_KEP=
+LEGAL_REGISTRY_NO=
+LEGAL_TAX_NO=
+LEGAL_VERBIS_STATUS=
+LEGAL_REVIEWED=false
+LEGAL_KVKK_RETENTION_DAYS=1095
+LEGAL_REPORT_RETENTION_DAYS=365
 ```
 
 ---
@@ -161,6 +179,24 @@ npm run verify:clean
   - `Community Official` (`1570767625188016259`) rolü her istekte Bot API'den **taze** doğrulanır; rolü olmayan herkese (Developer dahil, `MOD_PANEL_ALSO_DEVELOPER=true` olmadıkça) `404` döner. Developer yalnızca salt okunur `/sohbet/moderasyon/denetim` kaydını görebilir.
   - Yerel otomatik filtre yalnızca metinleri tarar ve **mesajları asla engellemez**; görsel ve videolar otomatik taranmaz (uygunsuz medya için kullanıcı rapor yolu kullanılır).
   - Raporlanan/işaretlenen vakaların kopyalanmış anlık görüntüleri ve korunan ekleri vaka kapandıktan sonra en geç **7 gün** içinde (açık vakalar en çok **90 gün** sonunda otomatik kapatılarak) silinir. İçeriksiz yaptırım ve denetim kayıtları (`modlog.jsonl`) **1 yıl** saklanır.
+
+---
+
+## ⚖️ Yayınlamadan Önce Doldurulacaklar (Yasal & KVKK Kontrol Listesi)
+
+Yasal sayfalar (`content/legal/tr/` ve `content/legal/en/`) gerçek sistem veri akışına göre hazırlanmıştır ve hiçbir yasal bilgi kodda uydurulmamıştır. Yayına almadan önce şu adımları tamamlayın:
+
+- [ ] **Veri Sorumlusu ve Künye Bilgilerini Railway Variables’a Girin:**
+  - `LEGAL_CONTROLLER_NAME` *(Zorunlu)* — Veri sorumlusu / site işletmecisi adı veya unvanı
+  - `LEGAL_ADDRESS` *(Zorunlu)* — Açık tebligat / iletişim adresi
+  - `LEGAL_EMAIL` *(Zorunlu)* — Resmi KVKK / DMCA / hukuki iletişim e-postası
+  - `LEGAL_VERBIS_STATUS` *(Zorunlu)* — VERBİS kayıt durumu veya muafiyet beyanı
+  - `LEGAL_PHONE`, `LEGAL_KEP`, `LEGAL_REGISTRY_NO`, `LEGAL_TAX_NO` *(Varsa isteğe bağlı)*
+- [ ] **Hazırlık Kontrol Betiğini Çalıştırın:** `node scripts/legal-check.js` (eksik alanları, `LEGAL_REVIEWED` durumunu ve tüm metin sürümlerini listeler; üretim öncesi `node scripts/legal-check.js --strict` ile doğrulayın).
+- [ ] **Hukuki İnceleme Yaptırın:** `kvkk-aydinlatma.md` içindeki KVKK m.5 hukuki sebep eşleştirmelerini (*"hukuki doğrulama gerekli"* notlu alanlar), KVKK m.9 yurt dışı aktarım dayanağını ve `acik-riza.md` maddelerini bir hukukçuya inceletin.
+- [ ] **Taslak Uyarısını Kaldırın:** Hukuki inceleme tamamlandığında Railway Variables üzerinden `LEGAL_REVIEWED=true` yapın (`false` iken her yasal sayfanın en üstünde taslak uyarısı gösterilir).
+- [ ] **Saklama Sürelerini Gözden Geçirin:** `LEGAL_KVKK_RETENTION_DAYS` (varsayılan `1095` gün) ve `LEGAL_REPORT_RETENTION_DAYS` (varsayılan `365` gün) değerlerinin politikanızla uyumlu olduğundan emin olun.
+- [ ] **Gelecek Özellikler Notu:** Yasal metinlerde **GELECEK ÖZELLİK / UPCOMING FEATURE** olarak işaretlenen **Google ile giriş** (`sub`, e-posta, ad), **"beni hatırla" çerezi**, **doğrudan site üyesi kaydı**, **Google üye uyarı sicili** ve **sohbet profilinde oyun kullanıcı adlarının gösterilmesi** özellikleri bir sonraki geliştirme aşamasında yayına alındığında metinlerden "Gelecek Özellik" etiketini kaldırıp `version` / `lastUpdated` alanlarını güncelleyin.
 
 ---
 

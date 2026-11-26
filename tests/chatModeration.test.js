@@ -134,11 +134,9 @@ test('Parça 4: Sohbet Güvenlik, Raporlama, Otomatik İşaret ve Moderasyon Tes
   const appConfig = require('../config/app.config');
   const prevBotUrl = appConfig.BOT_API_URL;
   const prevChatEnabled = process.env.CHAT_ENABLED;
-  const prevFirstContact = process.env.CHAT_FIRST_CONTACT_REQUEST;
   const prevModDev = process.env.MOD_PANEL_ALSO_DEVELOPER;
 
   process.env.CHAT_ENABLED = 'true';
-  delete process.env.CHAT_FIRST_CONTACT_REQUEST;
   delete process.env.MOD_PANEL_ALSO_DEVELOPER;
   appConfig.BOT_API_URL = bot.url;
   botApiClient.clearDirectoryCache();
@@ -187,8 +185,6 @@ test('Parça 4: Sohbet Güvenlik, Raporlama, Otomatik İşaret ve Moderasyon Tes
     appConfig.BOT_API_URL = prevBotUrl;
     if (prevChatEnabled === undefined) delete process.env.CHAT_ENABLED;
     else process.env.CHAT_ENABLED = prevChatEnabled;
-    if (prevFirstContact === undefined) delete process.env.CHAT_FIRST_CONTACT_REQUEST;
-    else process.env.CHAT_FIRST_CONTACT_REQUEST = prevFirstContact;
     if (prevModDev === undefined) delete process.env.MOD_PANEL_ALSO_DEVELOPER;
     else process.env.MOD_PANEL_ALSO_DEVELOPER = prevModDev;
     await new Promise((r) => server.close(r));
@@ -561,42 +557,37 @@ test('Parça 4: Sohbet Güvenlik, Raporlama, Otomatik İşaret ve Moderasyon Tes
     }
   });
 
-  await t.test('9) Mesaj isteği akışı (CHAT_FIRST_CONTACT_REQUEST=true) ve politika v2.0 yeniden onay', async () => {
-    // Politika sürümü 2.0'a yükseltildi: yalnızca 1.0 onaylayan kullanıcı yeniden onay vermeli
-    assert.equal(chatConfig.POLICY_VERSION, '2.0');
-    chatStore.recordConsent(USER_C, '1.0');
+  await t.test('9) Mesaj isteği tamamen kaldırıldı ve politika v3.0 yeniden onay gerektirir', async () => {
+    // Politika sürümü 3.0'a yükseltildi: 1.0 veya 2.0 onaylayan kullanıcı yeniden onay vermeli
+    assert.equal(chatConfig.POLICY_VERSION, '3.0');
+    chatStore.recordConsent(USER_C, '2.0');
     assert.equal(chatStore.hasValidConsent(USER_C, chatConfig.POLICY_VERSION), false);
     chatStore.recordConsent(USER_C, chatConfig.POLICY_VERSION);
     assert.equal(chatStore.hasValidConsent(USER_C, chatConfig.POLICY_VERSION), true);
 
-    // FIRST_CONTACT_REQUEST açıkken C -> B ilk mesajı istek olarak gider ve kabul edilene kadar gizlenir
-    process.env.CHAT_FIRST_CONTACT_REQUEST = 'true';
+    // Yabancıdan gelen ilk mesaj istek olmadan doğrudan normal sohbet olarak düşer
     const firstMsg = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_B}/mesaj`, {
       method: 'POST',
       cookie: sessC.cookie,
       csrf: sessC.csrfToken,
-      body: { text: 'Ilk temas gizli metni', clientId: 'req-first-1' },
+      body: { text: 'Ilk temas dogrudan mesaj', clientId: 'direct-first-1' },
     });
     assert.equal(firstMsg.status, 201);
 
-    const bBeforeAccept = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_C}/mesajlar`, { cookie: sessB.cookie });
-    assert.equal(bBeforeAccept.json.state.requestStatus, 'pending');
-    assert.equal(bBeforeAccept.json.messages[0].maskedRequest, true);
-    assert.equal(bBeforeAccept.json.messages[0].text, '');
+    const bMsgs = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_C}/mesajlar`, { cookie: sessB.cookie });
+    assert.equal(bMsgs.status, 200);
+    assert.equal(bMsgs.json.messages[0].text, 'Ilk temas dogrudan mesaj');
+    assert.equal(bMsgs.json.messages[0].maskedRequest, undefined);
+    assert.equal(bMsgs.json.state.requestStatus, undefined);
 
-    // B isteği kabul eder -> artık metin görünür!
-    const acc = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_C}/istek`, {
+    // Eski /istek uç noktası artık yok (404)
+    const oldReq = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_C}/istek`, {
       method: 'POST',
       cookie: sessB.cookie,
       csrf: sessB.csrfToken,
       body: { action: 'accept' },
     });
-    assert.equal(acc.status, 200);
-    assert.equal(acc.json.requestStatus, 'accepted');
-
-    const bAfterAccept = await reqJson(siteUrl, `/sohbet/api/sohbet/${USER_C}/mesajlar`, { cookie: sessB.cookie });
-    assert.equal(bAfterAccept.json.messages[0].text, 'Ilk temas gizli metni');
-    delete process.env.CHAT_FIRST_CONTACT_REQUEST;
+    assert.equal(oldReq.status, 404);
   });
 
   await t.test('10) TR/EN chatMod locale eşliği ve Parça 4 kodunda sabit #hex renk yasağı', () => {

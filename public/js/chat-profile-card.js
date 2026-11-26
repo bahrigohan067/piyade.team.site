@@ -33,14 +33,18 @@
 
   if (!overlay || !stage || !cardEl || !contentEl) return;
 
+  // Sabit pencerenin üst yığınlama katmanında (viewport) görünmesi için body altına taşı
+  if (overlay.parentElement !== document.body) {
+    document.body.appendChild(overlay);
+  }
+
   const prefersReducedMotion = () =>
     Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const isMobileViewport = () =>
     Boolean(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
 
-  const hasFinePointer = () =>
-    Boolean(!window.matchMedia || window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+  const canUseDesktopTilt = () => !prefersReducedMotion() && !isMobileViewport();
 
   // ============================================================================
   // 1) HALKA RENKLERİNDEN 3 NEBULA RENGİ TÜRETME (Sabit hex yok; yedekler theme.css'ten)
@@ -117,6 +121,8 @@
     triggerRect: null,
     cardData: null,
     openAnimHandle: null,
+    openFallbackTimer: null,
+    closeFallbackTimer: null,
     rafId: null,
     lastFrameTs: 0,
     isPressed: false,
@@ -157,7 +163,7 @@
 
   function startPhysicsLoop() {
     if (openState.rafId !== null || !openState.physicsActive) return;
-    if (prefersReducedMotion() || isMobileViewport() || !hasFinePointer()) return;
+    if (!canUseDesktopTilt()) return;
     const Spring = window.NexusSpring;
     if (!Spring || typeof Spring.step !== 'function') return;
     if (!openState.rxSpring) initPhysicsSprings();
@@ -203,7 +209,10 @@
   }
 
   function updatePointerPhysics(ev) {
-    if (!openState.isOpen || !openState.physicsActive || prefersReducedMotion() || isMobileViewport() || !hasFinePointer()) {
+    if (!openState.isOpen || !openState.physicsActive || !canUseDesktopTilt()) {
+      return;
+    }
+    if (ev && ev.pointerType === 'touch') {
       return;
     }
     const rect = cardEl.getBoundingClientRect();
@@ -250,7 +259,8 @@
   });
 
   cardEl.addEventListener('pointerdown', (ev) => {
-    if (!openState.isOpen || !openState.physicsActive || prefersReducedMotion() || isMobileViewport()) return;
+    if (!openState.isOpen || !openState.physicsActive || !canUseDesktopTilt()) return;
+    if (ev.pointerType === 'touch') return;
     if (ev.button !== 0 && ev.pointerType === 'mouse') return;
     openState.isPressed = true;
     cardEl.classList.add('is-pressed');
@@ -628,7 +638,19 @@
     }
   }
 
+  function clearAnimTimers() {
+    if (openState.openFallbackTimer) {
+      clearTimeout(openState.openFallbackTimer);
+      openState.openFallbackTimer = null;
+    }
+    if (openState.closeFallbackTimer) {
+      clearTimeout(openState.closeFallbackTimer);
+      openState.closeFallbackTimer = null;
+    }
+  }
+
   function animatePopupOpen(triggerRect) {
+    clearAnimTimers();
     const mobile = isMobileViewport();
     overlay.classList.toggle('is-mobile-sheet', mobile);
     cardEl.classList.toggle('is-reduced-motion', prefersReducedMotion());
@@ -637,7 +659,8 @@
     if (prefersReducedMotion() || !Spring || typeof Spring.animate !== 'function') {
       stage.style.transform = '';
       stage.style.opacity = '1';
-      openState.physicsActive = !mobile && !prefersReducedMotion();
+      openState.physicsActive = canUseDesktopTilt();
+      if (openState.physicsActive) initPhysicsSprings();
       return;
     }
 
@@ -649,6 +672,17 @@
     if (mobile) {
       stage.style.opacity = '0';
       stage.style.transform = 'translate3d(0, 64px, 0)';
+      const settleMobile = () => {
+        clearAnimTimers();
+        if (openState.openAnimHandle) {
+          openState.openAnimHandle.cancel();
+          openState.openAnimHandle = null;
+        }
+        stage.style.transform = '';
+        stage.style.opacity = '';
+        openState.physicsActive = false;
+      };
+      openState.openFallbackTimer = setTimeout(settleMobile, 420);
       openState.openAnimHandle = Spring.animate({
         from: 0,
         to: 1,
@@ -660,12 +694,7 @@
           stage.style.opacity = String(Math.max(0, Math.min(1, v * 1.4)));
           stage.style.transform = `translate3d(0, ${y.toFixed(2)}px, 0)`;
         },
-        onComplete: () => {
-          stage.style.transform = '';
-          stage.style.opacity = '';
-          openState.openAnimHandle = null;
-          openState.physicsActive = false;
-        },
+        onComplete: settleMobile,
       });
       return;
     }
@@ -683,9 +712,29 @@
       dy = Math.max(-280, Math.min(280, fromY - toY));
     }
 
+    const activateDesktopPhysics = () => {
+      if (!openState.isOpen || openState.isClosing) return;
+      if (!openState.physicsActive) {
+        openState.physicsActive = canUseDesktopTilt();
+        if (openState.physicsActive) initPhysicsSprings();
+      }
+    };
+
+    const settleDesktopOpen = () => {
+      clearAnimTimers();
+      if (openState.openAnimHandle) {
+        openState.openAnimHandle.cancel();
+        openState.openAnimHandle = null;
+      }
+      stage.style.transform = '';
+      stage.style.opacity = '';
+      activateDesktopPhysics();
+    };
+
     openState.physicsActive = false;
     stage.style.opacity = '0';
     stage.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) scale(0.32)`;
+    openState.openFallbackTimer = setTimeout(settleDesktopOpen, 420);
 
     openState.openAnimHandle = Spring.animate({
       from: 0,
@@ -699,15 +748,11 @@
         const sc = 0.32 + 0.68 * v;
         stage.style.opacity = String(Math.max(0, Math.min(1, v * 1.45)));
         stage.style.transform = `translate3d(${curX.toFixed(2)}px, ${curY.toFixed(2)}px, 0) scale(${sc.toFixed(4)})`;
+        if (v >= 0.88) {
+          activateDesktopPhysics();
+        }
       },
-      onComplete: () => {
-        stage.style.transform = '';
-        stage.style.opacity = '';
-        openState.openAnimHandle = null;
-        // Pencere açıldıktan SONRA Nebula Glass Card 3B eğilme/basma fiziği devreye girer
-        openState.physicsActive = !isMobileViewport() && !prefersReducedMotion();
-        initPhysicsSprings();
-      },
+      onComplete: settleDesktopOpen,
     });
   }
 
@@ -715,6 +760,11 @@
     const cleanId = String(targetId || '').trim();
     if (!cleanId) return;
 
+    clearAnimTimers();
+    if (openState.openAnimHandle) {
+      openState.openAnimHandle.cancel();
+      openState.openAnimHandle = null;
+    }
     stopPhysicsLoop();
     resetCardPhysicsVisuals();
 
@@ -754,6 +804,11 @@
   }
 
   function finishClose() {
+    clearAnimTimers();
+    if (openState.openAnimHandle) {
+      openState.openAnimHandle.cancel();
+      openState.openAnimHandle = null;
+    }
     stopPhysicsLoop();
     resetCardPhysicsVisuals();
     overlay.hidden = true;
@@ -781,6 +836,7 @@
     if (!openState.isOpen || openState.isClosing) return;
     openState.isClosing = true;
     openState.physicsActive = false;
+    clearAnimTimers();
     stopPhysicsLoop();
     resetCardPhysicsVisuals();
 
@@ -795,6 +851,8 @@
       return;
     }
 
+    openState.closeFallbackTimer = setTimeout(finishClose, 360);
+
     const mobile = isMobileViewport();
     if (mobile) {
       openState.openAnimHandle = Spring.animate({
@@ -806,11 +864,9 @@
         onUpdate: (v) => {
           stage.style.opacity = String(Math.max(0, 1 - v * 1.3));
           stage.style.transform = `translate3d(0, ${(64 * v).toFixed(1)}px, 0)`;
+          if (v >= 0.96) finishClose();
         },
-        onComplete: () => {
-          openState.openAnimHandle = null;
-          finishClose();
-        },
+        onComplete: finishClose,
       });
       return;
     }
@@ -834,11 +890,9 @@
         const sc = 1 - 0.62 * v;
         stage.style.opacity = String(Math.max(0, 1 - v * 1.35));
         stage.style.transform = `translate3d(${(dx * v).toFixed(2)}px, ${(dy * v).toFixed(2)}px, 0) scale(${sc.toFixed(4)})`;
+        if (v >= 0.96) finishClose();
       },
-      onComplete: () => {
-        openState.openAnimHandle = null;
-        finishClose();
-      },
+      onComplete: finishClose,
     });
   }
 

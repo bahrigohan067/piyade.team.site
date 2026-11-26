@@ -488,7 +488,10 @@
         </div>
       </section>
     </div>
+  <% } %>
+</div>
 
+<% if (!(typeof activeSanction !== 'undefined' && activeSanction && activeSanction.type === 'ban') && !needsConsent) { %>
     <!-- ==================================================================
          AYARLAR VE PROFİL HALKASI SEÇİCİ MODALI
          ================================================================== -->
@@ -739,7 +742,6 @@
 
     <!-- Bildirim Toast Kutusu -->
     <div class="chat-toast-stack" id="chatToastStack" aria-live="polite" aria-atomic="true"></div>
-  <% } %>
-</div>
+<% } %>
 
 <%- include('../layouts/footer') %>

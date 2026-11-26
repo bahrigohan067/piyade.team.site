@@ -961,7 +961,8 @@ test('Google ile Devam Et — Uçtan Uca Güvenlik, Sihirbaz, Profil, Sohbet ve 
 
     // Karşı taraf bu kullanıcıyı engellemiş olsun & bir moderasyon vaka anlık görüntüsü bulunsun
     chatStore.blockUser('200000000000000001', unifiedId);
-    const convId = [unifiedId, '200000000000000001'].sort().join('_');
+    const { makeConvId } = require('../services/chatStore');
+    const convId = makeConvId(unifiedId, '200000000000000001');
     const snapshot = chatStore.getContextWindow(convId, null, { totalCount: 10 });
     const modCase = chatModStore.createReportCase({
       convId,

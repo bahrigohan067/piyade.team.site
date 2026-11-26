@@ -72,11 +72,18 @@
   }
 
   function stepSpring(spring, dt) {
-    const displacement = spring.value - spring.target;
-    const force = -spring.stiffness * displacement - spring.damping * spring.velocity;
-    const acceleration = force / spring.mass;
-    spring.velocity += acceleration * dt;
-    spring.value += spring.velocity * dt;
+    // 50ms gibi düşük FPS / çerçeve atlamasında yay patlamasını önlemek için alt adımlama (<= 8ms)
+    const safeDt = Math.min(0.05, Math.max(0.001, dt));
+    const subSteps = Math.max(1, Math.ceil(safeDt / 0.008));
+    const h = safeDt / subSteps;
+
+    for (let i = 0; i < subSteps; i += 1) {
+      const displacement = spring.value - spring.target;
+      const force = -spring.stiffness * displacement - spring.damping * spring.velocity;
+      const acceleration = force / spring.mass;
+      spring.velocity += acceleration * h;
+      spring.value += spring.velocity * h;
+    }
 
     const settled =
       Math.abs(spring.velocity) < 0.002 && Math.abs(spring.target - spring.value) < 0.002;

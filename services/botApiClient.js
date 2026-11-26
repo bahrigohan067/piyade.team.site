@@ -1252,9 +1252,10 @@ async function fetchRobloxAvatarsAsService(ids = []) {
       body: { ids: cleanIds },
       retries: 0,
     });
+    const source = raw && raw.avatars && typeof raw.avatars === 'object' ? raw.avatars : raw;
     const out = {};
     for (const id of cleanIds) {
-      out[id] = raw && raw[id] ? sanitizeHttpUrl(raw[id]) : null;
+      out[id] = source && source[id] ? sanitizeHttpUrl(source[id]) : null;
     }
     return out;
   } catch (_) {

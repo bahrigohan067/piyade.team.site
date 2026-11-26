@@ -174,9 +174,18 @@ async function maybeRefreshGoogleRobloxAvatars(members = []) {
 
   try {
     const resp = await botApiClient.fetchRobloxAvatarsAsService(staleRobloxIds.slice(0, 50));
-    const avatarsObj = (resp && (resp.avatars || resp.items || resp.data)) || {};
-    if (avatarsObj && typeof avatarsObj === 'object' && Object.keys(avatarsObj).length > 0) {
-      getMemberStore().updateRobloxAvatarsByRobloxId(avatarsObj, now);
+    const avatarsObj =
+      resp && typeof resp === 'object'
+        ? (resp.avatars && typeof resp.avatars === 'object' ? resp.avatars : resp)
+        : {};
+    const validEntries = {};
+    for (const [rid, urlVal] of Object.entries(avatarsObj)) {
+      if (typeof urlVal === 'string' && /^https?:\/\//i.test(urlVal.trim())) {
+        validEntries[rid] = urlVal.trim();
+      }
+    }
+    if (Object.keys(validEntries).length > 0) {
+      getMemberStore().updateRobloxAvatarsByRobloxId(validEntries, now);
     } else {
       for (const rid of staleRobloxIds) {
         robloxAvatarRefreshBackoff.set(rid, now + 5 * 60 * 1000);
@@ -794,7 +803,7 @@ router.get('/api/uye-karti/:targetId', requireChatMember, requireChatConsent, re
         badgeKind: 'site_member',
         isSelf: targetId === userId,
         isGroupAdmin: false,
-        displayName: gm.displayName || gm.nickname || targetId,
+        displayName: showGames ? (gm.displayName || gm.nickname || targetId) : (gm.nickname || targetId),
         avatarUrl: (rbGame && rbGame.robloxAvatarUrl) || null,
         ring,
         nebulaHues,

@@ -195,32 +195,23 @@
     }
   });
 
-  // Sohbet SSE'si aktif olmayacaksa hafif bildirim SSE akışına bağlan
+  // Sohbet SSE'si aktif olmayacaksa merkezi PiyadeRealtime üzerinden hafif bildirim akışına bağlan
   const chatSseExpected = container.getAttribute('data-chat-sse-expected') === '1';
-  let fallbackSse = null;
-  if (!chatSseExpected && typeof window.EventSource === 'function') {
-    try {
-      fallbackSse = new EventSource('/api/uyari-bildirimleri/akis');
-      fallbackSse.addEventListener('site_warning', (ev) => {
-        try {
-          showLiveNotice(JSON.parse(ev.data || '{}'));
-        } catch (_) {}
-      });
-      fallbackSse.addEventListener('account_suspended', (ev) => {
-        try {
-          const d = JSON.parse(ev.data || '{}');
-          if (window.location.pathname !== (d.redirectUrl || '/giris/askida')) {
-            window.location.assign(d.redirectUrl || '/giris/askida');
-          }
-        } catch (_) {}
-      });
-      fallbackSse.addEventListener('disconnect', () => {
-        if (fallbackSse) fallbackSse.close();
-      });
-    } catch (_) {}
+  if (!chatSseExpected && window.PiyadeRealtime) {
+    const rt = window.PiyadeRealtime;
+    rt.on('site_warning', (d) => {
+      if (d) showLiveNotice(d);
+    });
+    rt.on('account_suspended', (d) => {
+      const target = (d && d.redirectUrl) || '/giris/askida';
+      if (window.location.pathname !== target) {
+        window.location.assign(target);
+      }
+    });
+    rt.start({
+      url: '/api/uyari-bildirimleri/akis',
+      authCheckUrl: '/api/uyari-bildirimleri',
+      priority: 1,
+    });
   }
-
-  window.addEventListener('beforeunload', () => {
-    if (fallbackSse) fallbackSse.close();
-  });
 })();

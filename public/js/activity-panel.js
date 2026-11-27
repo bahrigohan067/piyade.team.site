@@ -193,6 +193,7 @@
     // 3. Veri Çekme, Render ve 10 Sn Yenileme Cooldown / 60 Sn Otomatik Yenileme
     let isFetching = false;
     let lastFetchedAt = 0;
+    let lastGoodPayload = null;
     let cooldownUntil = 0;
     let cooldownTimer = null;
 
@@ -386,17 +387,24 @@
 
         const payload = await res.json().catch(() => null);
         if (!res.ok || !payload || payload.ok === false) {
-          const msg =
-            res.status === 429
-              ? i18n.rateLimited
-              : (payload && payload.error) || i18n.error;
-          renderErrorState(msg);
+          // Son bilinen veri varsa çevrimdışı/geçici hatada üzerine hata kutusu yazma; sessizce koru
+          if (!lastGoodPayload && manual) {
+            const msg =
+              res.status === 429
+                ? i18n.rateLimited
+                : (payload && payload.error) || i18n.error;
+            renderErrorState(msg);
+          }
         } else {
           lastFetchedAt = Date.now();
+          lastGoodPayload = payload;
           renderActivityData(payload);
         }
       } catch (_) {
-        renderErrorState(i18n.error);
+        // Ağ hatası / çevrimdışı: son bilinen veriyi koru, gürültülü hata kutusu çıkarma
+        if (!lastGoodPayload && manual) {
+          renderErrorState(i18n.error);
+        }
       } finally {
         isFetching = false;
         if (manual) {
@@ -439,6 +447,10 @@
       ) {
         fetchActivity({ manual: false });
       }
+    });
+
+    window.addEventListener('online', () => {
+      fetchActivity({ manual: false });
     });
   });
 })();

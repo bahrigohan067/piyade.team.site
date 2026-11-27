@@ -366,7 +366,10 @@
         });
         const payload = await res.json().catch(() => null);
         if (!res.ok || !payload) {
-          renderPanelData({ scope: cleanScope, games: [], offline: true }, { animate: false });
+          const fallback = scopeCache.get(cleanScope) || scopeCache.get('month');
+          if (fallback) {
+            renderPanelData(fallback, { animate: false });
+          }
           return;
         }
         scopeCache.set(cleanScope, payload);
@@ -374,8 +377,10 @@
           renderPanelData(payload, { animate: true });
         }
       } catch (_) {
-        if (currentScope === cleanScope) {
-          renderPanelData({ scope: cleanScope, games: [], offline: true }, { animate: false });
+        // Çevrimdışı: son bilinen veriyi sessizce koru, hata kutusu çıkarma
+        const fallback = scopeCache.get(cleanScope) || scopeCache.get('month');
+        if (currentScope === cleanScope && fallback) {
+          renderPanelData(fallback, { animate: false });
         }
       }
     }

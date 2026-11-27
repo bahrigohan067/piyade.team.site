@@ -596,6 +596,22 @@
         return;
       }
 
+      // Ağ kopuksa / sunucuya ulaşılamıyorsa metni koru ve çevrimiçi olunca sessizce tekrar gönder
+      if (wasNetworkOrTimeout || (responseData && responseData.code === 'BOT_UNAVAILABLE')) {
+        stage = 'open';
+        setSurfaceStateClass('open');
+        submitBtn.classList.remove('is-sending');
+        syncFormControls();
+        const retryWhenOnline = () => {
+          global.removeEventListener('online', retryWhenOnline);
+          if (stage === 'open' && textarea.value.trim().length >= (cfg.minLength || 3)) {
+            handleSubmit();
+          }
+        };
+        global.addEventListener('online', retryWhenOnline, { once: true });
+        return;
+      }
+
       const code = (responseData && responseData.code) || 'GENERIC';
       const nextKey =
         responseData && responseData.applied === false ? responseData.nextIdempotencyKey : null;

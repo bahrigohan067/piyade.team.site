@@ -60,6 +60,12 @@ router.get('/', (req, res) => {
 
   const rawCat = typeof req.query.kategori === 'string' ? req.query.kategori.trim().toLowerCase() : '';
   const preselectedCategory = legalConfig.getReportCategoryById(rawCat) ? rawCat : '';
+  const rawNote = typeof req.query.not === 'string' ? req.query.not : '';
+  const safePrefillRef = rawNote
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, 200);
 
   return res.render('pages/report-form', {
     title: res.locals.seo ? res.locals.seo.title : req.t('reportPage.pageTitle'),
@@ -70,7 +76,7 @@ router.get('/', (req, res) => {
     formData: {
       category: preselectedCategory,
       location: 'site',
-      targetRef: '',
+      targetRef: safePrefillRef,
       description: '',
       contactEmail: (user && user.email) || '',
       dmcaRightsHolder: '',

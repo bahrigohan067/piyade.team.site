@@ -56,6 +56,7 @@ router.get('/robots.txt', (req, res) => {
     'Disallow: /geri-bildirim',
     'Disallow: /kayit/roblox-kontrol',
     'Disallow: /sohbet',
+    'Disallow: /sunucular',
     'Disallow: /api',
     '',
     `Sitemap: ${baseUrl}/sitemap.xml`,

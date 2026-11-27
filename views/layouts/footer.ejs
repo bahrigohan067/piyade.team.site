@@ -110,7 +110,7 @@
   <!-- Nexus UI İnteraktif Bileşenleri (Meteors, Dart Rating, Scroll Reveal Text, NexusSpring) -->
   <script src="/js/nexus-components.js?v=<%= assetVer %>" defer></script>
 
-  <% if (showFeedbackPill || (typeof isChatPage !== 'undefined' && isChatPage)) { %>
+  <% if (showFeedbackPill || (typeof isChatPage !== 'undefined' && isChatPage) || (typeof isServersPage !== 'undefined' && isServersPage)) { %>
     <!-- Ortak Web Audio Sentezleyici -->
     <script src="/js/nexus-sound.js?v=<%= assetVer %>" defer></script>
   <% } %>
@@ -183,6 +183,16 @@
 
   <% if (typeof isAdminLegalPage !== 'undefined' && isAdminLegalPage) { %>
     <script src="/js/admin-legal.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isServersPage !== 'undefined' && isServersPage) { %>
+    <!-- Sunucularımız 3D Card Carousel ve Canlı Güncelleme -->
+    <script src="/js/servers-carousel.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
+  <% if (typeof isAdminServersPage !== 'undefined' && isAdminServersPage) { %>
+    <!-- Developer Sunucu Yönetim Paneli -->
+    <script src="/js/admin-servers.js?v=<%= assetVer %>" defer></script>
   <% } %>
 </body>
 </html>

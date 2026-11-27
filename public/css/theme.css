@@ -423,4 +423,63 @@
   --chat-jump-btn-border: rgba(168, 85, 247, 0.5);
   --chat-diag-bg: rgba(14, 18, 32, 0.88);
   --chat-diag-border: rgba(168, 85, 247, 0.35);
+
+  /* ============================================================================
+   * 13. SUNUCULARIMIZ (/sunucular) — DISCORD DAVET ÖNİZLEME & 3D CARD CAROUSEL
+   * ============================================================================ */
+  --discord-join: #248046;
+  --discord-join-hover: #1a6334;
+  --discord-join-glow: 0 0 24px rgba(36, 128, 70, 0.55);
+  --discord-join-text: #ffffff;
+  --discord-join-disabled-bg: rgba(148, 163, 184, 0.16);
+  --discord-join-disabled-text: #94a3b8;
+  --server-online-dot: #23a55a;
+  --server-online-pulse: rgba(35, 165, 90, 0.55);
+  --server-member-dot: #94a3b8;
+  --server-card-bg: linear-gradient(
+    160deg,
+    rgba(22, 18, 40, 0.96) 0%,
+    rgba(13, 15, 27, 0.98) 58%,
+    rgba(9, 11, 20, 0.99) 100%
+  );
+  --server-card-border: rgba(168, 85, 247, 0.3);
+  --server-card-front-border: #c084fc;
+  --server-card-shadow: 0 26px 52px -22px rgba(0, 0, 0, 0.86);
+  --server-card-front-glow: 0 0 42px -8px rgba(168, 85, 247, 0.58);
+  --server-featured-border: rgba(192, 132, 252, 0.72);
+  --server-featured-glow: 0 0 48px -6px rgba(168, 85, 247, 0.72);
+  --server-ribbon-bg: linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(168, 85, 247, 0.92) 100%);
+  --server-ribbon-text: #faf5ff;
+  --server-ribbon-border: rgba(233, 213, 255, 0.55);
+  --server-banner-fallback: linear-gradient(135deg, rgba(124, 58, 237, 0.82) 0%, rgba(79, 70, 229, 0.65) 55%, rgba(15, 23, 42, 0.9) 100%);
+  --server-banner-scrim: linear-gradient(180deg, rgba(9, 11, 20, 0.08) 0%, rgba(13, 15, 27, 0.78) 100%);
+  --server-icon-cutout: #0e101d;
+  --server-icon-fallback-bg: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  --server-badge-community: #c084fc;
+  --server-badge-verified: #23a55a;
+  --server-badge-partnered: #5865f2;
+  --server-trait-bg: rgba(139, 92, 246, 0.14);
+  --server-trait-border: rgba(168, 85, 247, 0.28);
+  --server-trait-text: #e2e8f0;
+  --server-copy-bg: rgba(255, 255, 255, 0.06);
+  --server-copy-hover-bg: rgba(168, 85, 247, 0.2);
+  --server-copy-border: rgba(255, 255, 255, 0.14);
+  --server-copy-copied-bg: rgba(35, 165, 90, 0.22);
+  --server-copy-copied-border: rgba(35, 165, 90, 0.6);
+  --server-copy-copied-text: #86efac;
+  --server-invalid-bg: rgba(239, 68, 68, 0.14);
+  --server-invalid-border: rgba(239, 68, 68, 0.45);
+  --server-invalid-text: #fca5a5;
+  --server-stale-bg: rgba(148, 163, 184, 0.14);
+  --server-stale-border: rgba(148, 163, 184, 0.28);
+  --server-stale-text: #cbd5e1;
+  --server-stage-ambient: radial-gradient(
+    ellipse at 50% 42%,
+    rgba(139, 92, 246, 0.14) 0%,
+    rgba(15, 23, 42, 0.58) 54%,
+    rgba(7, 8, 12, 0.72) 100%
+  );
+  --server-admin-row-bg: rgba(14, 17, 29, 0.84);
+  --server-admin-row-hover: rgba(22, 26, 44, 0.94);
+  --server-admin-drag-border: rgba(192, 132, 252, 0.75);
 }

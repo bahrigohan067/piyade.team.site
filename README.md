@@ -317,6 +317,24 @@ Yasal sayfalar (`content/legal/tr/` ve `content/legal/en/`) gerçek sistem veri 
 
 ---
 
+## 🌐 Sunucularımız (`/sunucular`) ve Developer Yönetim Paneli (`/yonetim/sunucular`)
+
+Giriş yapmış tüm üyeler (kayıtlı Discord üyeleri ve aktif Google/Site üyeleri) sol menüdeki **🌐 Sunucularımız** bölümünden Piyade adıyla bağlantılı Discord sunucularını Discord davet önizleme kartları ve Nexus UI **3D Card Carousel** vitriniyle görebilir.
+
+### 1. Yeni Sunucu Ekleme ve Yönetme (`/yonetim/sunucular`)
+- Yalnızca Bot API'den taze doğrulanan **Discord Developer** rolüne açıktır (diğer tüm roller ve Google üyeleri için `404` döner).
+- Davet giriş kutusu şu biçimleri kabul eder: `KOD`, `discord.gg/KOD`, `discord.com/invite/KOD`, `discordapp.com/invite/KOD` (`https://` öneki olabilir). Başka alan adları SSRF koruması gereği reddedilir.
+- **Doğrula** düğmesi Discord'dan canlı bilgi çeker ve üyelerin göreceği kartın birebir aynısını önizleme olarak gösterir; en fazla **24** sunucu eklenebilir ve aynı davet kodu veya aynı `guildId` mükerrer eklenemez.
+- **Kalıcı Davet Önerisi:** Süresi dolacak davetler (`expires_at`) eklendiğinde veya listede yer aldığında yönetim paneli sarı uyarı gösterir. Sunucuların bağlantısının bozulmaması için Discord'da **"Asla sona ermez / Sınırsız kullanım" (Never expire)** kalıcı davet bağlantısı oluşturmanız önerilir.
+- Tüm ekleme, düzenleme, silme, sıralama, gizleme, öne çıkarma ve yenileme işlemleri içeriksiz olarak `${RAILWAY_VOLUME_MOUNT_PATH}/servers/audit.jsonl` dosyasına kaydedilir ve **1 yıl** saklanır.
+
+### 2. Tazeleme Aralığı (`SERVERS_REFRESH_MIN`) ve Discord API Nezaket Notu
+- `SERVERS_REFRESH_MIN` ortam değişkeniyle arka plan tazeleme aralığını dakika cinsinden ayarlayabilirsiniz (varsayılan: `10`, geçerli aralık: `1–1440`).
+- Sunucu açılışından **20 saniye** sonra ilk tazeleme yapılır; kayıtlar **sırayla** ve aralarında **1,5 saniye** bekleyerek tazelenir, `429 Retry-After` yanıtlarına uyulur.
+- **Discord API Nezaket Notu:** Karttaki oyun simgeleri (`/api/v10/applications/public`) ve sunucu etiket/profil alanları (`profile.traits`, `brand_color_primary`, `game_application_ids`) Discord'un belgelenmemiş (undocumented) alanlarıdır; Discord bunları ileride değiştirebilir veya kapatabilir. Panel savunmacı olarak yazılmıştır — bu alanlar gelmese veya hata verse bile ilgili satırlar sessizce gizlenir, kartlar ve davet düğmeleri kesintisiz çalışmaya devam eder.
+
+---
+
 ## 🧹 Volume / Disk Temizlik Notu
 
 > **Not:** Volume'daki eski veriler elle silinebilir (`data/warriors.json`, `data/warriors.json.bak`, `data/roblox-avatars-cache.json` ve varsa eski özel görseller). Bu dosyalara ait kodlar projeden tamamen kaldırılmıştır; uygulama açılışında veya çalışma zamanında bu dosyalar okunmaz ve yazılmaz.

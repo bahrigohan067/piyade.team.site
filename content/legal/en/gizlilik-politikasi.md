@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy
-version: 1.1
-lastUpdated: 2026-11-26
+version: 1.2
+lastUpdated: 2026-11-28
 ---
 
 # Privacy Policy (Website & Discord Bot)
@@ -20,6 +20,7 @@ Our website runs on a **"thin client"** architecture:
 2. **Discord Bot REST API:** Your registration data (name/nickname, gender, game usernames, Roblox verification), disciplinary history, monthly game activity, and member directory are retrieved over an authenticated server-to-server connection.
 3. **Monthly Game Activity & Privacy Opt-Out:** Only current-month play duration is summed and reset on the 1st of every month. Members who disable tracking (`tracking: false`) in Discord are never counted or displayed.
 4. **Google Sign-In, Direct Site Membership & Warning History:** Users without Discord may sign in with Google OpenID Connect (`sub`, email, name — Google profile photos are never stored), use the optional "remember me" cookie (`pw_remember`, max 5 devices), optionally display game usernames on their chat profile card, and are subject to site member disciplinary rules. Warning records and contentless audit entries are retained for **12 months** (365 days) after expiry/amnesty/cancellation, and staff-only evidence files are retained for at most **6 months** (180 days) before automatic daily deletion. Deleting your account immediately removes personal warning links and evidence files, leaving only an identity-free audit line.
+5. **Our Servers Showcase (`/sunucular`):** This section processes no personal data; it only queries Discord's publicly accessible invite endpoints for server names, icons/banners, and member/online counts. Server images are loaded directly from Discord's CDN (`cdn.discordapp.com`), and "Go to server" links take you to Discord. Server names, descriptions, and tags displayed on cards are third-party content controlled by the respective server owners.
 
 ## 3. Chat Privacy (`CHAT_ENABLED`: General Chat Group & Private DMs)
 

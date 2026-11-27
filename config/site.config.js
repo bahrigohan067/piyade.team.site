@@ -34,6 +34,8 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'js/warning-notices.js',
       'js/google-signup.js',
       'js/profile-google.js',
+      'js/servers-carousel.js',
+      'js/admin-servers.js',
     ];
     for (const rel of trackedFiles) {
       const fullPath = path.join(publicDir, rel);

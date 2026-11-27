@@ -1,7 +1,7 @@
 ---
 title: Gizlilik Politikası
-version: 1.1
-lastUpdated: 2026-11-26
+version: 1.2
+lastUpdated: 2026-11-28
 ---
 
 # Gizlilik Politikası (Web Sitesi ve Discord Botu)
@@ -20,6 +20,7 @@ Web sitesi **"ince ön yüz" (thin client)** mimarisiyle çalışır:
 2. **Discord Bot REST API:** Topluluk kayıt başvurunuz (isim/takma ad, cinsiyet, oyun kullanıcı adları, Roblox doğrulaması), disiplin/uyarı kayıtlarınız, aylık oyun etkinliğiniz ve üye rehberi botun korumalı API’sinden sunucu-içi gizli anahtarla çekilir.
 3. **Aylık Oyun Etkinliği ve Gizlilik Tercihi:** Oyun süreleri yalnızca bulunulan takvim ayı için toplanır ve her ayın 1’inde sıfırlanır. Discord’da oyun takibini kapatan (`tracking: false`) üyelerin süresi tutulmaz ve ne kişisel panelde ne de anonim sıralamada görünür.
 4. **Google ile Giriş, Doğrudan Site Üyeliği ve Uyarı Sicili:** Discord hesabı olmayanlar için Google OpenID Connect (`sub`, e-posta, ad — Google profil fotoğrafı alınmaz), isteğe bağlı "beni hatırla" çerezi (`pw_remember`, en fazla 5 cihaz), oyun kullanıcı adlarının (isteğe bağlı olarak) sohbet profil kartında gösterilmesi ve site (Google) üyelerine yönelik uyarı/yaptırım sicili aktiftir. Uyarı kayıtları ve içeriksiz denetim satırları kayıt süresi dolduktan/af/iptal sonrası **12 ay** (365 gün), yalnızca yetkililerin erişebildiği kanıt dosyaları ise en fazla **6 ay** (180 gün) saklanır ve günlük bakım göreviyle otomatik silinir. Hesabınızı sildiğinizde uyarılara ait kişisel bağlantılar ve kanıt dosyaları derhal kaldırılır, geriye yalnızca kimlik içermeyen bir denetim satırı kalır.
+5. **Sunucularımız Vitrini (`/sunucular`):** Bu bölüm kişisel veri işlemez; yalnızca Discord’un herkese açık davet bilgilerinden sunucu adı, simge/afiş ve çevrim içi/üye sayıları sorgulanır. Sunucu görselleri doğrudan Discord CDN (`cdn.discordapp.com`) üzerinden yüklenir ve "Sunucuya git" bağlantıları sizi Discord’a yönlendirir. Kartlarda yer alan sunucu adı, açıklama ve etiket metinleri ilgili sunucu sahiplerine ait üçüncü taraf içeriğidir.
 
 ## 3. Sohbet Gizliliği (`CHAT_ENABLED`: Genel Sohbet Grubu ve Birebir Sohbet)
 

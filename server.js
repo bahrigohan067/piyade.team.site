@@ -30,12 +30,15 @@ const legalRoutes = require('./routes/legal');
 const reportRoutes = require('./routes/reports');
 const legalAdminRoutes = require('./routes/legalAdmin');
 const siteWarningsRoutes = require('./routes/siteWarnings');
+const serversRoutes = require('./routes/servers');
+const serversAdminRoutes = require('./routes/serversAdmin');
 const { getChatStore } = require('./services/chatStore');
 const { getChatModStore } = require('./services/chatModStore');
 const { getLegalStore } = require('./services/legalStore');
 const { getReportStore } = require('./services/reportStore');
 const { getMemberStore } = require('./services/memberStore');
 const { getSiteWarningStore } = require('./services/siteWarningStore');
+const { getServerDirectory } = require('./services/serverDirectory');
 const { chatSseHub } = require('./services/chatSseHub');
 
 function createServerApp() {
@@ -190,7 +193,9 @@ function createServerApp() {
   app.use('/yasal', legalRoutes);
   app.use('/bildir', reportRoutes);
   app.use('/', memberRoutes);
+  app.use('/sunucular', serversRoutes);
   app.use('/', siteWarningsRoutes);
+  app.use('/yonetim/sunucular', serversAdminRoutes);
   app.use('/yonetim', legalAdminRoutes);
   app.use('/yonetim', adminRoutes);
   app.use('/geri-bildirim', feedbackRoutes);
@@ -246,6 +251,11 @@ if (require.main === module) {
         chatModStore: chatModForMaint,
       });
     } catch (_) {}
+
+    // Sunucularımız: açılışta 20 sn sonra ilk tazeleme, sonra SERVERS_REFRESH_MIN dakikada bir
+    try {
+      getServerDirectory().startRefreshScheduler();
+    } catch (_) {}
   });
 
   // SIGTERM / SIGINT kapanışında sohbet ve moderasyon depolarını güvenle boşalt ve SSE bağlantılarını kapat
@@ -262,6 +272,8 @@ if (require.main === module) {
       getMemberStore().flush();
       getSiteWarningStore().stopMaintenanceScheduler();
       getSiteWarningStore().flush();
+      getServerDirectory().stopRefreshScheduler();
+      getServerDirectory().flush();
     } catch (_) {}
     process.exit(0);
   };

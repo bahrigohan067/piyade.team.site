@@ -97,7 +97,10 @@
   if (!appEl) return;
 
   const els = {
-    reconnectBanner: document.getElementById('chatReconnectBanner'),
+    offlineIndicatorSlot: document.getElementById('chatOfflineIndicatorSlot'),
+    jumpToBottomBtn: document.getElementById('chatJumpToBottomBtn'),
+    jumpBottomCount: document.getElementById('chatJumpBottomCount'),
+    devDiagBox: document.getElementById('chatDevDiagBox'),
     searchInput: document.getElementById('chatDirectorySearch'),
     searchClearBtn: document.getElementById('chatSearchClearBtn'),
     groupsSection: document.getElementById('chatGroupsSection'),
@@ -228,10 +231,12 @@
     drafts: new Map(),
     typingTimer: null,
     lastTypingSentAt: 0,
-    sse: null,
-    sseRetryMs: 1000,
-    sseLastEventId: 0,
     totalUnread: 0,
+    missedBelowCount: 0,
+    outbox: [],
+    outboxFlushing: false,
+    openMsgMenuWrap: null,
+    offlineIndicator: null,
     // Ayarlar geçici durumu
     settingsDraft: {
       ringId: DEFAULT_PRESET.id,
@@ -272,7 +277,7 @@
   function createGroupAdminBadgeEl() {
     const span = document.createElement('span');
     span.className = 'chat-identity-badge chat-identity-badge--admin';
-    span.textContent = i18n.groupAdminBadge || 'Yönetici';
+    span.textContent = i18n.groupAdminBadgeFull || `👑 ${i18n.groupAdminBadge || 'Yönetici'}`;
     return span;
   }
 
@@ -306,12 +311,26 @@
       headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
-    const resp = await fetch(url, opts);
+    let resp;
+    try {
+      resp = await fetch(url, opts);
+    } catch (networkErr) {
+      const err = new Error(networkErr && networkErr.message ? networkErr.message : 'Network error');
+      err.status = 0;
+      err.code = 'NETWORK_ERROR';
+      err.isNetworkError = true;
+      err.isTransient = true;
+      throw err;
+    }
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
+      if (resp.status === 401 && window.PiyadeRealtime && typeof window.PiyadeRealtime.handleHttpFailure === 'function') {
+        window.PiyadeRealtime.handleHttpFailure(401);
+      }
       const err = new Error(data.error || `HTTP ${resp.status}`);
       err.status = resp.status;
       err.code = data.code || 'API_ERROR';
+      err.isTransient = resp.status >= 500 || resp.status === 408;
       throw err;
     }
     return data;
@@ -1095,7 +1114,13 @@
     if (state.activeMode === 'group' && state.activeGroup) {
       const grp = state.activeGroup;
       els.headerAvatarSlot.replaceChildren(createGroupBrandAvatarEl(grp.avatarUrl, 40));
-      els.headerName.textContent = `${grp.icon || '🌐'} ${grp.name}`;
+      els.headerName.replaceChildren();
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = `${grp.icon || '🌐'} ${grp.name}`;
+      els.headerName.appendChild(titleSpan);
+      if (state.isGroupAdmin) {
+        els.headerName.appendChild(createGroupAdminBadgeEl());
+      }
       const isMuted = Boolean(grp.muted);
       els.headerSub.textContent = isMuted
         ? `🔕 ${i18n.groupMutedBadge || 'Bildirimler sessizde'} • ${grp.description || ''}`
@@ -1135,7 +1160,13 @@
         allowAnimated: true,
       })
     );
-    els.headerName.textContent = other.displayName || other.id;
+    els.headerName.replaceChildren();
+    const otherNameSpan = document.createElement('span');
+    otherNameSpan.textContent = other.displayName || other.id;
+    els.headerName.appendChild(otherNameSpan);
+    if (other.isAdmin || other.isGroupAdmin) {
+      els.headerName.appendChild(createGroupAdminBadgeEl());
+    }
     els.headerSub.textContent = other.robloxUsername
       ? `${i18n.robloxLabel || 'Roblox'}: ${other.robloxUsername}`
       : other.kind === 'google'
@@ -1223,6 +1254,10 @@
       state.canSeeOtherRead = false;
       state.otherLastRead = 0;
       state.otherLastDelivered = 0;
+      state.missedBelowCount = 0;
+
+      reconcileOutboxWithServerMessages('group', cleanGid, state.messages);
+      mergeActiveOutboxIntoMessages();
 
       const listEntry = state.groups.find((g) => g.id === cleanGid);
       if (listEntry) listEntry.muted = Boolean(data.muted);
@@ -1230,6 +1265,7 @@
       renderThreadHeader();
       renderGroupsList();
       renderMessageThread({ animateLast: false, scrollToBottom: true });
+      updateJumpToBottomButton();
       scheduleMarkVisibleMessagesRead();
 
       try {
@@ -1238,7 +1274,9 @@
         window.history.replaceState({}, '', url.pathname + url.search);
       } catch (_) {}
     } catch (err) {
-      showToast('Hata', err.message || 'Grup mesajları yüklenemedi.', { variant: 'danger' });
+      if (!err || (!err.isNetworkError && !err.isTransient)) {
+        showToast('Hata', (err && err.message) || 'Grup mesajları yüklenemedi.', { variant: 'danger' });
+      }
     }
   }
 
@@ -1280,9 +1318,14 @@
       state.myInitialLastRead = Number(data.state && data.state.myLastRead) || 0;
       state.blockedState = data.blocked || { byMe: false, byOther: false, any: false };
       state.whoCanMessageOther = data.whoCanMessageOther || 'everyone';
+      state.missedBelowCount = 0;
+
+      reconcileOutboxWithServerMessages('dm', otherId, state.messages);
+      mergeActiveOutboxIntoMessages();
 
       renderThreadHeader();
       renderMessageThread({ animateLast: false, scrollToBottom: true });
+      updateJumpToBottomButton();
       scheduleMarkVisibleMessagesRead();
 
       try {
@@ -1291,7 +1334,9 @@
         window.history.replaceState({}, '', url.pathname + url.search);
       } catch (_) {}
     } catch (err) {
-      showToast('Hata', err.message || 'Mesajlar yüklenemedi.', { variant: 'danger' });
+      if (!err || (!err.isNetworkError && !err.isTransient)) {
+        showToast('Hata', (err && err.message) || 'Mesajlar yüklenemedi.', { variant: 'danger' });
+      }
     }
   }
 
@@ -1419,30 +1464,141 @@
     return null;
   }
 
+  function closeActiveMessageMenu() {
+    if (!state.openMsgMenuWrap) return;
+    const { wrap, btn, popover } = state.openMsgMenuWrap;
+    if (wrap) wrap.classList.remove('is-menu-open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (popover) popover.hidden = true;
+    state.openMsgMenuWrap = null;
+  }
+
   function resolveMessageSender(msg) {
     if (msg.from === selfId) {
+      const serverAdmin = typeof msg.isAdmin === 'boolean' ? msg.isAdmin : state.isGroupAdmin;
       return {
         id: selfId,
         kind: boot.selfKind || 'discord',
-        isGroupAdmin: state.isGroupAdmin,
+        isAdmin: Boolean(serverAdmin),
+        isGroupAdmin: Boolean(serverAdmin),
         displayName: boot.selfName || selfId,
         avatarUrl: boot.selfAvatarUrl || null,
         ring: state.profile.effectiveRing,
       };
     }
     if (state.activeMode === 'group') {
-      return (
-        (state.groupSenders && state.groupSenders[msg.from]) || {
+      const fromMap = (state.groupSenders && state.groupSenders[msg.from]) || null;
+      const resolvedAdmin =
+        typeof msg.isAdmin === 'boolean'
+          ? msg.isAdmin
+          : Boolean(fromMap && (fromMap.isAdmin || fromMap.isGroupAdmin));
+      return Object.assign(
+        {
           id: msg.from,
           kind: String(msg.from || '').startsWith('g_m_') ? 'google' : 'discord',
-          isGroupAdmin: false,
           displayName: msg.from,
           avatarUrl: null,
           ring: null,
+        },
+        fromMap || {},
+        {
+          isAdmin: resolvedAdmin,
+          isGroupAdmin: resolvedAdmin,
         }
       );
     }
-    return state.activeOther || { id: msg.from, displayName: msg.from, avatarUrl: null, ring: null };
+    const other = state.activeOther || { id: msg.from, displayName: msg.from, avatarUrl: null, ring: null };
+    const resolvedOtherAdmin =
+      typeof msg.isAdmin === 'boolean' ? msg.isAdmin : Boolean(other.isAdmin || other.isGroupAdmin);
+    return Object.assign({}, other, {
+      isAdmin: resolvedOtherAdmin,
+      isGroupAdmin: resolvedOtherAdmin,
+    });
+  }
+
+  function buildMessageActionMenu({ msg, isSelf, isGroupMode }) {
+    const items = [];
+    if (isSelf) {
+      items.push({
+        icon: '🗑️',
+        label: i18n.deleteMsgBtn || 'Mesajı sil',
+        danger: true,
+        action: () => handleDeleteMessage(msg.id, false),
+      });
+    } else {
+      if (isGroupMode && state.isGroupAdmin) {
+        items.push({
+          icon: '🗑️',
+          label: i18n.deleteMsgBtn || 'Mesajı sil',
+          danger: true,
+          action: () => handleDeleteMessage(msg.id, true),
+        });
+      }
+      items.push({
+        icon: '🚩',
+        label: i18n.reportBtn || 'Raporla',
+        danger: false,
+        action: () => {
+          if (isGroupMode) {
+            openReportModal({ groupId: state.activeGroupId, otherId: msg.from, msgId: msg.id });
+          } else {
+            openReportModal({ otherId: state.activeOtherId, msgId: msg.id });
+          }
+        },
+      });
+    }
+
+    if (items.length === 0) return null;
+
+    const actions = document.createElement('div');
+    actions.className = 'chat-msg-actions';
+
+    const menuBtn = document.createElement('button');
+    menuBtn.type = 'button';
+    menuBtn.className = 'chat-msg-menu-btn';
+    menuBtn.textContent = '⋯';
+    menuBtn.title = i18n.msgMenuBtn || 'Mesaj seçenekleri';
+    menuBtn.setAttribute('aria-label', i18n.msgMenuBtn || 'Mesaj seçenekleri');
+    menuBtn.setAttribute('aria-haspopup', 'menu');
+    menuBtn.setAttribute('aria-expanded', 'false');
+
+    const popover = document.createElement('div');
+    popover.className = 'chat-msg-popover';
+    popover.setAttribute('role', 'menu');
+    popover.hidden = true;
+
+    for (const it of items) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `chat-msg-popover-item${it.danger ? ' chat-msg-popover-item--danger' : ''}`;
+      btn.setAttribute('role', 'menuitem');
+      btn.textContent = `${it.icon} ${it.label}`;
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        closeActiveMessageMenu();
+        it.action();
+      });
+      popover.appendChild(btn);
+    }
+
+    const openThisMenu = () => {
+      const alreadyOpen = !popover.hidden;
+      closeActiveMessageMenu();
+      if (!alreadyOpen) {
+        popover.hidden = false;
+        menuBtn.setAttribute('aria-expanded', 'true');
+        actions.classList.add('is-menu-open');
+        state.openMsgMenuWrap = { wrap: actions, btn: menuBtn, popover };
+      }
+    };
+
+    menuBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openThisMenu();
+    });
+
+    actions.append(menuBtn, popover);
+    return { actions, openMenu: openThisMenu };
   }
 
   function buildMessageRowEl(msg, { isGroupStart, isGroupEnd, isLastOwn, animate = false, fromTyping = false }) {
@@ -1492,7 +1648,7 @@
     const col = document.createElement('div');
     col.className = 'chat-msg-col';
 
-    // Grup sohbetinde her gönderen kümesinin üstünde tıklanabilir ad + kimlik rozeti + Yönetici rozeti
+    // Grup sohbetinde her gönderen kümesinin üstünde: Ad + 👑 Yönetici (ÖNCE!) + Kimlik Rozeti
     if (isGroupMode && isGroupStart && !msg.system && sender && sender.id) {
       const senderHead = document.createElement('div');
       senderHead.className = `chat-group-sender-head${isSelf ? ' is-self' : ''}`;
@@ -1507,33 +1663,51 @@
       });
 
       senderHead.appendChild(nameBtn);
-      senderHead.appendChild(createIdentityBadgeEl(sender.kind));
-      if (sender.isGroupAdmin) {
+      if (sender.isAdmin) {
         senderHead.appendChild(createGroupAdminBadgeEl());
       }
+      senderHead.appendChild(createIdentityBadgeEl(sender.kind));
       col.appendChild(senderHead);
     }
 
     const bubbleWrap = document.createElement('div');
     bubbleWrap.className = 'chat-bubble-wrap';
 
-    // Kendi mesajıysa silme düğmesi
-    if (isSelf && !msg.deleted && !msg.pending && !msg.system) {
-      const actions = document.createElement('div');
-      actions.className = 'chat-msg-actions';
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'chat-msg-action-btn';
-      delBtn.title = i18n.deleteMsgBtn || 'Mesajı sil';
-      delBtn.setAttribute('aria-label', i18n.deleteMsgBtn || 'Mesajı sil');
-      delBtn.textContent = '🗑️';
-      delBtn.addEventListener('click', () => handleDeleteMessage(msg.id, false));
-      actions.appendChild(delBtn);
-      bubbleWrap.appendChild(actions);
+    const canShowMenu = !msg.deleted && !msg.pending && !msg.system && msg.outboxStatus !== 'failed';
+    const menuBundle = canShowMenu ? buildMessageActionMenu({ msg, isSelf, isGroupMode }) : null;
+
+    if (isSelf && menuBundle) {
+      bubbleWrap.appendChild(menuBundle.actions);
     }
 
+    const isFailedOutbox = msg.outboxStatus === 'failed';
     const bubble = document.createElement('div');
-    bubble.className = `chat-bubble${isSelf ? ' chat-bubble--self' : ' chat-bubble--other'}${msg.deleted ? ' chat-bubble--deleted' : ''}${msg.system ? ' chat-bubble--system' : ''}`;
+    bubble.className = `chat-bubble${isSelf ? ' chat-bubble--self' : ' chat-bubble--other'}${msg.deleted ? ' chat-bubble--deleted' : ''}${msg.system ? ' chat-bubble--system' : ''}${isFailedOutbox ? ' chat-bubble--failed' : ''}`;
+
+    // Mobilde uzun basma ile "⋯" eylem menüsünü aç
+    if (menuBundle) {
+      let longPressTimer = null;
+      const cancelLongPress = () => {
+        if (longPressTimer !== null) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      };
+      bubble.addEventListener(
+        'touchstart',
+        () => {
+          cancelLongPress();
+          longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            menuBundle.openMenu();
+          }, 450);
+        },
+        { passive: true }
+      );
+      bubble.addEventListener('touchmove', cancelLongPress, { passive: true });
+      bubble.addEventListener('touchend', cancelLongPress, { passive: true });
+      bubble.addEventListener('touchcancel', cancelLongPress, { passive: true });
+    }
 
     if (msg.deleted) {
       const delText = document.createElement('span');
@@ -1572,10 +1746,15 @@
     meta.appendChild(timeSpan);
 
     if (isSelf && !msg.deleted) {
-      if (msg.pending) {
+      if (isFailedOutbox) {
+        const failSpan = document.createElement('span');
+        failSpan.className = 'chat-msg-tick chat-msg-tick--failed';
+        failSpan.textContent = `⚠️ ${i18n.outboxFailed || 'Gönderilemedi'}`;
+        meta.appendChild(failSpan);
+      } else if (msg.pending) {
         const tickSpan = document.createElement('span');
-        tickSpan.className = 'chat-msg-tick';
-        tickSpan.textContent = i18n.statusSending || '⏳';
+        tickSpan.className = 'chat-msg-tick chat-msg-tick--sending';
+        tickSpan.textContent = i18n.outboxSending || i18n.statusSending || '⏳ gönderiliyor';
         meta.appendChild(tickSpan);
       } else if (!isGroupMode) {
         const tickSpan = document.createElement('span');
@@ -1589,44 +1768,42 @@
     bubble.appendChild(meta);
     bubbleWrap.appendChild(bubble);
 
-    // Karşı taraf mesajında Raporla (ve grup yöneticisiyse Yönetici Silme) düğmeleri
-    if (!isSelf && !msg.deleted && !msg.system) {
-      const actions = document.createElement('div');
-      actions.className = 'chat-msg-actions';
-
-      const repBtn = document.createElement('button');
-      repBtn.type = 'button';
-      repBtn.className = 'chat-msg-action-btn';
-      repBtn.title = i18n.reportBtn || 'Raporla';
-      repBtn.setAttribute('aria-label', i18n.reportBtn || 'Raporla');
-      repBtn.textContent = '🚩';
-      repBtn.addEventListener('click', () => {
-        if (isGroupMode) {
-          openReportModal({ groupId: state.activeGroupId, otherId: msg.from, msgId: msg.id });
-        } else {
-          openReportModal({ otherId: state.activeOtherId, msgId: msg.id });
-        }
-      });
-      actions.appendChild(repBtn);
-
-      if (isGroupMode && state.isGroupAdmin) {
-        const adminDelBtn = document.createElement('button');
-        adminDelBtn.type = 'button';
-        adminDelBtn.className = 'chat-msg-action-btn chat-msg-action-btn--admin';
-        adminDelBtn.title = i18n.deleteMsgBtn || 'Mesajı sil';
-        adminDelBtn.setAttribute('aria-label', i18n.deleteMsgBtn || 'Mesajı sil');
-        adminDelBtn.textContent = '🗑️';
-        adminDelBtn.addEventListener('click', () => handleDeleteMessage(msg.id, true));
-        actions.appendChild(adminDelBtn);
-      }
-
-      bubbleWrap.appendChild(actions);
+    if (!isSelf && menuBundle) {
+      bubbleWrap.appendChild(menuBundle.actions);
     }
 
     col.appendChild(bubbleWrap);
 
+    // Kalıcı 4xx hatasında balonun altında satır içi "Tekrar dene / Sil" eylemleri
+    if (isSelf && isFailedOutbox && msg.clientId) {
+      const outboxRow = document.createElement('div');
+      outboxRow.className = 'chat-msg-outbox-actions';
+
+      if (msg.outboxError) {
+        const errSpan = document.createElement('span');
+        errSpan.className = 'chat-msg-outbox-err';
+        errSpan.textContent = msg.outboxError;
+        outboxRow.appendChild(errSpan);
+      }
+
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'chat-outbox-btn';
+      retryBtn.textContent = `↻ ${i18n.outboxRetry || 'Tekrar dene'}`;
+      retryBtn.addEventListener('click', () => retryOutboxItem(msg.clientId));
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'chat-outbox-btn chat-outbox-btn--danger';
+      delBtn.textContent = `🗑️ ${i18n.outboxDelete || 'Sil'}`;
+      delBtn.addEventListener('click', () => removeOutboxItem(msg.clientId));
+
+      outboxRow.append(retryBtn, delBtn);
+      col.appendChild(outboxRow);
+    }
+
     // Instagram tarzı: "Görüldü ✓ HH:MM" yalnızca DM'de ve gönderenin EN SON mesajının altında (grupta YOK)
-    if (!isGroupMode && isSelf && isLastOwn && state.canSeeOtherRead && state.otherLastRead >= msg.ts && !msg.pending) {
+    if (!isGroupMode && isSelf && isLastOwn && state.canSeeOtherRead && state.otherLastRead >= msg.ts && !msg.pending && !isFailedOutbox) {
       const seenEl = document.createElement('div');
       seenEl.className = 'chat-msg-seen';
       seenEl.textContent = (i18n.statusSeen || 'Görüldü ✓ {time}').replace(
@@ -1723,12 +1900,14 @@
 
   function scrollThreadToBottom(smooth = false) {
     if (!els.messagesScroll) return;
+    state.missedBelowCount = 0;
     const behavior = smooth && !prefersReducedMotion() ? 'smooth' : 'auto';
     try {
       els.messagesScroll.scrollTo({ top: els.messagesScroll.scrollHeight, behavior });
     } catch (_) {
       els.messagesScroll.scrollTop = els.messagesScroll.scrollHeight;
     }
+    updateJumpToBottomButton();
   }
 
   function isScrolledNearBottom() {
@@ -1737,9 +1916,219 @@
     return scrollHeight - scrollTop - clientHeight < 140;
   }
 
+  function updateJumpToBottomButton() {
+    if (!els.jumpToBottomBtn || !els.messagesScroll) return;
+    const { scrollTop, scrollHeight, clientHeight } = els.messagesScroll;
+    const distFromBottom = scrollHeight - scrollTop - clientHeight;
+    const shouldShow = distFromBottom > 180;
+    if (!shouldShow) {
+      state.missedBelowCount = 0;
+    }
+    els.jumpToBottomBtn.hidden = !shouldShow;
+    if (els.jumpBottomCount) {
+      if (state.missedBelowCount > 0) {
+        els.jumpBottomCount.textContent = state.missedBelowCount > 99 ? '99+' : String(state.missedBelowCount);
+        els.jumpBottomCount.hidden = false;
+      } else {
+        els.jumpBottomCount.hidden = true;
+      }
+    }
+  }
+
   // ==========================================================================
-  // 8) MESAJ GÖNDERME, SİLME, YAZIYOR VE ENGELLEME
+  // 8) ÇEVRİMDIŞI KUYRUK (OUTBOX — sessionStorage), MESAJ GÖNDERME VE SİLME
   // ==========================================================================
+  const OUTBOX_STORAGE_KEY = `piyade_chat_outbox_v1_${selfId || 'anon'}`;
+
+  function loadOutboxFromStorage() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(OUTBOX_STORAGE_KEY) || '[]');
+      if (Array.isArray(raw)) {
+        state.outbox = raw
+          .filter((x) => x && typeof x.clientId === 'string' && typeof x.text === 'string' && x.targetId)
+          .slice(0, 50)
+          .map((x) => ({
+            clientId: String(x.clientId),
+            mode: x.mode === 'group' ? 'group' : 'dm',
+            targetId: String(x.targetId),
+            text: String(x.text),
+            ts: Number(x.ts) || Date.now(),
+            status: x.status === 'failed' ? 'failed' : 'queued',
+            error: typeof x.error === 'string' ? x.error : '',
+          }));
+      }
+    } catch (_) {
+      state.outbox = [];
+    }
+    syncOfflineQueuedBadge();
+  }
+
+  function saveOutboxToStorage() {
+    try {
+      const clean = state.outbox.slice(0, 50).map((x) => ({
+        clientId: x.clientId,
+        mode: x.mode,
+        targetId: x.targetId,
+        text: x.text,
+        ts: x.ts,
+        status: x.status === 'failed' ? 'failed' : 'queued',
+        error: x.error || '',
+      }));
+      sessionStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(clean));
+    } catch (_) {}
+    syncOfflineQueuedBadge();
+  }
+
+  function syncOfflineQueuedBadge() {
+    const queuedCount = state.outbox.filter((x) => x.status !== 'failed').length;
+    if (state.offlineIndicator && typeof state.offlineIndicator.setQueuedCount === 'function') {
+      state.offlineIndicator.setQueuedCount(queuedCount);
+    }
+  }
+
+  function outboxItemToBubbleMsg(item) {
+    return {
+      id: `tmp_${item.clientId}`,
+      from: selfId,
+      ts: item.ts,
+      text: item.text,
+      attachments: [],
+      clientId: item.clientId,
+      pending: item.status !== 'failed',
+      outboxStatus: item.status,
+      outboxError: item.error || '',
+      isAdmin: state.isGroupAdmin,
+      deleted: false,
+    };
+  }
+
+  function reconcileOutboxWithServerMessages(mode, targetId, serverMessages) {
+    if (!Array.isArray(serverMessages) || state.outbox.length === 0) return;
+    const serverClientIds = new Set(serverMessages.map((m) => m && m.clientId).filter(Boolean));
+    const beforeLen = state.outbox.length;
+    state.outbox = state.outbox.filter(
+      (item) => !(item.mode === mode && item.targetId === targetId && serverClientIds.has(item.clientId))
+    );
+    if (state.outbox.length !== beforeLen) {
+      saveOutboxToStorage();
+    }
+  }
+
+  function mergeActiveOutboxIntoMessages() {
+    const mode = state.activeMode;
+    const targetId = mode === 'group' ? state.activeGroupId : mode === 'dm' ? state.activeOtherId : null;
+    if (!mode || !targetId) return;
+
+    const existingClientIds = new Set(state.messages.map((m) => m && m.clientId).filter(Boolean));
+    let changed = false;
+    for (const item of state.outbox) {
+      if (item.mode === mode && item.targetId === targetId && !existingClientIds.has(item.clientId)) {
+        state.messages.push(outboxItemToBubbleMsg(item));
+        existingClientIds.add(item.clientId);
+        changed = true;
+      }
+    }
+    if (changed) {
+      state.messages.sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+    }
+  }
+
+  function syncOutboxItemIntoActiveThread(item, serverMsg = null) {
+    const isSameThread =
+      (item.mode === 'group' && state.activeMode === 'group' && state.activeGroupId === item.targetId) ||
+      (item.mode === 'dm' && state.activeMode === 'dm' && state.activeOtherId === item.targetId);
+    if (!isSameThread) return;
+
+    const idx = state.messages.findIndex(
+      (m) => m.id === `tmp_${item.clientId}` || (m.clientId && m.clientId === item.clientId)
+    );
+    if (serverMsg) {
+      if (idx >= 0) {
+        state.messages[idx] = serverMsg;
+      } else {
+        state.messages.push(serverMsg);
+      }
+    } else if (idx >= 0) {
+      state.messages[idx] = outboxItemToBubbleMsg(item);
+    }
+    renderMessageThread({ animateLast: false, scrollToBottom: false });
+  }
+
+  async function flushOutboxQueue() {
+    if (state.outboxFlushing) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    const pendingList = state.outbox.filter((x) => x.status === 'queued');
+    if (pendingList.length === 0) return;
+
+    state.outboxFlushing = true;
+    try {
+      // Sıralı (FIFO) gönderim — aynı clientId ile tekilleştirme korunur
+      for (const item of pendingList) {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) break;
+        const liveItem = state.outbox.find((x) => x.clientId === item.clientId);
+        if (!liveItem || liveItem.status !== 'queued') continue;
+
+        const isGroup = liveItem.mode === 'group';
+        const endpoint = isGroup
+          ? `/sohbet/api/grup/${encodeURIComponent(liveItem.targetId)}/mesaj`
+          : `/sohbet/api/sohbet/${encodeURIComponent(liveItem.targetId)}/mesaj`;
+
+        try {
+          const data = await apiJson(endpoint, {
+            method: 'POST',
+            body: { text: liveItem.text, clientId: liveItem.clientId },
+          });
+
+          state.outbox = state.outbox.filter((x) => x.clientId !== liveItem.clientId);
+          saveOutboxToStorage();
+
+          if (isGroup && data.sender && data.sender.id) {
+            state.groupSenders[data.sender.id] = data.sender;
+          }
+          if (!isGroup && data.delivered && data.message && state.activeMode === 'dm' && state.activeOtherId === liveItem.targetId) {
+            state.otherLastDelivered = Math.max(state.otherLastDelivered, data.message.ts);
+          }
+          if (data.message) {
+            syncOutboxItemIntoActiveThread(liveItem, data.message);
+          }
+          loadConversations();
+        } catch (err) {
+          if (err && err.status === 401) {
+            break;
+          }
+          if (!err || err.isNetworkError || err.isTransient) {
+            // Ağ kopuk / geçici 5xx: kuyrukta sessizce tut, sırayı bozma
+            break;
+          }
+          // Kalıcı 4xx: balonun altında Tekrar dene / Sil göster
+          liveItem.status = 'failed';
+          liveItem.error = err.message || i18n.outboxFailed || 'Gönderilemedi';
+          saveOutboxToStorage();
+          syncOutboxItemIntoActiveThread(liveItem, null);
+        }
+      }
+    } finally {
+      state.outboxFlushing = false;
+      syncOfflineQueuedBadge();
+    }
+  }
+
+  function retryOutboxItem(clientId) {
+    const item = state.outbox.find((x) => x.clientId === clientId);
+    if (!item) return;
+    item.status = 'queued';
+    item.error = '';
+    saveOutboxToStorage();
+    syncOutboxItemIntoActiveThread(item, null);
+    flushOutboxQueue();
+  }
+
+  function removeOutboxItem(clientId) {
+    state.outbox = state.outbox.filter((x) => x.clientId !== clientId);
+    saveOutboxToStorage();
+    state.messages = state.messages.filter((m) => m.id !== `tmp_${clientId}` && m.clientId !== clientId);
+    renderMessageThread({ animateLast: false, scrollToBottom: false });
+  }
   function generateClientId() {
     return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   }
@@ -1800,19 +2189,11 @@
 
     const clientId = generateClientId();
     const tempId = `tmp_${clientId}`;
-    const tempMsg = {
-      id: tempId,
-      from: selfId,
-      ts: Date.now(),
-      text,
-      attachments: readyFiles.slice(),
-      clientId,
-      pending: true,
-      deleted: false,
-    };
+    const nowTs = Date.now();
+    const isTextOnly = attachmentIds.length === 0;
 
     els.messageInput.value = '';
-    if (attHelper && typeof attHelper.clearAll === 'function') {
+    if (attHelper && typeof attHelper.clearAll === 'function' && !isTextOnly) {
       attHelper.clearAll();
     }
     if (draftKey) {
@@ -1825,13 +2206,55 @@
     updateComposerControls();
     closeEmojiPicker();
 
+    // Salt metin mesajları: kalıcı sessionStorage kuyruğuna yaz ve çevrimdışıyken bile "⏳ gönderiliyor" olarak göster
+    if (isTextOnly) {
+      const outboxEntry = {
+        clientId,
+        mode: isGroup ? 'group' : 'dm',
+        targetId: isGroup ? targetGroupId : targetOtherId,
+        text,
+        ts: nowTs,
+        status: 'queued',
+        error: '',
+      };
+      state.outbox.push(outboxEntry);
+      saveOutboxToStorage();
+
+      state.messages.push(outboxItemToBubbleMsg(outboxEntry));
+      playChatSound('send');
+      renderMessageThread({ animateLast: true, scrollToBottom: true });
+
+      const rtSnap = window.PiyadeRealtime && typeof window.PiyadeRealtime.getState === 'function'
+        ? window.PiyadeRealtime.getState()
+        : null;
+      const isCurrentlyOffline =
+        (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+        (rtSnap && rtSnap.status === 'offline');
+
+      if (!isCurrentlyOffline) {
+        flushOutboxQueue();
+      }
+      return;
+    }
+
+    // Dosya ekli mesajlar (dosyalar sessionStorage'a yazılmaz)
+    const tempMsg = {
+      id: tempId,
+      from: selfId,
+      ts: nowTs,
+      text,
+      attachments: readyFiles.slice(),
+      clientId,
+      pending: true,
+      isAdmin: state.isGroupAdmin,
+      deleted: false,
+    };
     state.messages.push(tempMsg);
     playChatSound('send');
     renderMessageThread({ animateLast: true, scrollToBottom: true });
 
     try {
-      const payload = { text, clientId };
-      if (attachmentIds.length > 0) payload.attachmentIds = attachmentIds;
+      const payload = { text, clientId, attachmentIds };
       const endpoint = isGroup
         ? `/sohbet/api/grup/${encodeURIComponent(targetGroupId)}/mesaj`
         : `/sohbet/api/sohbet/${encodeURIComponent(targetOtherId)}/mesaj`;
@@ -1868,7 +2291,9 @@
         updateComposerControls();
         renderMessageThread({ animateLast: false, scrollToBottom: false });
       }
-      showToast('Hata', err.message || i18n.errSendFailed, { variant: 'danger' });
+      if (!err || err.status !== 401) {
+        showToast('Hata', (err && err.message) || i18n.errSendFailed, { variant: 'danger' });
+      }
     }
   }
 
@@ -2351,6 +2776,49 @@
     }
   }
 
+  async function refreshDeveloperDiagnostics() {
+    if (!boot.isFreshDeveloper || !els.devDiagBox) return;
+    try {
+      const data = await apiJson('/sohbet/api/diagnostik');
+      if (!data || !data.ok || !data.diagnostics) return;
+      const d = data.diagnostics;
+      const codeEl = document.getElementById('chatDevDiagCode');
+      const sumEl = document.getElementById('chatDevDiagSummary');
+      const countEl = document.getElementById('chatDevDiagCount');
+      const sessEl = document.getElementById('chatDevDiagSessionLast4');
+      const cfgEl = document.getElementById('chatDevDiagConfiguredLast4');
+      const actEl = document.getElementById('chatDevDiagActive');
+      const recEl = document.getElementById('chatDevDiagReconnects');
+      const toEl = document.getElementById('chatDevDiagTimeout');
+      const otEl = document.getElementById('chatDevDiagOtherTab');
+      const erEl = document.getElementById('chatDevDiagError');
+
+      if (codeEl) {
+        codeEl.textContent = d.code || '—';
+        codeEl.className = `chat-dev-diag-badge ${d.isMatch ? 'chat-dev-diag-badge--ok' : 'chat-dev-diag-badge--warn'}`;
+      }
+      if (sumEl) {
+        sumEl.textContent = (i18n.devDiagCodes && i18n.devDiagCodes[d.code]) || d.code || '';
+      }
+      if (countEl) countEl.textContent = String(d.configuredCount ?? 0);
+      if (sessEl) sessEl.textContent = d.sessionLast4 ? `…${d.sessionLast4}` : '—';
+      if (cfgEl) {
+        cfgEl.textContent =
+          Array.isArray(d.configuredLast4List) && d.configuredLast4List.length > 0
+            ? d.configuredLast4List.map((x) => `…${x}`).join(', ')
+            : '—';
+      }
+      if (d.realtime) {
+        if (actEl) actEl.textContent = String(d.realtime.activeConnections ?? 0);
+        if (recEl) recEl.textContent = String(d.realtime.reconnectsLastHour ?? 0);
+        const rb = d.realtime.reasonBreakdown || {};
+        if (toEl) toEl.textContent = String(rb.timeout ?? 0);
+        if (otEl) otEl.textContent = String(rb.other_tab ?? 0);
+        if (erEl) erEl.textContent = String(rb.error ?? 0);
+      }
+    } catch (_) {}
+  }
+
   function openSettingsModal() {
     const prof = state.profile;
     state.settingsDraft.ringId = prof.ringId || 'classic-google';
@@ -2373,6 +2841,7 @@
     renderRingLivePreview();
     updateBrowserNotifyStatusUI();
     renderBlockedSettingsList();
+    refreshDeveloperDiagnostics();
 
     els.settingsModal.hidden = false;
     els.settingsModal.setAttribute('aria-hidden', 'false');
@@ -2455,88 +2924,118 @@
 
   async function catchUpAfterReconnect() {
     await loadConversations();
-    if (state.messages.length === 0) return;
-    const lastTs = state.messages[state.messages.length - 1].ts;
-    const url =
-      state.activeMode === 'group' && state.activeGroupId
-        ? `/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/mesajlar?after=${encodeURIComponent(String(lastTs))}&limit=60`
-        : state.activeMode === 'dm' && state.activeOtherId
-          ? `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?after=${encodeURIComponent(String(lastTs))}&limit=60`
-          : null;
-    if (!url) return;
+    const isGroup = state.activeMode === 'group' && Boolean(state.activeGroupId);
+    const isDm = state.activeMode === 'dm' && Boolean(state.activeOtherId);
+    if (!isGroup && !isDm) return;
+
+    // Kuyruktaki yerel geçici balonları saymadan sunucudan gelen en son mesaj zamanını bul
+    let lastServerTs = 0;
+    for (const m of state.messages) {
+      if (!m.pending && m.outboxStatus !== 'failed' && Number(m.ts) > lastServerTs) {
+        lastServerTs = Number(m.ts);
+      }
+    }
+    if (!lastServerTs) return;
+
+    const url = isGroup
+      ? `/sohbet/api/grup/${encodeURIComponent(state.activeGroupId)}/mesajlar?after=${encodeURIComponent(String(lastServerTs))}&limit=60`
+      : `/sohbet/api/sohbet/${encodeURIComponent(state.activeOtherId)}/mesajlar?after=${encodeURIComponent(String(lastServerTs))}&limit=60`;
+
     try {
       const data = await apiJson(url);
-      if (state.activeMode === 'group' && data.senders && typeof data.senders === 'object') {
+      if (isGroup && data.senders && typeof data.senders === 'object') {
         Object.assign(state.groupSenders, data.senders);
       }
       const newer = Array.isArray(data.messages) ? data.messages : [];
       if (newer.length > 0) {
-        const existing = new Set(state.messages.map((m) => m.id));
+        const mode = isGroup ? 'group' : 'dm';
+        const targetId = isGroup ? state.activeGroupId : state.activeOtherId;
+        reconcileOutboxWithServerMessages(mode, targetId, newer);
+
+        const nearBottom = isScrolledNearBottom();
+        const prevScrollTop = els.messagesScroll ? els.messagesScroll.scrollTop : 0;
         let added = 0;
         for (const m of newer) {
-          if (!existing.has(m.id)) {
+          const existingIdx = state.messages.findIndex(
+            (ex) => ex.id === m.id || (m.clientId && ex.clientId === m.clientId)
+          );
+          if (existingIdx >= 0) {
+            state.messages[existingIdx] = m;
+          } else {
             state.messages.push(m);
             added += 1;
           }
         }
-        if (added > 0) {
-          renderMessageThread({ animateLast: false, scrollToBottom: isScrolledNearBottom() });
+        state.messages.sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+        if (added > 0 && !nearBottom) {
+          state.missedBelowCount += added;
         }
+        renderMessageThread({ animateLast: false, scrollToBottom: nearBottom });
+        if (!nearBottom && els.messagesScroll) {
+          els.messagesScroll.scrollTop = prevScrollTop;
+        }
+        updateJumpToBottomButton();
       }
     } catch (_) {}
   }
 
-  function connectChatSse() {
-    if (typeof window.EventSource !== 'function') return;
-    if (state.sse) {
-      state.sse.close();
-      state.sse = null;
+  function connectRealtime() {
+    // Uzun kopuş yükleyici bileşenini (3sn hap + 12sn tıklamayı engellemeyen katman) bağla
+    if (
+      els.offlineIndicatorSlot &&
+      window.PiyadeOfflineIndicator &&
+      typeof window.PiyadeOfflineIndicator.createOfflineIndicator === 'function'
+    ) {
+      state.offlineIndicator = window.PiyadeOfflineIndicator.createOfflineIndicator({
+        mountEl: els.offlineIndicatorSlot,
+        i18n: {
+          reconnecting: i18n.offlineReconnecting || 'Yeniden bağlanıyor…',
+          waitingTitle: i18n.offlineWaitingTitle || 'Bağlantı bekleniyor…',
+          waitingDesc:
+            i18n.offlineWaitingDesc ||
+            'Mesajların güvende; yazdıkların bağlantı gelince gönderilecek.',
+          queuedCount: i18n.offlineQueuedCount || '{count} mesaj sırada',
+          connected: i18n.offlineConnected || 'Bağlandı',
+        },
+      });
+      syncOfflineQueuedBadge();
     }
 
-    const qs = state.sseLastEventId > 0 ? `?lastEventId=${state.sseLastEventId}` : '';
-    const sse = new EventSource(`/sohbet/akis${qs}`);
-    state.sse = sse;
+    const rt = window.PiyadeRealtime;
+    if (!rt || typeof rt.start !== 'function') return;
 
-    const trackId = (ev) => {
-      const id = Number.parseInt(String(ev.lastEventId || ''), 10);
-      if (Number.isFinite(id) && id > state.sseLastEventId) {
-        state.sseLastEventId = id;
+    rt.start({
+      url: '/sohbet/akis',
+      authCheckUrl: '/sohbet/api/okunmamis',
+      priority: 2,
+    });
+
+    if (state.offlineIndicator && typeof state.offlineIndicator.bindToRealtime === 'function') {
+      state.offlineIndicator.bindToRealtime(rt);
+    }
+
+    rt.on('connected', (d) => {
+      if (d && typeof d.unread === 'number') {
+        emitUnreadGlobal(d.unread);
       }
-    };
+      flushOutboxQueue();
+    });
 
-    sse.addEventListener('connected', (ev) => {
-      trackId(ev);
-      const wasReconnecting = !els.reconnectBanner.hidden;
-      els.reconnectBanner.hidden = true;
-      state.sseRetryMs = 1000;
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (typeof d.unread === 'number') emitUnreadGlobal(d.unread);
-      } catch (_) {}
-      if (wasReconnecting) {
-        catchUpAfterReconnect();
+    rt.on('reconnected', async () => {
+      await catchUpAfterReconnect();
+      await flushOutboxQueue();
+    });
+
+    rt.on('unread', (d) => {
+      if (d && typeof d.unread === 'number') {
+        emitUnreadGlobal(d.unread);
       }
     });
 
-    sse.addEventListener('unread', (ev) => {
-      trackId(ev);
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (typeof d.unread === 'number') emitUnreadGlobal(d.unread);
-      } catch (_) {}
-    });
-
-    sse.addEventListener('message', (ev) => {
-      trackId(ev);
-      let d;
-      try {
-        d = JSON.parse(ev.data || '{}');
-      } catch (_) {
-        return;
-      }
+    rt.on('message', (d) => {
       if (!d || !d.message) return;
 
-      const isForActive = d.otherId && d.otherId === state.activeOtherId;
+      const isForActive = state.activeMode === 'dm' && d.otherId && d.otherId === state.activeOtherId;
       if (isForActive) {
         const wasTyping = els.typingRow && !els.typingRow.hidden;
         hideTypingIndicator();
@@ -2544,6 +3043,9 @@
         const existsIdx = state.messages.findIndex(
           (m) => m.id === d.message.id || (d.message.clientId && m.clientId === d.message.clientId)
         );
+        if (d.message.clientId) {
+          reconcileOutboxWithServerMessages('dm', state.activeOtherId, [d.message]);
+        }
         if (existsIdx >= 0) {
           state.messages[existsIdx] = d.message;
           renderMessageThread({ animateLast: false, scrollToBottom: false });
@@ -2551,7 +3053,11 @@
           const nearBottom = isScrolledNearBottom();
           state.messages.push(d.message);
           if (!d.selfEcho) playChatSound('receive');
+          if (!nearBottom && !d.selfEcho) {
+            state.missedBelowCount += 1;
+          }
           renderMessageThread({ animateLast: true, fromTyping: wasTyping, scrollToBottom: nearBottom });
+          updateJumpToBottomButton();
           if (!d.selfEcho && document.visibilityState === 'visible') {
             queueMarkRead(d.message.ts);
           }
@@ -2573,14 +3079,7 @@
       loadConversations();
     });
 
-    sse.addEventListener('group_message', (ev) => {
-      trackId(ev);
-      let d;
-      try {
-        d = JSON.parse(ev.data || '{}');
-      } catch (_) {
-        return;
-      }
+    rt.on('group_message', (d) => {
       if (!d || !d.message || !d.groupId) return;
 
       if (d.sender && d.sender.id) {
@@ -2592,6 +3091,9 @@
         const existsIdx = state.messages.findIndex(
           (m) => m.id === d.message.id || (d.message.clientId && m.clientId === d.message.clientId)
         );
+        if (d.message.clientId) {
+          reconcileOutboxWithServerMessages('group', state.activeGroupId, [d.message]);
+        }
         if (existsIdx >= 0) {
           state.messages[existsIdx] = d.message;
           renderMessageThread({ animateLast: false, scrollToBottom: false });
@@ -2599,7 +3101,11 @@
           const nearBottom = isScrolledNearBottom();
           state.messages.push(d.message);
           if (!d.selfEcho && !d.muted) playChatSound('receive');
+          if (!nearBottom && !d.selfEcho) {
+            state.missedBelowCount += 1;
+          }
           renderMessageThread({ animateLast: true, scrollToBottom: nearBottom });
+          updateJumpToBottomButton();
           if (!d.selfEcho && document.visibilityState === 'visible') {
             queueMarkRead(d.message.ts);
           }
@@ -2623,145 +3129,105 @@
       loadConversations();
     });
 
-    sse.addEventListener('group_deleted', (ev) => {
-      trackId(ev);
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.convId === state.activeConvId) {
-          const target = state.messages.find((m) => m.id === d.msgId);
-          if (target) {
-            target.deleted = true;
-            target.modRemoved = Boolean(d.modRemoved);
-            target.adminRemoved = Boolean(d.adminRemoved);
-            target.text = '';
-            target.attachments = [];
-            renderMessageThread({ animateLast: false, scrollToBottom: false });
-          }
-        }
-        loadConversations();
-      } catch (_) {}
-    });
-
-    sse.addEventListener('delivered', (ev) => {
-      trackId(ev);
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.convId === state.activeConvId && d.by === state.activeOtherId) {
-          state.otherLastDelivered = Math.max(state.otherLastDelivered, Number(d.upTo) || 0);
+    rt.on('group_deleted', (d) => {
+      if (!d) return;
+      if (d.convId === state.activeConvId) {
+        const target = state.messages.find((m) => m.id === d.msgId);
+        if (target) {
+          target.deleted = true;
+          target.modRemoved = Boolean(d.modRemoved);
+          target.adminRemoved = Boolean(d.adminRemoved);
+          target.text = '';
+          target.attachments = [];
           renderMessageThread({ animateLast: false, scrollToBottom: false });
         }
-      } catch (_) {}
+      }
+      loadConversations();
     });
 
-    sse.addEventListener('read', (ev) => {
-      trackId(ev);
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.convId === state.activeConvId && d.by === state.activeOtherId && state.canSeeOtherRead) {
-          state.otherLastRead = Math.max(state.otherLastRead, Number(d.upTo) || 0);
-          state.otherLastDelivered = Math.max(state.otherLastDelivered, state.otherLastRead);
+    rt.on('delivered', (d) => {
+      if (d && d.convId === state.activeConvId && d.by === state.activeOtherId) {
+        state.otherLastDelivered = Math.max(state.otherLastDelivered, Number(d.upTo) || 0);
+        renderMessageThread({ animateLast: false, scrollToBottom: false });
+      }
+    });
+
+    rt.on('read', (d) => {
+      if (d && d.convId === state.activeConvId && d.by === state.activeOtherId && state.canSeeOtherRead) {
+        state.otherLastRead = Math.max(state.otherLastRead, Number(d.upTo) || 0);
+        state.otherLastDelivered = Math.max(state.otherLastDelivered, state.otherLastRead);
+        renderMessageThread({ animateLast: false, scrollToBottom: false });
+      }
+    });
+
+    rt.on('deleted', (d) => {
+      if (!d) return;
+      if (d.convId === state.activeConvId) {
+        const target = state.messages.find((m) => m.id === d.msgId);
+        if (target) {
+          target.deleted = true;
+          target.modRemoved = Boolean(d.modRemoved);
+          target.text = '';
+          target.attachments = [];
           renderMessageThread({ animateLast: false, scrollToBottom: false });
         }
-      } catch (_) {}
+      }
+      loadConversations();
     });
 
-    sse.addEventListener('deleted', (ev) => {
-      trackId(ev);
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.convId === state.activeConvId) {
-          const target = state.messages.find((m) => m.id === d.msgId);
-          if (target) {
-            target.deleted = true;
-            target.modRemoved = Boolean(d.modRemoved);
-            target.text = '';
-            target.attachments = [];
-            renderMessageThread({ animateLast: false, scrollToBottom: false });
-          }
-        }
-        loadConversations();
-      } catch (_) {}
+    rt.on('typing', (d) => {
+      if (d && d.convId === state.activeConvId && d.from === state.activeOtherId) {
+        showTypingIndicator();
+      }
     });
 
-    sse.addEventListener('typing', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.convId === state.activeConvId && d.from === state.activeOtherId) {
-          showTypingIndicator();
-        }
-      } catch (_) {}
+    rt.on('profile', (d) => {
+      if (d && d.userId && d.ring) {
+        updateAllVisibleRingsForUser(d.userId, d.ring);
+      }
     });
 
-    sse.addEventListener('profile', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        if (d.userId && d.ring) {
-          updateAllVisibleRingsForUser(d.userId, d.ring);
-        }
-      } catch (_) {}
+    rt.on('settings', (d) => {
+      if (!d) return;
+      state.profile = Object.assign(state.profile, d);
+      if (d.effectiveRing) updateAllVisibleRingsForUser(selfId, d.effectiveRing);
     });
 
-    sse.addEventListener('settings', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        state.profile = Object.assign(state.profile, d);
-        if (d.effectiveRing) updateAllVisibleRingsForUser(selfId, d.effectiveRing);
-      } catch (_) {}
+    rt.on('sanction', (d) => {
+      if (!d) return;
+      state.activeSanction = d.sanction || null;
+      if (state.activeSanction && state.activeSanction.type === 'ban') {
+        window.location.reload();
+        return;
+      }
+      renderThreadHeader();
     });
 
-    sse.addEventListener('sanction', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        state.activeSanction = d.sanction || null;
-        if (state.activeSanction && state.activeSanction.type === 'ban') {
-          window.location.reload();
-          return;
-        }
-        renderThreadHeader();
-      } catch (_) {}
+    rt.on('sanction_updated', (d) => {
+      state.activeSanction = d && d.type && d.type !== 'none' ? d : null;
+      renderThreadHeader();
     });
 
-    sse.addEventListener('sanction_updated', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        state.activeSanction = d && d.type && d.type !== 'none' ? d : null;
-        renderThreadHeader();
-      } catch (_) {}
+    rt.on('site_warning', (d) => {
+      window.dispatchEvent(new CustomEvent('piyade:site-warning', { detail: d || {} }));
     });
 
-    sse.addEventListener('site_warning', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        window.dispatchEvent(new CustomEvent('piyade:site-warning', { detail: d }));
-      } catch (_) {}
+    rt.on('account_suspended', (d) => {
+      window.dispatchEvent(new CustomEvent('piyade:account-suspended', { detail: d || {} }));
     });
 
-    sse.addEventListener('account_suspended', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        window.dispatchEvent(new CustomEvent('piyade:account-suspended', { detail: d }));
-      } catch (_) {}
+    rt.on('report_update', (d) => {
+      if (!d) return;
+      const msg =
+        d.outcome === 'action_taken'
+          ? i18n.reportResolvedAction
+          : i18n.reportResolvedNoAction;
+      showToast('🛡️', msg || '', { variant: 'info' });
     });
 
-    sse.addEventListener('report_update', (ev) => {
-      try {
-        const d = JSON.parse(ev.data || '{}');
-        const msg =
-          d.outcome === 'action_taken'
-            ? i18n.reportResolvedAction
-            : i18n.reportResolvedNoAction;
-        showToast('🛡️', msg || '', { variant: 'info' });
-      } catch (_) {}
+    window.addEventListener('online', () => {
+      flushOutboxQueue();
     });
-
-    sse.onerror = () => {
-      sse.close();
-      state.sse = null;
-      els.reconnectBanner.hidden = false;
-      const wait = state.sseRetryMs;
-      state.sseRetryMs = Math.min(15000, state.sseRetryMs * 2);
-      setTimeout(connectChatSse, wait);
-    };
   }
 
   // ==========================================================================
@@ -2838,6 +3304,13 @@
       if (els.messagesScroll.scrollTop < 60 && state.hasMoreOlder && !state.loadingOlder) {
         loadOlderMessages();
       }
+      updateJumpToBottomButton();
+    });
+  }
+
+  if (els.jumpToBottomBtn) {
+    els.jumpToBottomBtn.addEventListener('click', () => {
+      scrollThreadToBottom(true);
     });
   }
 
@@ -2930,6 +3403,13 @@
   }
 
   document.addEventListener('click', (ev) => {
+    if (
+      state.openMsgMenuWrap &&
+      state.openMsgMenuWrap.wrap &&
+      !state.openMsgMenuWrap.wrap.contains(ev.target)
+    ) {
+      closeActiveMessageMenu();
+    }
     if (els.headerMenu && !els.headerMenu.hidden && !els.headerMenu.contains(ev.target)) {
       closeHeaderMenu();
     }
@@ -2953,12 +3433,28 @@
 
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') {
+      closeActiveMessageMenu();
       closeEmojiPicker();
       closeHeaderMenu();
       if (els.retentionPopover) els.retentionPopover.hidden = true;
       if (els.settingsModal && !els.settingsModal.hidden) closeSettingsModal();
     }
   });
+
+  // Composer yüksekliğini canlı takip et (çerez çubuğu ve "Yeni mesajlara git" çakışmasın)
+  if (els.composerShell) {
+    const syncComposerHeight = () => {
+      const h = els.composerShell.hidden ? 0 : Math.round(els.composerShell.offsetHeight || 74);
+      document.documentElement.style.setProperty('--chat-composer-h', `${h}px`);
+    };
+    syncComposerHeight();
+    if (typeof window.ResizeObserver === 'function') {
+      try {
+        const cro = new ResizeObserver(syncComposerHeight);
+        cro.observe(els.composerShell);
+      } catch (_) {}
+    }
+  }
 
   // Mobil sanal klavye yüksekliği takibi (visualViewport)
   if (window.visualViewport) {
@@ -2971,7 +3467,6 @@
 
   window.addEventListener('beforeunload', () => {
     saveCurrentDraft();
-    if (state.sse) state.sse.close();
   });
 
   // Parça 3, 4 & Profil Kartı genişletme arayüzü
@@ -2991,6 +3486,10 @@
     playChatSound,
     createRingAvatarEl,
     scrollThreadToBottom,
+    flushOutboxQueue,
+    retryOutboxItem,
+    removeOutboxItem,
+    getOfflineIndicator: () => state.offlineIndicator,
     openProfileCard: openMemberProfileCard,
     openReportForMember: (targetUserId) => {
       if (state.activeMode === 'group' && state.activeGroupId) {
@@ -3087,7 +3586,8 @@
     }
   }
 
-  // İlk yükleme: ?kisi=... varsa ilgili DM'i, yoksa varsayılan "Genel Sohbet" grubunu açık getir
+  // İlk yükleme: bekleyen outbox kuyruğunu oku, sohbetleri yükle ve merkezi canlı bağlantıyı başlat
+  loadOutboxFromStorage();
   loadConversations().then(() => {
     if (boot.requestedOtherId) {
       openConversation(boot.requestedOtherId);
@@ -3095,5 +3595,5 @@
       openGroup(boot.defaultGroupId);
     }
   });
-  connectChatSse();
+  connectRealtime();
 })();

@@ -409,6 +409,13 @@
     const badgesRow = document.createElement('div');
     badgesRow.className = 'nebula-card-badges';
 
+    if (card.isAdmin || card.isGroupAdmin) {
+      const adminBadge = document.createElement('span');
+      adminBadge.className = 'chat-identity-badge chat-identity-badge--admin';
+      adminBadge.textContent = i18n.groupAdminBadgeFull || `👑 ${i18n.groupAdminBadge || 'Yönetici'}`;
+      badgesRow.appendChild(adminBadge);
+    }
+
     const kindBadge = document.createElement('span');
     kindBadge.className =
       card.kind === 'google'
@@ -419,13 +426,6 @@
         ? i18n.identityBadgeSite || 'Site Üyesi'
         : i18n.identityBadgeDiscord || 'Discord Üyesi';
     badgesRow.appendChild(kindBadge);
-
-    if (card.isGroupAdmin) {
-      const adminBadge = document.createElement('span');
-      adminBadge.className = 'chat-identity-badge chat-identity-badge--admin';
-      adminBadge.textContent = i18n.groupAdminBadge || 'Yönetici';
-      badgesRow.appendChild(adminBadge);
-    }
 
     identityCol.append(nameEl, badgesRow);
     head.append(avatarWrap, identityCol);

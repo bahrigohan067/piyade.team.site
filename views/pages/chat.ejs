@@ -13,6 +13,7 @@
     selfName: chatProfile ? chatProfile.displayName : (currentUser ? currentUser.displayName : ''),
     selfAvatarUrl: chatProfile ? chatProfile.avatarUrl : (currentUser ? currentUser.avatarUrl : ''),
     isGroupAdmin: Boolean(typeof isGroupAdmin !== 'undefined' && isGroupAdmin),
+    isFreshDeveloper: Boolean(typeof isFreshDeveloper !== 'undefined' && isFreshDeveloper),
     groups: typeof chatGroups !== 'undefined' && Array.isArray(chatGroups) ? chatGroups : [],
     defaultGroupId: typeof defaultGroupId !== 'undefined' ? defaultGroupId : 'genel',
     brandIconUrl: typeof brandIconUrl !== 'undefined' ? brandIconUrl : '/img/brand/icon-192.png?v=1',
@@ -38,7 +39,6 @@
       retentionTooltipDesc: t('chat.retentionTooltipDesc'),
       expiresInDays: t('chat.expiresInDays'),
       expiresToday: t('chat.expiresToday'),
-      reconnectingBanner: t('chat.reconnectingBanner'),
       robloxLabel: t('chat.robloxLabel'),
       typingIndicator: t('chat.typingIndicator'),
       blockUser: t('chat.blockUser'),
@@ -59,6 +59,28 @@
       groupPinnedHint: t('chat.groupPinnedHint'),
       groupEmptyMsg: t('chat.groupEmptyMsg'),
       groupAdminBadge: t('chat.groupAdminBadge'),
+      groupAdminBadgeFull: t('chat.groupAdminBadgeFull'),
+      jumpToBottom: t('chat.jumpToBottom'),
+      msgMenuBtn: t('chat.msgMenuBtn'),
+      outboxSending: t('chat.outboxSending'),
+      outboxFailed: t('chat.outboxFailed'),
+      outboxRetry: t('chat.outboxRetry'),
+      outboxDelete: t('chat.outboxDelete'),
+      uploadPaused: t('chat.uploadPaused'),
+      uploadRetry: t('chat.uploadRetry'),
+      uploadRetryReady: t('chat.uploadRetryReady'),
+      offlineReconnecting: t('chat.offlineReconnecting'),
+      offlineWaitingTitle: t('chat.offlineWaitingTitle'),
+      offlineWaitingDesc: t('chat.offlineWaitingDesc'),
+      offlineQueuedCount: t('chat.offlineQueuedCount'),
+      offlineConnected: t('chat.offlineConnected'),
+      devDiagCodes: {
+        MATCH: t('chat.devDiagCodeMatch'),
+        ENV_EMPTY: t('chat.devDiagCodeEnvEmpty'),
+        ENV_PARSE_EMPTY: t('chat.devDiagCodeEnvParseEmpty'),
+        NOT_IN_LIST: t('chat.devDiagCodeNotInList'),
+        NOT_DISCORD_SESSION: t('chat.devDiagCodeNotDiscord'),
+      },
       identityBadgeSite: t('chat.identityBadgeSite'),
       identityBadgeDiscord: t('chat.identityBadgeDiscord'),
       profileCardLoading: t('chat.profileCardLoading'),
@@ -212,13 +234,8 @@
     </section>
   <% } else { %>
     <!-- ==================================================================
-         ANA BİREBİR SOHBET ARAYÜZÜ (İKİ PANEL MASAÜSTÜ / TEK PANEL MOBİL)
+         ANA TAM EKRAN SOHBET ARAYÜZÜ (İKİ PANEL MASAÜSTÜ / TEK PANEL MOBİL)
          ================================================================== -->
-    <div id="chatReconnectBanner" class="chat-reconnect-banner" role="status" aria-live="polite" hidden>
-      <span class="chat-reconnect-dot" aria-hidden="true"></span>
-      <span><%= t('chat.reconnectingBanner') %></span>
-    </div>
-
     <div class="chat-app" id="chatApp">
       <!-- SOL PANEL: Arama + Sohbet Listesi + 30 Gün Alt Bilgisi -->
       <aside class="chat-list-pane" id="chatListPane" aria-label="<%= t('chat.conversationsTitle') %>">
@@ -367,6 +384,22 @@
             <strong id="chatRetentionPopoverTitle"><%= t('chat.retentionTooltipTitle') %></strong>
             <p id="chatRetentionPopoverBody"></p>
           </div>
+
+          <!-- Uzun Kopuş / Çevrimdışı Yükleniyor Yuvası (3sn hap + 12sn tıklamayı engellemeyen katman) -->
+          <div id="chatOfflineIndicatorSlot" class="chat-offline-slot"></div>
+
+          <!-- Yeni Mesajlara Git Düğmesi (Yukarı kaydırınca görünür) -->
+          <button
+            type="button"
+            id="chatJumpToBottomBtn"
+            class="chat-jump-bottom-btn"
+            hidden
+            aria-label="<%= t('chat.jumpToBottom') %>"
+          >
+            <span class="chat-jump-bottom-arrow" aria-hidden="true">↓</span>
+            <span><%= t('chat.jumpToBottom') %></span>
+            <span id="chatJumpBottomCount" class="chat-jump-bottom-count" hidden></span>
+          </button>
 
           <!-- Mesaj Akışı -->
           <div class="chat-messages-scroll" id="chatMessagesScroll" role="log" aria-live="polite" aria-relevant="additions">
@@ -616,6 +649,58 @@
           <div class="chat-settings-panel" id="chatSettingsPanelBlocked" hidden>
             <div id="chatBlockedListContainer" class="chat-blocked-list"></div>
           </div>
+
+          <% if (typeof isFreshDeveloper !== 'undefined' && isFreshDeveloper && typeof devDiagnostics !== 'undefined' && devDiagnostics) {
+            const devDiagCodeMap = {
+              MATCH: t('chat.devDiagCodeMatch'),
+              ENV_EMPTY: t('chat.devDiagCodeEnvEmpty'),
+              ENV_PARSE_EMPTY: t('chat.devDiagCodeEnvParseEmpty'),
+              NOT_IN_LIST: t('chat.devDiagCodeNotInList'),
+              NOT_DISCORD_SESSION: t('chat.devDiagCodeNotDiscord'),
+            };
+            const rtStats = devDiagnostics.realtime || { activeConnections: 0, reconnectsLastHour: 0, reasonBreakdown: { timeout: 0, other_tab: 0, error: 0 } };
+            const rb = rtStats.reasonBreakdown || { timeout: 0, other_tab: 0, error: 0 };
+          %>
+            <!-- YALNIZCA TAZE DOĞRULANMIŞ DISCORD DEVELOPER TEŞHİS KUTUSU -->
+            <section class="chat-dev-diag-box" id="chatDevDiagBox" aria-labelledby="chatDevDiagHeading">
+              <div class="chat-dev-diag-head">
+                <h3 id="chatDevDiagHeading" class="chat-dev-diag-title">🛠️ <%= t('chat.devDiagTitle') %></h3>
+                <span
+                  class="chat-dev-diag-badge <%= devDiagnostics.isMatch ? 'chat-dev-diag-badge--ok' : 'chat-dev-diag-badge--warn' %>"
+                  id="chatDevDiagCode"
+                ><%= devDiagnostics.code %></span>
+              </div>
+              <p class="chat-dev-diag-summary" id="chatDevDiagSummary"><%= devDiagCodeMap[devDiagnostics.code] || devDiagnostics.code %></p>
+              <dl class="chat-dev-diag-grid">
+                <div>
+                  <dt><%= t('chat.devDiagCountLabel') %></dt>
+                  <dd id="chatDevDiagCount"><%= devDiagnostics.configuredCount %></dd>
+                </div>
+                <div>
+                  <dt><%= t('chat.devDiagSessionLast4') %></dt>
+                  <dd><code id="chatDevDiagSessionLast4"><%= devDiagnostics.sessionLast4 ? ('…' + devDiagnostics.sessionLast4) : '—' %></code></dd>
+                </div>
+                <div class="chat-dev-diag-span">
+                  <dt><%= t('chat.devDiagConfiguredLast4') %></dt>
+                  <dd><code id="chatDevDiagConfiguredLast4"><%= (Array.isArray(devDiagnostics.configuredLast4List) && devDiagnostics.configuredLast4List.length > 0) ? devDiagnostics.configuredLast4List.map(function (x) { return '…' + x; }).join(', ') : '—' %></code></dd>
+                </div>
+              </dl>
+              <div class="chat-dev-diag-rt">
+                <div class="chat-dev-diag-rt-title">📡 <%= t('chat.devDiagRealtimeTitle') %></div>
+                <div class="chat-dev-diag-rt-metrics">
+                  <span><%= t('chat.devDiagActiveConn') %>: <strong id="chatDevDiagActive"><%= rtStats.activeConnections %></strong></span>
+                  <span><%= t('chat.devDiagReconnectsHour') %>: <strong id="chatDevDiagReconnects"><%= rtStats.reconnectsLastHour %></strong></span>
+                </div>
+                <div class="chat-dev-diag-rt-reasons">
+                  <span><%= t('chat.devDiagReasonTimeout') %>: <strong id="chatDevDiagTimeout"><%= rb.timeout || 0 %></strong></span>
+                  <span>•</span>
+                  <span><%= t('chat.devDiagReasonOtherTab') %>: <strong id="chatDevDiagOtherTab"><%= rb.other_tab || 0 %></strong></span>
+                  <span>•</span>
+                  <span><%= t('chat.devDiagReasonError') %>: <strong id="chatDevDiagError"><%= rb.error || 0 %></strong></span>
+                </div>
+              </div>
+            </section>
+          <% } %>
         </div>
 
         <div class="chat-modal-footer">

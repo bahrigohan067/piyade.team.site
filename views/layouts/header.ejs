@@ -64,8 +64,9 @@
   const langList = (typeof supportedLangs !== 'undefined' && Array.isArray(supportedLangs) && supportedLangs.length > 0)
     ? supportedLangs
     : ['tr', 'en'];
+  const chatFullscreenMode = Boolean(typeof isChatFullscreen !== 'undefined' && isChatFullscreen);
 %>
-<html lang="<%= pageSeo.htmlLang %>" data-sidebar="open">
+<html lang="<%= pageSeo.htmlLang %>" data-sidebar="open"<% if (chatFullscreenMode) { %> class="is-chat-fullscreen"<% } %>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -117,7 +118,7 @@
     <script type="application/ld+json"><%- pageSeo.jsonLdString %></script>
   <% } %>
 
-  <!-- Boyamadan Önce (Zero-Flicker) Sol Menü Açık/Kapalı Tercihini Uygula -->
+  <!-- Boyamadan Önce (Zero-Flicker) Sol Menü Açık/Kapalı Tercihini ve Genişlik Değişkenini Uygula -->
   <script>
     (function () {
       try {
@@ -125,6 +126,9 @@
         if (saved === 'collapsed' || saved === 'open') {
           document.documentElement.setAttribute('data-sidebar', saved);
         }
+        var active = document.documentElement.getAttribute('data-sidebar') || 'open';
+        var curW = window.innerWidth >= 1024 ? (active === 'collapsed' ? '72px' : '260px') : '0px';
+        document.documentElement.style.setProperty('--sidebar-width-current', curW);
       } catch (_) {}
     })();
   </script>
@@ -148,7 +152,7 @@
 <body
   data-lang="<%= typeof lang !== 'undefined' ? lang : 'tr' %>"
   data-feedback="<%= (typeof disableFeedbackPill !== 'undefined' && disableFeedbackPill) ? 'off' : 'on' %>"
-  class="<%= (typeof currentUser !== 'undefined' && currentUser) ? 'has-sidebar' : 'no-sidebar' %>"
+  class="<%= (typeof currentUser !== 'undefined' && currentUser) ? 'has-sidebar' : 'no-sidebar' %><%= chatFullscreenMode ? ' is-chat-fullscreen' : '' %>"
 >
 
   <!-- B) Parametrik "Aero Shards" Tam Ekran WebGL Arka Plan Tuvali -->

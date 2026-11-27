@@ -32,7 +32,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 
   if (appSidebar) {
-    // Masaüstü (>=1024px) Aç/Kapa ve localStorage Kaydı
+    // Masaüstü (>=1024px) Aç/Kapa, --sidebar-width-current senkronu ve localStorage Kaydı
+    const syncSidebarWidthVar = () => {
+      const currentState = document.documentElement.getAttribute('data-sidebar') || 'open';
+      const w =
+        window.innerWidth >= 1024
+          ? currentState === 'collapsed'
+            ? '72px'
+            : '260px'
+          : '0px';
+      document.documentElement.style.setProperty('--sidebar-width-current', w);
+      window.dispatchEvent(new CustomEvent('piyade:sidebar-change', { detail: { state: currentState, width: w } }));
+    };
+
     const syncDesktopAria = () => {
       const currentState = document.documentElement.getAttribute('data-sidebar') || 'open';
       if (sidebarCollapseBtn) {
@@ -41,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
           currentState === 'collapsed' ? 'false' : 'true'
         );
       }
+      syncSidebarWidthVar();
     };
     syncDesktopAria();
 
@@ -54,6 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
         syncDesktopAria();
       });
+    }
+
+    if (typeof window.ResizeObserver === 'function') {
+      try {
+        const ro = new ResizeObserver(() => {
+          syncSidebarWidthVar();
+        });
+        ro.observe(appSidebar);
+      } catch (_) {}
     }
 
     // Mobil/Tablet (<1024px) Çekmece Aç/Kapa, Scroll Kilidi ve Odak Kapanı (Focus Trap)
@@ -137,10 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Ekran masaüstü genişliğine (>=1024px) çıkarsa mobil çekmece kilidini temizle
+    // Ekran masaüstü genişliğine (>=1024px) çıkarsa mobil çekmece kilidini temizle ve genişlik değişkenini güncelle
     window.addEventListener(
       'resize',
       () => {
+        syncSidebarWidthVar();
         if (
           window.innerWidth >= 1024 &&
           document.documentElement.getAttribute('data-mobile-sidebar') === 'open'

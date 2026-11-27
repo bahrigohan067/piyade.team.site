@@ -70,6 +70,7 @@
    * ============================================================================ */
   --sidebar-width-open: 260px;
   --sidebar-width-collapsed: 72px;
+  --sidebar-width-current: var(--sidebar-width-open);
   --sidebar-mobile-topbar-height: 60px;
   --sidebar-bg: rgba(9, 11, 18, 0.80);
   --sidebar-bg-fallback: rgba(9, 11, 18, 0.97);
@@ -407,4 +408,19 @@
   --chat-seen-color: #c4b5fd;
   --chat-toast-bg: rgba(16, 20, 34, 0.96);
   --chat-blur-overlay: rgba(8, 10, 18, 0.72);
+
+  /* Sohbet İyileştirmeleri: Yönetici Rozeti, Çevrimdışı Yükleyici, Aşağı İn ve Teşhis */
+  --chat-admin-badge-bg: linear-gradient(135deg, rgba(245, 158, 11, 0.28) 0%, rgba(168, 85, 247, 0.24) 100%);
+  --chat-admin-badge-border: rgba(251, 191, 36, 0.65);
+  --chat-admin-badge-text: #fef3c7;
+  --chat-admin-badge-glow: 0 0 12px rgba(245, 158, 11, 0.32);
+  --chat-offline-pill-bg: rgba(15, 18, 32, 0.92);
+  --chat-offline-pill-border: rgba(168, 85, 247, 0.45);
+  --chat-offline-pill-connected-border: rgba(16, 185, 129, 0.55);
+  --chat-offline-overlay-bg: rgba(7, 8, 14, 0.54);
+  --chat-offline-overlay-card-bg: rgba(13, 16, 28, 0.92);
+  --chat-jump-btn-bg: rgba(18, 22, 38, 0.94);
+  --chat-jump-btn-border: rgba(168, 85, 247, 0.5);
+  --chat-diag-bg: rgba(14, 18, 32, 0.88);
+  --chat-diag-border: rgba(168, 85, 247, 0.35);
 }

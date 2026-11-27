@@ -59,7 +59,7 @@
 
     for (const item of pendingItems) {
       const chip = document.createElement('div');
-      chip.className = `chat-att-chip${item.status === 'error' ? ' is-error' : ''}${item.status === 'uploading' ? ' is-uploading' : ''}`;
+      chip.className = `chat-att-chip${item.status === 'error' ? ' is-error' : ''}${item.status === 'paused' ? ' is-paused' : ''}${item.status === 'uploading' ? ' is-uploading' : ''}`;
 
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'chat-att-chip-thumb';
@@ -92,7 +92,12 @@
       nameEl.textContent = item.name;
       const metaEl = document.createElement('span');
       metaEl.className = 'chat-att-chip-meta';
-      metaEl.textContent = item.status === 'error' ? item.error || i18n.errUploadFailed : formatBytes(item.size);
+      metaEl.textContent =
+        item.status === 'paused'
+          ? item.error || i18n.uploadPaused || 'Duraklatıldı — bağlantı gelince tekrar dene'
+          : item.status === 'error'
+            ? item.error || i18n.errUploadFailed
+            : formatBytes(item.size);
       info.append(nameEl, metaEl);
 
       if (item.status === 'uploading') {
@@ -105,6 +110,20 @@
         info.appendChild(barTrack);
       }
 
+      const actionsWrap = document.createElement('div');
+      actionsWrap.className = 'chat-att-chip-actions';
+
+      if (item.status === 'paused' || item.status === 'error') {
+        const retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'chat-att-chip-retry';
+        retryBtn.textContent = '↻';
+        retryBtn.title = i18n.uploadRetry || 'Tekrar dene';
+        retryBtn.setAttribute('aria-label', retryBtn.title);
+        retryBtn.addEventListener('click', () => retryUploadItem(item.localId));
+        actionsWrap.appendChild(retryBtn);
+      }
+
       const rmBtn = document.createElement('button');
       rmBtn.type = 'button';
       rmBtn.className = 'chat-att-chip-remove';
@@ -112,8 +131,9 @@
       rmBtn.title = item.status === 'uploading' ? i18n.cancelUpload || 'İptal' : i18n.removeAttachment || 'Kaldır';
       rmBtn.setAttribute('aria-label', rmBtn.title);
       rmBtn.addEventListener('click', () => removePendingItem(item.localId));
+      actionsWrap.appendChild(rmBtn);
 
-      chip.append(thumbWrap, info, rmBtn);
+      chip.append(thumbWrap, info, actionsWrap);
       chipsContainer.appendChild(chip);
     }
 
@@ -133,7 +153,25 @@
     renderChips();
   }
 
+  function retryUploadItem(localId) {
+    const item = pendingItems.find((x) => x.localId === localId);
+    if (!item || item.status === 'uploading' || item.status === 'ready') return;
+    item.status = 'uploading';
+    item.progress = 0;
+    item.error = null;
+    renderChips();
+    uploadFileItem(item);
+  }
+
   function uploadFileItem(item) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      item.status = 'paused';
+      item.error = i18n.uploadPaused || 'Duraklatıldı — bağlantı bekleniyor';
+      item.xhr = null;
+      renderChips();
+      return;
+    }
+
     const xhr = new XMLHttpRequest();
     item.xhr = xhr;
     xhr.open('POST', '/sohbet/api/yukle', true);
@@ -153,12 +191,20 @@
       try {
         data = JSON.parse(xhr.responseText || '{}');
       } catch (_) {}
+      if (xhr.status === 401 && window.PiyadeRealtime && typeof window.PiyadeRealtime.handleHttpFailure === 'function') {
+        window.PiyadeRealtime.handleHttpFailure(401);
+        return;
+      }
       if (xhr.status >= 200 && xhr.status < 300 && data.ok && data.file) {
         item.status = 'ready';
         item.progress = 100;
         item.uploadedMeta = data.file;
         item.name = data.file.originalName || item.name;
         item.size = data.file.size || item.size;
+      } else if (xhr.status >= 500 || xhr.status === 408 || xhr.status === 0) {
+        // Geçici sunucu/ağ kopuşu: yazılan metni koruyup yüklemeyi duraklat, yeniden deneme sun
+        item.status = 'paused';
+        item.error = i18n.uploadPaused || 'Duraklatıldı — Tekrar dene';
       } else {
         item.status = 'error';
         item.error = data.error || i18n.errUploadFailed || 'Yüklenemedi';
@@ -169,8 +215,15 @@
     });
 
     xhr.addEventListener('error', () => {
-      item.status = 'error';
-      item.error = i18n.errUploadFailed || 'Bağlantı hatası';
+      item.status = 'paused';
+      item.error = i18n.uploadPaused || 'Duraklatıldı — bağlantı gelince tekrar dene';
+      item.xhr = null;
+      renderChips();
+    });
+
+    xhr.addEventListener('timeout', () => {
+      item.status = 'paused';
+      item.error = i18n.uploadPaused || 'Duraklatıldı — tekrar dene';
       item.xhr = null;
       renderChips();
     });
@@ -179,6 +232,21 @@
     formData.append('file', item.file, item.name);
     xhr.send(formData);
   }
+
+  // Bağlantı geri geldiğinde duraklamış dosya yüklemelerini vurgula / yeniden denemeye hazırla
+  const notifyPausedUploadsReady = () => {
+    const paused = pendingItems.filter((x) => x.status === 'paused');
+    if (paused.length > 0) {
+      for (const item of paused) {
+        item.error = i18n.uploadRetryReady || i18n.uploadRetry || 'Bağlantı geldi — Tekrar dene (↻)';
+      }
+      renderChips();
+    }
+  };
+  if (window.PiyadeRealtime && typeof window.PiyadeRealtime.on === 'function') {
+    window.PiyadeRealtime.on('reconnected', notifyPausedUploadsReady);
+  }
+  window.addEventListener('online', notifyPausedUploadsReady);
 
   function enqueueFiles(fileList) {
     if (!state.activeOtherId && !state.activeGroupId) return;

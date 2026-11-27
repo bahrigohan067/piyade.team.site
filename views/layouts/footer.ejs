@@ -124,13 +124,18 @@
   <script src="/js/app.js?v=<%= assetVer %>" defer></script>
   <script src="/js/cookie-notice.js?v=<%= assetVer %>" defer></script>
 
+  <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) { %>
+    <!-- Merkezi Gerçek Zamanlı Bağlantı Yöneticisi (Sekmeler Arası Tek SSE + BroadcastChannel) -->
+    <script src="/js/realtime.js?v=<%= assetVer %>" defer></script>
+  <% } %>
+
   <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.id && (typeof isGoogleMember === 'undefined' || !isGoogleMember)) { %>
     <!-- Kişisel "Etkinliğim" Paneli İstemci Mantığı (Yalnızca Discord Üyeleri) -->
     <script src="/js/activity-panel.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
   <% if (typeof chatEnabled !== 'undefined' && chatEnabled && typeof currentUser !== 'undefined' && currentUser && currentUser.id && typeof isRegistered !== 'undefined' && isRegistered && (typeof isGoogleMember === 'undefined' || !isGoogleMember || typeof chatGoogleMembersEnabled === 'undefined' || chatGoogleMembersEnabled)) { %>
-    <!-- Sol Menü Sohbet Okunmamış Rozeti (SSE + 30sn Yoklama Yedeği) -->
+    <!-- Sol Menü Sohbet Okunmamış Rozeti (Merkezi SSE + Sessiz Yedek Yoklama) -->
     <script src="/js/chat-badge.js?v=<%= assetVer %>" defer></script>
   <% } %>
 
@@ -152,6 +157,7 @@
   <% } %>
 
   <% if (typeof isChatPage !== 'undefined' && isChatPage) { %>
+    <script src="/js/offline-indicator.js?v=<%= assetVer %>" defer></script>
     <script src="/js/chat.js?v=<%= assetVer %>" defer></script>
     <script src="/js/chat-attachments.js?v=<%= assetVer %>" defer></script>
     <script src="/js/chat-profile-card.js?v=<%= assetVer %>" defer></script>

@@ -298,6 +298,25 @@ Yasal sayfalar (`content/legal/tr/` ve `content/legal/en/`) gerçek sistem veri 
 
 ---
 
+## 💬 Sohbet İyileştirmeleri: Grup Yöneticisi Kurulumu, Tam Ekran ve Sessiz Yeniden Bağlanma
+
+### 1. Railway'de `CHAT_GROUP_ADMIN_DISCORD_IDS` Ayarlama Adımları
+1. Railway projenizde **site servisini** (`piyade.team.site`) açın ve **Variables** sekmesine gidin.
+2. **New Variable** deyip değişken adını **büyük-küçük harf birebir aynı** yazın: `CHAT_GROUP_ADMIN_DISCORD_IDS`
+3. Değer olarak Discord kullanıcı ID'nizi yazın (birden fazla kişi için virgül, noktalı virgül, boşluk veya yeni satırla ayırabilirsiniz; yanlışlıkla kopyalanan tırnak, BOM veya görünmez boşluklar sunucuda otomatik temizlenir).
+   - Örnek: `1133815339898122999, 224466880011223344`
+   - Not: Yalnızca Discord oturumlu üyeler grup yöneticisi olabilir; Google site üyeleri asla yönetici sayılmaz.
+4. Değişikliği kaydettikten sonra servisin **redeploy** olmasını bekleyin.
+5. Deploy tamamlandığında siteden **çıkış yapıp tekrar Discord ile giriş yapın** (mevcut oturumun tazelenmesi için).
+6. **Developer Teşhis Kutusu:** Bot API'den taze doğrulanmış Discord **Developer** rolündeyseniz, `/sohbet` sayfasında **⚙️ Sohbet Ayarları** penceresinin en altında **🛠️ Grup yöneticisi durumu** kutusunu görebilirsiniz. Bu kutu tanımlı yönetici sayısını, oturum ID'nizin son 4 hanesini, listedeki ID'lerin son 4 hanesini ve eşleşme durumunu (`MATCH`, `ENV_EMPTY`, `ENV_PARSE_EMPTY`, `NOT_IN_LIST`, `NOT_DISCORD_SESSION`) ile anonim bağlantı istatistiklerini gösterir (tam Discord ID'leri asla gösterilmez ve loglanmaz).
+
+### 2. Gerçek Zamanlı Bağlantı (SSE) ve Çevrimdışı Dayanıklılık Mimarisi
+- **Sıkıştırma Dışlama ve 15 sn Heartbeat:** `middlewares/compression.js`, `text/event-stream` ve `/akis` isteklerini tamponlamadan/sıkıştırmadan doğrudan geçirir. `services/chatSseHub.js` her `15` saniyede bir hem `: ping` yorum satırı hem de `event: ping` gönderir; kullanıcı başına en fazla `8` eşzamanlı bağlantıya izin verir ve aşılırsa en eski bağlantıyı nazikçe kapatır.
+- **Sekmeler Arası Tek Bağlantı (`public/js/realtime.js`):** `navigator.locks` ile tek lider sekme seçilir, SSE olayları `BroadcastChannel` üzerinden diğer sekmelere aktarılır (desteklemeyen tarayıcılarda her sekme doğrudan bağlanır).
+- **Sessiz Yeniden Bağlanma & Kuyruk:** Kısa kopuşlarda (`< 3 sn`) kullanıcı hiçbir uyarı görmez; `3 sn`'den uzun kopuşlarda veya tarayıcı çevrimdışıyken üstte cam hap (`20px` Orbital Loader), `12 sn`'den uzun kopuşlarda konuşma üzerinde tıklamaları engellemeyen bulanık yükleme katmanı (`48px` Orbital Loader) görünür. Çevrimdışı yazılan metin mesajları `sessionStorage` kuyruğunda (`clientId` ile) saklanır ve bağlantı gelince sırayla, tekilleştirilerek gönderilir. Yalnızca HTTP `401` oturum bitişinde giriş ekranına yönlendirir; ağ hataları veya `5xx` yanıtları kullanıcıyı asla siteden atmaz.
+
+---
+
 ## 🧹 Volume / Disk Temizlik Notu
 
 > **Not:** Volume'daki eski veriler elle silinebilir (`data/warriors.json`, `data/warriors.json.bak`, `data/roblox-avatars-cache.json` ve varsa eski özel görseller). Bu dosyalara ait kodlar projeden tamamen kaldırılmıştır; uygulama açılışında veya çalışma zamanında bu dosyalar okunmaz ve yazılmaz.

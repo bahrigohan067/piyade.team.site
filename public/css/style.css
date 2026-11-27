@@ -212,6 +212,14 @@ textarea:focus-visible,
 
 /* Masaüstü (>=1024px) Açık ve Kapalı Kenar Çubuğu Durumları */
 @media (min-width: 1024px) {
+  :root {
+    --sidebar-width-current: var(--sidebar-width-open);
+  }
+
+  html[data-sidebar="collapsed"] {
+    --sidebar-width-current: var(--sidebar-width-collapsed);
+  }
+
   body.has-sidebar .app-layout-shell {
     padding-left: var(--sidebar-width-open);
   }
@@ -656,6 +664,11 @@ textarea:focus-visible,
 
 /* Tablet ve Telefon (<1024px) Çekmece (Drawer) Davranışı */
 @media (max-width: 1023px) {
+  :root,
+  html[data-sidebar="collapsed"] {
+    --sidebar-width-current: 0px;
+  }
+
   body.has-sidebar .mobile-topbar {
     position: fixed;
     top: 0;
@@ -5463,7 +5476,6 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 }
 
 .sidebar-chat-unread-badge[hidden],
-.chat-reconnect-banner[hidden],
 .chat-list-section[hidden],
 .chat-search-clear[hidden],
 .chat-thread-empty[hidden],
@@ -5479,7 +5491,13 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 .chat-char-counter[hidden],
 .chat-modal-backdrop[hidden],
 .chat-settings-panel[hidden],
-.chat-inline-error[hidden] {
+.chat-inline-error[hidden],
+.chat-jump-bottom-btn[hidden],
+.chat-jump-bottom-count[hidden],
+.chat-msg-popover[hidden],
+.offline-pill[hidden],
+.offline-overlay[hidden],
+.offline-overlay-queue[hidden] {
   display: none !important;
 }
 
@@ -5723,28 +5741,6 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 /* ============================================================================
  * ANA İKİ PANEL SOHBET DÜZENİ
  * ============================================================================ */
-.chat-reconnect-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.9rem;
-  margin-bottom: 0.65rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-warning-light);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning-alert);
-  font-size: 0.84rem;
-  font-weight: 600;
-}
-
-.chat-reconnect-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--color-warning);
-}
-
 .chat-app {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
@@ -9742,9 +9738,11 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
 }
 
 .chat-identity-badge--admin {
-  background: var(--color-warning-light);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning-text);
+  background: var(--chat-admin-badge-bg);
+  border: 1px solid var(--chat-admin-badge-border);
+  color: var(--chat-admin-badge-text);
+  box-shadow: var(--chat-admin-badge-glow);
+  font-weight: 800;
 }
 
 .chat-msg-action-btn--admin {
@@ -10786,4 +10784,732 @@ body:has(.orbital-overlay.is-open) .feedback-pill-root {
   .site-warn-notice-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ============================================================================
+ * 24. TAM EKRAN SOHBET (/sohbet), YÖNETİCİ MENÜSÜ, KUYRUK VE ÇEVRİMDIŞI YÜKLEYİCİ
+ * (Yalnızca html.is-chat-fullscreen / body.is-chat-fullscreen altında çalışır;
+ *  diğer sayfalar, sol dock menü ve Aero Shards arka planı hiç etkilenmez.)
+ * ============================================================================ */
+html.is-chat-fullscreen,
+body.is-chat-fullscreen {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body.is-chat-fullscreen .site-footer {
+  display: none !important;
+}
+
+body.is-chat-fullscreen .app-layout-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-left: var(--sidebar-width-current);
+}
+
+body.is-chat-fullscreen .main-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body.is-chat-fullscreen .main-content > .container {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body.is-chat-fullscreen .site-warn-notices-stack {
+  margin: 0.5rem 0.85rem;
+  flex-shrink: 0;
+}
+
+body.is-chat-fullscreen .chat-page-backdrop {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--chat-dim);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.is-chat-fullscreen .chat-page-backdrop:has(.chat-consent-shell) {
+  overflow-y: auto;
+  padding: 1.5rem 1rem;
+  justify-content: center;
+}
+
+body.is-chat-fullscreen .chat-app {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+body.is-chat-fullscreen .chat-header-name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+body.is-chat-fullscreen .chat-msg-col {
+  max-width: 72%;
+}
+
+body.is-chat-fullscreen .chat-bubble {
+  font-size: 0.96875rem;
+  line-height: 1.5;
+}
+
+body.is-chat-fullscreen .chat-composer-shell {
+  position: relative;
+  z-index: 35;
+}
+
+body.is-chat-fullscreen .chat-thread-header {
+  position: relative;
+  z-index: 35;
+}
+
+/* Çerez bilgi çubuğu tam ekran sohbette mesaj yazma kutusunun üstünü ASLA kapatmaz */
+body.is-chat-fullscreen .cookie-notice-bar {
+  left: calc(var(--sidebar-width-current, 0px) + 1rem);
+  right: 1rem;
+  bottom: calc(var(--chat-composer-h, 76px) + 14px);
+  z-index: 42;
+}
+
+/* Geniş ekranlar: >1500px ortalanmış mesaj akışı (maks 1100px), >=1600px sol liste 380px */
+@media (min-width: 1501px) {
+  body.is-chat-fullscreen .chat-messages-list,
+  body.is-chat-fullscreen .chat-typing-row,
+  body.is-chat-fullscreen .chat-load-older-wrap {
+    width: 100%;
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (min-width: 1600px) {
+  body.is-chat-fullscreen .chat-app {
+    grid-template-columns: 380px minmax(0, 1fr);
+  }
+}
+
+/* Tablet ve Telefon (<1024px): Üst mobil bar korunur, sohbet kalan tüm alanı kaplar */
+@media (max-width: 1023px) {
+  html.is-chat-fullscreen,
+  body.is-chat-fullscreen {
+    height: var(--chat-vh, 100dvh);
+  }
+
+  body.is-chat-fullscreen.has-sidebar .app-layout-shell {
+    padding-left: 0;
+    padding-top: var(--sidebar-mobile-topbar-height);
+    height: var(--chat-vh, 100dvh);
+  }
+
+  body.is-chat-fullscreen .cookie-notice-bar {
+    left: 0.75rem;
+    right: 0.75rem;
+  }
+}
+
+/* Mobil (<900px): Tek sütun akışı, tam ekran yükseklik, safe-area ve 44px dokunma alanları */
+@media (max-width: 900px) {
+  body.is-chat-fullscreen .chat-page-backdrop {
+    padding: 0;
+    border-radius: 0;
+  }
+
+  body.is-chat-fullscreen .chat-app {
+    grid-template-columns: minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+
+  body.is-chat-fullscreen .chat-msg-col {
+    max-width: 84%;
+  }
+
+  body.is-chat-fullscreen .chat-msg-actions {
+    opacity: 0.85;
+  }
+
+  body.is-chat-fullscreen .chat-msg-menu-btn {
+    min-width: 34px;
+    min-height: 34px;
+  }
+}
+
+/* --- YENİ MESAJLARA GİT DÜĞMESİ --- */
+.chat-jump-bottom-btn {
+  position: absolute;
+  right: 1.25rem;
+  bottom: calc(var(--chat-composer-h, 74px) + 14px);
+  z-index: 32;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--chat-jump-btn-border);
+  background: var(--chat-jump-btn-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.chat-jump-bottom-btn:hover,
+.chat-jump-bottom-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.chat-jump-bottom-arrow {
+  font-size: 0.95rem;
+  color: var(--color-purple-badge-text);
+}
+
+.chat-jump-bottom-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- MESAJ "⋯" EYLEM MENÜSÜ --- */
+.chat-msg-actions {
+  position: relative;
+}
+
+.chat-msg-actions.is-menu-open {
+  opacity: 1;
+}
+
+.chat-msg-menu-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-color);
+  background: var(--chat-popover-bg);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.chat-msg-menu-btn:hover,
+.chat-msg-menu-btn:focus-visible {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  background: var(--chat-item-hover);
+  outline: none;
+}
+
+.chat-msg-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 48;
+  min-width: 152px;
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--chat-popover-bg);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.chat-msg-row.is-self .chat-msg-popover {
+  right: 0;
+}
+
+.chat-msg-row.is-other .chat-msg-popover {
+  left: 0;
+}
+
+.chat-msg-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.48rem 0.68rem;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chat-msg-popover-item:hover,
+.chat-msg-popover-item:focus-visible {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.chat-msg-popover-item--danger {
+  color: var(--color-danger-text);
+}
+
+.chat-msg-popover-item--danger:hover,
+.chat-msg-popover-item--danger:focus-visible {
+  background: var(--color-danger-light);
+  color: var(--color-danger-alert);
+}
+
+/* --- ÇEVRİMDIŞI KUYRUK (OUTBOX) VE DURAKLAYAN DOSYA ÇİPİ --- */
+.chat-msg-tick--sending {
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.chat-msg-tick--failed {
+  color: var(--color-danger-alert);
+  font-weight: 700;
+}
+
+.chat-bubble--failed {
+  border: 1px solid var(--color-danger-border);
+}
+
+.chat-msg-outbox-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+}
+
+.chat-msg-outbox-err {
+  color: var(--color-danger-text);
+}
+
+.chat-outbox-btn {
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-light);
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-outbox-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--chat-item-hover);
+}
+
+.chat-outbox-btn--danger {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.chat-outbox-btn--danger:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger-alert);
+}
+
+.chat-att-chip.is-paused {
+  border-color: var(--color-warning-border);
+}
+
+.chat-att-chip.is-paused .chat-att-chip-meta {
+  color: var(--color-warning-text);
+}
+
+.chat-att-chip-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.chat-att-chip-retry {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-light);
+  color: var(--color-warning-alert);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-att-chip-retry:hover {
+  border-color: var(--color-accent);
+  background: var(--chat-item-active);
+  color: var(--text-primary);
+}
+
+/* --- DEVELOPER TEŞHİS KUTUSU (Ayarlar Modalı Altı — Yalnızca Fresh Developer) --- */
+.chat-dev-diag-box {
+  margin-top: 1.15rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--chat-diag-bg);
+  border: 1px solid var(--chat-diag-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.chat-dev-diag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.chat-dev-diag-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.chat-dev-diag-badge {
+  padding: 0.16rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.chat-dev-diag-badge--ok {
+  background: var(--color-success-light);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.chat-dev-diag-badge--warn {
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+
+.chat-dev-diag-summary {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.chat-dev-diag-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+  font-size: 0.76rem;
+}
+
+.chat-dev-diag-grid dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.chat-dev-diag-grid dd {
+  margin: 0.12rem 0 0;
+  color: var(--text-primary);
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.chat-dev-diag-grid code {
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: var(--radius-xs);
+  background: var(--bg-code);
+  color: var(--text-code);
+}
+
+.chat-dev-diag-span {
+  grid-column: 1 / -1;
+}
+
+.chat-dev-diag-rt {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.chat-dev-diag-rt-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chat-dev-diag-rt-metrics,
+.chat-dev-diag-rt-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  color: var(--text-muted);
+}
+
+.chat-dev-diag-rt-metrics strong,
+.chat-dev-diag-rt-reasons strong {
+  color: var(--text-primary);
+}
+
+/* --- UZUN KOPUŞ / ÇEVRİMDIŞI YÜKLENİYOR (offline-indicator.js) --- */
+.chat-offline-slot {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: var(--chat-composer-h, 74px);
+  z-index: 28;
+  pointer-events: none;
+}
+
+.offline-indicator-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 3 sn üstü yüzen cam hap */
+.offline-pill {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translate3d(-50%, 0, 0);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-full);
+  background: var(--chat-offline-pill-bg);
+  border: 1px solid var(--chat-offline-pill-border);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity var(--transition-fast), border-color var(--transition-fast);
+}
+
+.offline-pill.is-connected {
+  border-color: var(--chat-offline-pill-connected-border);
+  color: var(--color-success-alert);
+}
+
+.offline-pill.is-leaving {
+  opacity: 0;
+}
+
+.offline-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 12 sn üstü tıklamaları ENGELLEMEYEN bulanık katman */
+.offline-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: var(--chat-offline-overlay-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.offline-overlay-card {
+  max-width: 380px;
+  width: 100%;
+  padding: 1.35rem 1.45rem;
+  border-radius: var(--radius-md);
+  background: var(--chat-offline-overlay-card-bg);
+  border: 1px solid var(--orbital-card-border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.55rem;
+  pointer-events: none;
+}
+
+.offline-overlay-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.15rem;
+}
+
+.offline-overlay-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.offline-overlay-desc {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.offline-overlay-queue {
+  margin-top: 0.15rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: var(--color-purple-badge-bg);
+  border: 1px solid var(--color-purple-badge-border);
+  color: var(--color-purple-badge-text);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* Orbital Kuyruklu Yıldız ve Yeşil Tik SVG Animasyonu */
+.offline-orbital-svg {
+  display: block;
+  overflow: visible;
+}
+
+.offline-orbital-track {
+  fill: none;
+  stroke: var(--orbital-track-color);
+  stroke-width: 3.2;
+}
+
+.offline-orbital-comet-group {
+  transform-origin: 24px 24px;
+  animation: offlineOrbitalSpin 1.15s linear infinite;
+}
+
+.offline-orbital-comet-tail {
+  fill: none;
+  stroke: var(--orbital-comet-color);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-dasharray: 42 120;
+  filter: var(--orbital-comet-glow);
+}
+
+.offline-orbital-comet-head {
+  fill: var(--orbital-comet-head);
+  filter: var(--orbital-comet-glow);
+}
+
+.offline-orbital-done-ring {
+  fill: none;
+  stroke: var(--orbital-success-color);
+  stroke-width: 3.2;
+  filter: var(--orbital-success-glow);
+}
+
+.offline-orbital-check-path {
+  fill: none;
+  stroke: var(--orbital-success-color);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 32;
+  stroke-dashoffset: 32;
+  animation: offlineCheckDraw 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes offlineOrbitalSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes offlineCheckDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes offlineReducedPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-orbital-comet-group {
+    animation: offlineReducedPulse 1.6s ease-in-out infinite !important;
+  }
+
+  .offline-orbital-check-path {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}
+
+.offline-indicator-root.is-reduced-motion .offline-orbital-comet-group {
+  animation: offlineReducedPulse 1.6s ease-in-out infinite;
 }

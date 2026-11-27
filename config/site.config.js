@@ -18,6 +18,8 @@ function computeAssetVersion(baseVersion = '2.2.0', publicDirOverride = null) {
       'css/theme.css',
       'css/style.css',
       'js/app.js',
+      'js/realtime.js',
+      'js/offline-indicator.js',
       'js/activity-panel.js',
       'js/top-games.js',
       'js/chat.js',

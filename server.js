@@ -155,6 +155,8 @@ function createServerApp() {
     // İstemci yeniden bağlanma yoklamaları için hafif ve anlık yanıt (Bot API'yi beklemez)
     if (req.headers['x-health-probe'] === 'light' || req.query.light === '1') {
       return res.json({
+        ok: true,
+        light: true,
         status: 'ok',
         service: 'piyade-team-web',
         sunucu: 'ayakta',

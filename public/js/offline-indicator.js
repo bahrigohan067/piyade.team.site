@@ -23,8 +23,8 @@
   const CONNECTED_HOLD_MS = 900;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  function createSvgEl(tag, attrs) {
-    const el = document.createElementNS(SVG_NS, tag);
+  function createSvgEl(doc, tag, attrs) {
+    const el = doc.createElementNS(SVG_NS, tag);
     if (attrs) {
       for (const [k, v] of Object.entries(attrs)) {
         el.setAttribute(k, String(v));
@@ -33,8 +33,8 @@
     return el;
   }
 
-  function buildOrbitalSvg(sizePx, { variant = 'ring' } = {}) {
-    const svg = createSvgEl('svg', {
+  function buildOrbitalSvg(doc, sizePx, { variant = 'ring' } = {}) {
+    const svg = createSvgEl(doc, 'svg', {
       viewBox: '0 0 48 48',
       width: sizePx,
       height: sizePx,
@@ -43,7 +43,7 @@
       focusable: 'false',
     });
 
-    const track = createSvgEl('circle', {
+    const track = createSvgEl(doc, 'circle', {
       cx: '24',
       cy: '24',
       r: '19',
@@ -52,13 +52,13 @@
     svg.appendChild(track);
 
     if (variant === 'check') {
-      const ringDone = createSvgEl('circle', {
+      const ringDone = createSvgEl(doc, 'circle', {
         cx: '24',
         cy: '24',
         r: '19',
         class: 'offline-orbital-done-ring',
       });
-      const check = createSvgEl('path', {
+      const check = createSvgEl(doc, 'path', {
         d: 'M15 24.5 L21.2 30.8 L33.5 17.5',
         class: 'offline-orbital-check-path',
       });
@@ -66,14 +66,14 @@
       return svg;
     }
 
-    const cometGroup = createSvgEl('g', { class: 'offline-orbital-comet-group' });
-    const tail = createSvgEl('circle', {
+    const cometGroup = createSvgEl(doc, 'g', { class: 'offline-orbital-comet-group' });
+    const tail = createSvgEl(doc, 'circle', {
       cx: '24',
       cy: '24',
       r: '19',
       class: 'offline-orbital-comet-tail',
     });
-    const head = createSvgEl('circle', {
+    const head = createSvgEl(doc, 'circle', {
       cx: '24',
       cy: '5',
       r: '2.8',
@@ -157,7 +157,7 @@
 
       pillIconSlot = doc.createElement('span');
       pillIconSlot.className = 'offline-pill-icon';
-      pillIconSlot.appendChild(buildOrbitalSvg(20, { variant: 'ring' }));
+      pillIconSlot.appendChild(buildOrbitalSvg(doc, 20, { variant: 'ring' }));
 
       pillLabelEl = doc.createElement('span');
       pillLabelEl.className = 'offline-pill-label';
@@ -177,7 +177,7 @@
 
       overlayIconSlot = doc.createElement('div');
       overlayIconSlot.className = 'offline-overlay-icon';
-      overlayIconSlot.appendChild(buildOrbitalSvg(48, { variant: 'ring' }));
+      overlayIconSlot.appendChild(buildOrbitalSvg(doc, 48, { variant: 'ring' }));
 
       overlayTitleEl = doc.createElement('strong');
       overlayTitleEl.className = 'offline-overlay-title';
@@ -284,7 +284,7 @@
       if (phase === 'pill') {
         overlayEl.hidden = true;
         pillEl.classList.remove('is-connected', 'is-leaving');
-        pillIconSlot.replaceChildren(buildOrbitalSvg(20, { variant: 'ring' }));
+        pillIconSlot.replaceChildren(buildOrbitalSvg(opts.doc, 20, { variant: 'ring' }));
         pillLabelEl.textContent = texts.reconnecting;
         pillEl.hidden = false;
         if (prevPhase === 'hidden') {
@@ -295,7 +295,7 @@
 
       if (phase === 'overlay') {
         pillEl.hidden = true;
-        overlayIconSlot.replaceChildren(buildOrbitalSvg(48, { variant: 'ring' }));
+        overlayIconSlot.replaceChildren(buildOrbitalSvg(opts.doc, 48, { variant: 'ring' }));
         overlayTitleEl.textContent = texts.waitingTitle;
         overlayDescEl.textContent = texts.waitingDesc;
         updateQueueLabel();
@@ -307,7 +307,7 @@
         overlayEl.hidden = true;
         pillEl.classList.remove('is-leaving');
         pillEl.classList.add('is-connected');
-        pillIconSlot.replaceChildren(buildOrbitalSvg(20, { variant: 'check' }));
+        pillIconSlot.replaceChildren(buildOrbitalSvg(opts.doc, 20, { variant: 'check' }));
         pillLabelEl.textContent = texts.connected;
         pillEl.hidden = false;
         if (prevPhase === 'hidden') {

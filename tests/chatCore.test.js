@@ -593,7 +593,7 @@ test('Parça 2: Sohbet Çekirdek Kontrat ve Güvenlik Testleri', async (t) => {
     assert.equal(goodRing.json.profile.effectiveRing.type, 'spin');
   });
 
-  await t.test('10) SSE olay akışı, Last-Event-ID yakalama ve kullanıcı başına 5 bağlantı sınırı', async () => {
+  await t.test('10) SSE olay akışı, Last-Event-ID yakalama ve kullanıcı başına 8 bağlantı + en eskiyi düşür', async () => {
     chatSseHub.resetForTests();
 
     const openSse = (cookie, extraHeaders = {}) =>
@@ -603,10 +603,14 @@ test('Parça 2: Sohbet Çekirdek Kontrat ve Güvenlik Testleri', async (t) => {
           { method: 'GET', headers: { Cookie: cookie, Accept: 'text/event-stream', ...extraHeaders } },
           (res) => {
             let buf = '';
+            let closed = false;
             res.on('data', (chunk) => {
               buf += chunk.toString('utf8');
             });
-            resolve({ req, res, getBuf: () => buf });
+            res.on('end', () => {
+              closed = true;
+            });
+            resolve({ req, res, getBuf: () => buf, isClosed: () => closed });
           }
         );
         req.on('error', reject);
@@ -617,6 +621,7 @@ test('Parça 2: Sohbet Çekirdek Kontrat ve Güvenlik Testleri', async (t) => {
     assert.equal(conn1.res.statusCode, 200);
     assert.equal(conn1.res.headers['x-accel-buffering'], 'no');
     assert.match(conn1.res.headers['content-type'] || '', /text\/event-stream/);
+    assert.match(conn1.res.headers['cache-control'] || '', /no-transform/);
 
     // B'ye bir mesaj gönder -> SSE üzerinden canlı gelmeli
     await httpRequest(siteUrl, `/sohbet/api/sohbet/${USER_B}/mesaj`, {
@@ -637,17 +642,20 @@ test('Parça 2: Sohbet Çekirdek Kontrat ve Güvenlik Testleri', async (t) => {
     await new Promise((r) => setTimeout(r, 60));
     assert.match(connCatchup.getBuf(), /Canli SSE mesaji/);
 
-    // Toplam 5 bağlantıya izin verilir, 6. bağlantı 429 döner
+    // Toplam 8 eşzamanlı bağlantıya izin verilir; 9. bağlantı 200 döner ve en eski bağlantıyı nazikçe düşürür
     const extraConns = [connCatchup];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 7; i += 1) {
       const c = await openSse(sessB.cookie);
       assert.equal(c.res.statusCode, 200);
       extraConns.push(c);
     }
-    const sixth = await httpRequest(siteUrl, '/sohbet/akis', { cookie: sessB.cookie });
-    assert.equal(sixth.status, 429);
-    assert.equal(sixth.json.code, 'TOO_MANY_SSE_CONNECTIONS');
+    const ninth = await openSse(sessB.cookie);
+    assert.equal(ninth.res.statusCode, 200);
+    await new Promise((r) => setTimeout(r, 60));
+    assert.match(connCatchup.getBuf(), /replaced_by_other_tab/);
+    assert.equal(chatSseHub.getConnectionCount(USER_B), 8);
 
+    extraConns.push(ninth);
     for (const c of extraConns) c.req.destroy();
     await new Promise((r) => setTimeout(r, 40));
   });

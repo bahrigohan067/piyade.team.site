@@ -592,8 +592,9 @@ router.get('/', requireChatMember, async (req, res) => {
       const freshLevel = (freshRolesData && freshRolesData.level) || 'unregistered';
       if (isDeveloper(freshRoles, freshLevel)) {
         isFreshDeveloper = true;
+        const adminDiag = chatConfig.evaluateChatGroupAdminDiagnostics(req);
         devDiagnostics = {
-          admin: chatConfig.evaluateChatGroupAdminDiagnostics(req),
+          ...adminDiag,
           realtime: chatSseHub.getDiagnosticsSnapshot(),
         };
       }
@@ -729,10 +730,16 @@ router.get('/akis', requireChatMember, requireChatConsent, requireNotBannedFromC
  */
 router.get('/api/diagnostik', requireFreshDeveloper, (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store');
+  const adminDiag = chatConfig.evaluateChatGroupAdminDiagnostics(req);
+  const realtimeDiag = chatSseHub.getDiagnosticsSnapshot();
   return res.json({
     ok: true,
-    admin: chatConfig.evaluateChatGroupAdminDiagnostics(req),
-    realtime: chatSseHub.getDiagnosticsSnapshot(),
+    diagnostics: {
+      ...adminDiag,
+      realtime: realtimeDiag,
+    },
+    admin: adminDiag,
+    realtime: realtimeDiag,
   });
 });
 

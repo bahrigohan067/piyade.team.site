@@ -239,6 +239,7 @@ function evaluateChatGroupAdminDiagnostics(req, envObj = process.env) {
     sessionLast4,
     configuredLast4List,
     code,
+    isMatch: code === 'MATCH',
   };
 }
 

@@ -177,7 +177,9 @@ class ChatSseHub {
     const hbMs =
       Number.isFinite(Number(heartbeatMs)) && Number(heartbeatMs) > 0
         ? Number(heartbeatMs)
-        : chatConfig.LIMITS.SSE_HEARTBEAT_MS || 15000;
+        : Number.isFinite(Number(this.heartbeatMsOverride)) && Number(this.heartbeatMsOverride) > 0
+          ? Number(this.heartbeatMsOverride)
+          : chatConfig.LIMITS.SSE_HEARTBEAT_MS || 15000;
     client.heartbeatTimer = setInterval(() => {
       if (client.closed) return;
       this._safeWrite(client, `: ping\n\nevent: ping\ndata: {}\n\n`);

@@ -1,6 +1,8 @@
 const chatConfig = require('../config/chat.config');
 
 const MAX_BUFFER_PER_USER = 100;
+const RECONNECT_METRICS_WINDOW_MS = 60 * 60 * 1000; // Son 1 saat
+const ALLOWED_RECONNECT_REASONS = new Set(['timeout', 'other_tab', 'error']);
 
 /**
  * Tek süreçli bellek içi SSE (Server-Sent Events) Dağıtım Merkezi.
@@ -13,6 +15,51 @@ class ChatSseHub {
     this.eventSeq = 0;
     this.eventBufferByUser = new Map(); // userId -> Array<{ id, type, data, ts }>
     this.typingLastAt = new Map(); // `${from}:${to}` -> ts
+    // Kimliksiz, yalnızca son 1 saatlik yeniden bağlanma sayaçları (Developer teşhis satırı için)
+    this.reconnectEvents = []; // Array<{ ts, reason }>
+  }
+
+  _pruneReconnectEvents(nowTs = Date.now()) {
+    const cutoff = nowTs - RECONNECT_METRICS_WINDOW_MS;
+    while (this.reconnectEvents.length > 0 && this.reconnectEvents[0].ts < cutoff) {
+      this.reconnectEvents.shift();
+    }
+    if (this.reconnectEvents.length > 5000) {
+      this.reconnectEvents.splice(0, this.reconnectEvents.length - 5000);
+    }
+  }
+
+  recordReconnectReason(reason, nowTs = Date.now()) {
+    const clean = String(reason || '').trim().toLowerCase();
+    if (!ALLOWED_RECONNECT_REASONS.has(clean)) return;
+    this._pruneReconnectEvents(nowTs);
+    this.reconnectEvents.push({ ts: nowTs, reason: clean });
+  }
+
+  getActiveConnectionsTotal() {
+    let total = 0;
+    for (const set of this.clientsByUser.values()) {
+      total += set ? set.size : 0;
+    }
+    return total;
+  }
+
+  /**
+   * Kimliksiz gerçek zamanlı bağlantı istatistik özeti (ASLA kullanıcı kimliği içermez).
+   */
+  getDiagnosticsSnapshot(nowTs = Date.now()) {
+    this._pruneReconnectEvents(nowTs);
+    const reasonBreakdown = { timeout: 0, other_tab: 0, error: 0 };
+    for (const ev of this.reconnectEvents) {
+      if (ev.reason in reasonBreakdown) {
+        reasonBreakdown[ev.reason] += 1;
+      }
+    }
+    return {
+      activeConnections: this.getActiveConnectionsTotal(),
+      reconnectsLastHour: this.reconnectEvents.length,
+      reasonBreakdown,
+    };
   }
 
   _nextEventId() {
@@ -46,19 +93,36 @@ class ChatSseHub {
   }
 
   /**
-   * Yeni bir SSE bağlantısını kaydeder. Kullanıcı başına en çok 5 bağlantıya izin verir.
+   * Yeni bir SSE bağlantısını kaydeder.
+   * Kullanıcı başına en çok MAX_SSE_CONNECTIONS_PER_USER (8) bağlantıya izin verir;
+   * sınır aşılırsa 429 döngüsü yerine en eski bağlantıyı nazikçe düşürür (replaced_by_other_tab).
    */
-  subscribe(userId, req, res, { initialUnread = 0 } = {}) {
+  subscribe(userId, req, res, { initialUnread = 0, reason = null, heartbeatMs = null } = {}) {
     const uid = String(userId || '').trim();
-    const maxConn = chatConfig.LIMITS.MAX_SSE_CONNECTIONS_PER_USER || 5;
+    const maxConn = chatConfig.LIMITS.MAX_SSE_CONNECTIONS_PER_USER || 8;
+    const rawReason = reason || (req && req.query && req.query.reason) || '';
+    if (rawReason) {
+      this.recordReconnectReason(rawReason);
+    }
+
     let userSet = this.clientsByUser.get(uid);
     if (userSet && userSet.size >= maxConn) {
-      res.status(429).json({
-        ok: false,
-        code: 'TOO_MANY_SSE_CONNECTIONS',
-        error: 'Aynı anda en fazla 5 sohbet bağlantısı açık olabilir.',
-      });
-      return null;
+      // En eski bağlantıyı bul ve nazikçe kapat (diğer sekmeye devret)
+      let oldest = null;
+      for (const c of userSet) {
+        if (!oldest || c.connectedAt < oldest.connectedAt) {
+          oldest = c;
+        }
+      }
+      if (oldest) {
+        this.recordReconnectReason('other_tab');
+        this._safeWrite(
+          oldest,
+          `event: disconnect\ndata: ${JSON.stringify({ reason: 'replaced_by_other_tab' })}\n\n`
+        );
+        this._removeClient(oldest);
+      }
+      userSet = this.clientsByUser.get(uid);
     }
 
     res.status(200);
@@ -88,7 +152,7 @@ class ChatSseHub {
     userSet.add(client);
 
     // İstemci yeniden bağlanma bekleme süresi ve açılış olayı
-    this._safeWrite(client, `retry: 3000\n`);
+    this._safeWrite(client, `retry: 3000\n\n`);
     const connectedRec = {
       id: this._nextEventId(),
       type: 'connected',
@@ -109,11 +173,14 @@ class ChatSseHub {
       }
     }
 
-    // 25 saniyede bir heartbeat
-    const hbMs = chatConfig.LIMITS.SSE_HEARTBEAT_MS || 25000;
+    // 15 saniyede bir heartbeat (": ping" yorum satırı + istemci bekçisi için hafif ping olayı)
+    const hbMs =
+      Number.isFinite(Number(heartbeatMs)) && Number(heartbeatMs) > 0
+        ? Number(heartbeatMs)
+        : chatConfig.LIMITS.SSE_HEARTBEAT_MS || 15000;
     client.heartbeatTimer = setInterval(() => {
       if (client.closed) return;
-      this._safeWrite(client, `: heartbeat ${Date.now()}\n\n`);
+      this._safeWrite(client, `: ping\n\nevent: ping\ndata: {}\n\n`);
     }, hbMs);
     if (client.heartbeatTimer.unref) {
       client.heartbeatTimer.unref();
@@ -268,6 +335,7 @@ class ChatSseHub {
     this.closeAll();
     this.eventBufferByUser.clear();
     this.typingLastAt.clear();
+    this.reconnectEvents = [];
     this.eventSeq = 0;
   }
 }

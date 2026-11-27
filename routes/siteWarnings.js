@@ -158,7 +158,8 @@ router.get('/api/uyari-bildirimleri/akis', (req, res) => {
   if (!unifiedId) {
     return res.status(401).json({ ok: false, code: 'GOOGLE_SESSION_REQUIRED' });
   }
-  chatSseHub.subscribe(unifiedId, req, res, { initialUnread: 0 });
+  const reason = typeof req.query.reason === 'string' ? req.query.reason.trim() : null;
+  chatSseHub.subscribe(unifiedId, req, res, { initialUnread: 0, reason });
   return undefined;
 });
 

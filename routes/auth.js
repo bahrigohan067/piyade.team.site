@@ -140,7 +140,7 @@ router.get('/discord/callback', authLimiter, async (req, res, next) => {
       discordId: String(discordUser.id),
     };
     req.session.user = {
-      id: discordUser.id,
+      id: String(discordUser.id),
       kind: 'discord',
       username: discordUser.username,
       displayName,

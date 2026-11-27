@@ -13,8 +13,8 @@ const LIMITS = Object.freeze({
   MAX_GROUP_MESSAGES_PER_MIN: 12,
   GROUP_DUPLICATE_WINDOW_MS: 15 * 1000,
   MAX_NEW_CONVERSATIONS_PER_DAY: 10,
-  MAX_SSE_CONNECTIONS_PER_USER: 5,
-  SSE_HEARTBEAT_MS: 25 * 1000,
+  MAX_SSE_CONNECTIONS_PER_USER: 8,
+  SSE_HEARTBEAT_MS: 15 * 1000,
   DIRECTORY_CACHE_TTL_MS: 60 * 1000,
   PROFILE_CARD_CACHE_TTL_MS: 60 * 1000,
   ROBLOX_AVATAR_REFRESH_MS: 6 * 60 * 60 * 1000,
@@ -121,28 +121,64 @@ function isChatGoogleMembersEnabled(envObj = process.env) {
 
 /**
  * Ortam değişkeninden (CHAT_GROUP_ADMIN_DISCORD_IDS) grup yöneticisi Discord ID listesini okur.
- * Hiçbir Discord kimliği kod içine sabit yazılmaz.
+ * - KİMLİKLER YALNIZCA DİZGİ (string) olarak işlenir; asla Number/parseInt kullanılmaz (2^53 hassasiyet koruması).
+ * - Virgül (,), noktalı virgül (;), boşluk ve satır sonu ile ayrılmış girdileri destekler.
+ * - Tırnak işaretleri (" ' `), BOM (\uFEFF) ve görünmez boşluk karakterlerini (\u200B-\u200D, \u2060, \u00A0) temizler.
+ * - Hiçbir Discord kimliği kod içine sabit yazılmaz.
  */
-function getChatGroupAdminDiscordIds(envObj = process.env) {
-  const raw = String(
-    envObj && envObj.CHAT_GROUP_ADMIN_DISCORD_IDS !== undefined ? envObj.CHAT_GROUP_ADMIN_DISCORD_IDS : ''
-  ).trim();
+function parseChatGroupAdminDiscordIds(envObj = process.env) {
+  const rawVal =
+    envObj && envObj.CHAT_GROUP_ADMIN_DISCORD_IDS !== undefined && envObj.CHAT_GROUP_ADMIN_DISCORD_IDS !== null
+      ? String(envObj.CHAT_GROUP_ADMIN_DISCORD_IDS)
+      : '';
+  // BOM ve görünmez sıfır-genişlik karakterlerini temizle
+  const cleanedRaw = rawVal
+    .replace(/[\uFEFF\u200B-\u200D\u2060\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .trim();
+
   const ids = new Set();
-  if (!raw) return ids;
-  for (const part of raw.split(',')) {
-    const clean = part.trim();
+  if (!cleanedRaw) {
+    return { envEmpty: true, ids };
+  }
+
+  // Dış tırnakları soy (ör. "1133..., 2244...")
+  const unwrapped = cleanedRaw.replace(/^["'`]+|["'`]+$/g, '');
+  const tokens = unwrapped.split(/[,;\s\r\n]+/);
+  for (const token of tokens) {
+    const clean = String(token || '')
+      .replace(/[\uFEFF\u200B-\u200D\u2060\u00AD"'`]/g, '')
+      .trim();
     if (/^\d{15,25}$/.test(clean)) {
       ids.add(clean);
     }
   }
-  return ids;
+  return { envEmpty: false, ids };
+}
+
+function getChatGroupAdminDiscordIds(envObj = process.env) {
+  return parseChatGroupAdminDiscordIds(envObj).ids;
 }
 
 /**
- * Bir kullanıcının Discord kimliği grup yöneticisi listesinde mi kontrol eder (rozet gösterimi için).
+ * Açılışta CHAT_GROUP_ADMIN_DISCORD_IDS boşsa veya geçerli kimlik çıkmazsa
+ * kimlik değeri içermeyen tek satırlık uyarı loglar.
+ */
+function logChatGroupAdminStartupStatus(envObj = process.env) {
+  const { envEmpty, ids } = parseChatGroupAdminDiscordIds(envObj);
+  if (envEmpty || ids.size === 0) {
+    console.warn(
+      '⚠️ [SOHBET YÖNETİCİ] CHAT_GROUP_ADMIN_DISCORD_IDS tanımlı değil veya geçerli kimlik içermiyor (yönetici tanımlı değil).'
+    );
+  }
+}
+
+/**
+ * Bir kullanıcının Discord kimliği grup yöneticisi listesinde mi kontrol eder (yalnızca dizgi karşılaştırması).
  */
 function isDiscordIdGroupAdmin(userId, envObj = process.env) {
-  const clean = String(userId || '').trim();
+  if (typeof userId !== 'string' && typeof userId !== 'number') return false;
+  const clean = String(userId).replace(/[\uFEFF\u200B-\u200D\u2060]/g, '').trim();
   if (!/^\d{15,25}$/.test(clean)) return false;
   return getChatGroupAdminDiscordIds(envObj).has(clean);
 }
@@ -153,7 +189,7 @@ function isDiscordIdGroupAdmin(userId, envObj = process.env) {
  */
 function isChatGroupAdmin(req, envObj = process.env) {
   if (!req || !req.session || !req.session.user) return false;
-  if (req.session.identity && req.session.identity.kind === 'google') return false;
+  if (req.session.identity && req.session.identity.kind !== 'discord') return false;
   if (req.session.user.kind === 'google') return false;
   const uid = String(req.session.user.id || '').trim();
   if (!/^\d{15,25}$/.test(uid)) return false;
@@ -162,6 +198,48 @@ function isChatGroupAdmin(req, envObj = process.env) {
     if (identId && identId !== uid) return false;
   }
   return getChatGroupAdminDiscordIds(envObj).has(uid);
+}
+
+/**
+ * Yalnızca Developer rolündeki Discord oturumu için güvenli teşhis özeti üretir.
+ * ASLA tam kimlik, isim veya ham env değeri döndürmez (yalnızca sayı, son 4 hane ve durum kodu).
+ */
+function evaluateChatGroupAdminDiagnostics(req, envObj = process.env) {
+  const { envEmpty, ids } = parseChatGroupAdminDiscordIds(envObj);
+  const configuredLast4List = [...ids].map((id) => id.slice(-4));
+  const configuredCount = ids.size;
+
+  const hasDiscordSession = Boolean(
+    req &&
+      req.session &&
+      req.session.user &&
+      req.session.user.kind !== 'google' &&
+      (!req.session.identity || req.session.identity.kind === 'discord') &&
+      /^\d{15,25}$/.test(String(req.session.user.id || '').trim())
+  );
+
+  const sessionUid = hasDiscordSession ? String(req.session.user.id).trim() : '';
+  const sessionLast4 = sessionUid ? sessionUid.slice(-4) : null;
+
+  let code = 'NOT_DISCORD_SESSION';
+  if (!hasDiscordSession) {
+    code = 'NOT_DISCORD_SESSION';
+  } else if (envEmpty) {
+    code = 'ENV_EMPTY';
+  } else if (configuredCount === 0) {
+    code = 'ENV_PARSE_EMPTY';
+  } else if (ids.has(sessionUid)) {
+    code = 'MATCH';
+  } else {
+    code = 'NOT_IN_LIST';
+  }
+
+  return {
+    configuredCount,
+    sessionLast4,
+    configuredLast4List,
+    code,
+  };
 }
 
 function isModPanelAlsoDeveloper(envObj = process.env) {
@@ -644,9 +722,12 @@ module.exports = {
   isGroupConvId,
   isChatEnabled,
   isChatGoogleMembersEnabled,
+  parseChatGroupAdminDiscordIds,
   getChatGroupAdminDiscordIds,
+  logChatGroupAdminStartupStatus,
   isDiscordIdGroupAdmin,
   isChatGroupAdmin,
+  evaluateChatGroupAdminDiagnostics,
   isModPanelAlsoDeveloper,
   isValidHexColor,
   getRingPresetById,

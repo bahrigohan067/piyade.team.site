@@ -1,14 +1,25 @@
 const zlib = require('zlib');
 
 const COMPRESSIBLE_MIME_REGEX =
-  /^(text\/|application\/(javascript|x-javascript|json|xml|manifest\+json|ld\+json)|image\/svg\+xml)/i;
+  /^(text\/(?!event-stream\b)|application\/(javascript|x-javascript|json|xml|manifest\+json|ld\+json)|image\/svg\+xml)/i;
 
 /**
  * Node.js 20 yerleşik zlib modülünü kullanan Gzip / Brotli HTTP sıkıştırma katmanı.
  * Harici bağımlılık gerektirmez; hem res.send (HTML, JSON, XML) hem de express.static
  * akışlarını (CSS, JS) sıkıştırır.
+ * ÖNEMLİ: SSE (text/event-stream) ve no-transform akışları ASLA tamponlanmaz ve sıkıştırılmaz.
  */
 function compressionMiddleware(req, res, next) {
+  const acceptHeader = String(req.headers.accept || '');
+  const reqPath = String(req.path || req.url || '');
+  // SSE isteklerini en baştan tamamen passthrough bırak (tamponlama ve sıkıştırma yok)
+  if (/text\/event-stream/i.test(acceptHeader) || /\/akis(\?|$)/i.test(reqPath)) {
+    if (typeof res.flush !== 'function') {
+      res.flush = () => {};
+    }
+    return next();
+  }
+
   const acceptEncoding = String(req.headers['accept-encoding'] || '');
   if (!acceptEncoding || req.method === 'HEAD') {
     return next();
@@ -31,11 +42,24 @@ function compressionMiddleware(req, res, next) {
 
   function shouldCompressResponse() {
     if (res.getHeader('Content-Encoding')) return false;
+    const cacheControl = String(res.getHeader('Cache-Control') || '');
+    if (/\bno-transform\b/i.test(cacheControl)) return false;
     const status = res.statusCode || 200;
     if (status === 204 || status === 304 || (status >= 100 && status < 200)) return false;
     const contentType = String(res.getHeader('Content-Type') || '');
+    if (/^text\/event-stream\b/i.test(contentType)) return false;
     return COMPRESSIBLE_MIME_REGEX.test(contentType);
   }
+
+  res.flush = function safeFlush() {
+    if (!passthroughMode && !shouldCompressResponse()) {
+      passthroughMode = true;
+      if (chunks.length > 0) {
+        const pending = Buffer.concat(chunks.splice(0, chunks.length));
+        origWrite(pending);
+      }
+    }
+  };
 
   // writeHead doğrudan çağrıldığında sıkıştırılabilir bir yanıt ise Content-Length henüz yazılmasın
   res.writeHead = function patchedWriteHead(statusCode, statusMessage, headers) {

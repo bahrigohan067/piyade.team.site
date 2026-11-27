@@ -10,7 +10,8 @@ const authConfig = require('../config/auth.config');
 const brandConfig = require('../config/brand.config');
 const chatConfig = require('../config/chat.config');
 const gamesConfig = require('../config/games.config');
-const { isRegisteredMember } = require('../config/roles.config');
+const { isRegisteredMember, isDeveloper } = require('../config/roles.config');
+const { requireFreshDeveloper } = require('../middlewares/auth');
 const botApiClient = require('../services/botApiClient');
 const {
   getChatStore,
@@ -374,17 +375,34 @@ function requireNotBannedFromChat(req, res, next) {
   return next();
 }
 
+function isAuthorDiscordAdmin(authorId) {
+  const clean = String(authorId || '').trim();
+  if (!clean || parseUnifiedGoogleId(clean)) return false;
+  return chatConfig.isDiscordIdGroupAdmin(clean);
+}
+
+function enrichMessageForClient(msg) {
+  if (!msg || typeof msg !== 'object') return msg;
+  const isAdmin = isAuthorDiscordAdmin(msg.from);
+  return {
+    ...msg,
+    isAdmin,
+  };
+}
+
 function buildMemberPublicInfo(memberObj, fallbackId, store) {
   const id = String((memberObj && memberObj.id) || fallbackId || '');
   const ring = store.getPublicRingForUser(id);
   const kind = (memberObj && memberObj.kind) || (parseUnifiedGoogleId(id) ? 'google' : 'discord');
+  const isAdmin = kind === 'discord' && chatConfig.isDiscordIdGroupAdmin(id);
   const avatarUrl =
     (memberObj && (memberObj.robloxAvatarUrl || memberObj.discordAvatarUrl)) || null;
   return {
     id,
     kind,
     badgeKind: kind === 'google' ? 'site_member' : 'discord_member',
-    isGroupAdmin: kind === 'discord' && chatConfig.isDiscordIdGroupAdmin(id),
+    isAdmin,
+    isGroupAdmin: isAdmin,
     displayName: (memberObj && memberObj.displayName) || id,
     avatarUrl,
     discordAvatarUrl: (memberObj && memberObj.discordAvatarUrl) || null,
@@ -564,9 +582,35 @@ router.get('/', requireChatMember, async (req, res) => {
     muted: store.isGroupMuted(userId, grp.id),
   }));
 
+  // Developer teşhis kutusu: YALNIZCA Bot API'den TAZE doğrulanmış Developer rolündeki Discord oturumu için
+  let isFreshDeveloper = false;
+  let devDiagnostics = null;
+  if (!isGoogleChatUser(user) && isDeveloper(user.roles, user.level)) {
+    try {
+      const freshRolesData = await botApiClient.getMemberRoles(userId);
+      const freshRoles = (freshRolesData && freshRolesData.roles) || [];
+      const freshLevel = (freshRolesData && freshRolesData.level) || 'unregistered';
+      if (isDeveloper(freshRoles, freshLevel)) {
+        isFreshDeveloper = true;
+        devDiagnostics = {
+          admin: chatConfig.evaluateChatGroupAdminDiagnostics(req),
+          realtime: chatSseHub.getDiagnosticsSnapshot(),
+        };
+      }
+    } catch (_) {
+      isFreshDeveloper = false;
+      devDiagnostics = null;
+    }
+  }
+
+  const isChatFullscreen = Boolean(
+    !(activeSanction && activeSanction.type === 'ban') && hasConsented
+  );
+
   return res.render('pages/chat', {
     title: req.t('chat.pageTitle'),
     isChatPage: true,
+    isChatFullscreen,
     needsConsent: !hasConsented,
     policyVersion: chatConfig.POLICY_VERSION,
     activeSanction: activeSanction
@@ -582,6 +626,8 @@ router.get('/', requireChatMember, async (req, res) => {
     unreadNotices,
     reportCategories: REPORT_CATEGORIES,
     isGroupAdmin: chatConfig.isChatGroupAdmin(req),
+    isFreshDeveloper,
+    devDiagnostics,
     chatGroups: chatGroupsMeta,
     defaultGroupId: chatConfig.DEFAULT_GROUP_ID,
     brandIconUrl: brandConfig.ASSETS.icon192,
@@ -665,14 +711,29 @@ router.get('/api/okunmamis', requireChatMember, (req, res) => {
 });
 
 // ============================================================================
-// SSE GERÇEK ZAMANLI AKIŞ
+// SSE GERÇEK ZAMANLI AKIŞ VE DEVELOPER TEŞHİS UÇ NOKTASI
 // ============================================================================
 
 router.get('/akis', requireChatMember, requireChatConsent, requireNotBannedFromChat, (req, res) => {
   const store = getChatStore();
   const userId = String(req.session.user.id);
   const initialUnread = store.getTotalUnreadCount(userId);
-  chatSseHub.subscribe(userId, req, res, { initialUnread });
+  const reason = typeof req.query.reason === 'string' ? req.query.reason.trim() : null;
+  chatSseHub.subscribe(userId, req, res, { initialUnread, reason });
+});
+
+/**
+ * GET /sohbet/api/diagnostik
+ * YALNIZCA Bot API'den taze doğrulanmış Developer rolündeki Discord oturumu erişebilir.
+ * Başkalarına 404 döner; hiçbir tam kimlik veya isim içermez.
+ */
+router.get('/api/diagnostik', requireFreshDeveloper, (req, res) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  return res.json({
+    ok: true,
+    admin: chatConfig.evaluateChatGroupAdminDiagnostics(req),
+    realtime: chatSseHub.getDiagnosticsSnapshot(),
+  });
 });
 
 // ============================================================================
@@ -804,6 +865,7 @@ router.get('/api/uye-karti/:targetId', requireChatMember, requireChatConsent, re
         kind: 'google',
         badgeKind: 'site_member',
         isSelf: targetId === userId,
+        isAdmin: false,
         isGroupAdmin: false,
         displayName: showGames ? (gm.displayName || gm.nickname || targetId) : (gm.nickname || targetId),
         avatarUrl: (rbGame && rbGame.robloxAvatarUrl) || null,
@@ -866,6 +928,8 @@ router.get('/api/uye-karti/:targetId', requireChatMember, requireChatConsent, re
       })
     : [];
 
+  const targetIsAdmin = chatConfig.isDiscordIdGroupAdmin(targetId);
+
   return res.json({
     ok: true,
     cached: fromCache,
@@ -874,7 +938,8 @@ router.get('/api/uye-karti/:targetId', requireChatMember, requireChatConsent, re
       kind: 'discord',
       badgeKind: 'discord_member',
       isSelf: targetId === userId,
-      isGroupAdmin: chatConfig.isDiscordIdGroupAdmin(targetId),
+      isAdmin: targetIsAdmin,
+      isGroupAdmin: targetIsAdmin,
       displayName: rawMember.displayName || targetId,
       avatarUrl: rawMember.robloxAvatarUrl || rawMember.discordAvatarUrl || null,
       ring,
@@ -1012,6 +1077,8 @@ router.get('/api/grup/:grupId/mesajlar', requireChatMember, requireChatConsent, 
     senders[sid] = buildMemberPublicInfo(memberMap.get(sid), sid, store);
   }
 
+  const enrichedMessages = page.messages.map(enrichMessageForClient);
+
   return res.json({
     ok: true,
     convId,
@@ -1024,7 +1091,7 @@ router.get('/api/grup/:grupId/mesajlar', requireChatMember, requireChatConsent, 
       avatarUrl: brandConfig.ASSETS.icon192,
       allowAttachments: Boolean(grp.allowAttachments),
     },
-    messages: page.messages,
+    messages: enrichedMessages,
     senders,
     hasMore: page.hasMore,
     isGroupAdmin: chatConfig.isChatGroupAdmin(req),
@@ -1185,12 +1252,25 @@ router.post(
     }
 
     if (appended.duplicate) {
+      const dupMsg = enrichMessageForClient(appended.message);
+      const dupSender = buildMemberPublicInfo(
+        {
+          id: userId,
+          kind: isGoogleChatUser(req.session.user) ? 'google' : 'discord',
+          displayName: req.session.user.displayName || req.session.user.username || userId,
+          robloxAvatarUrl: isGoogleChatUser(req.session.user) ? req.session.user.avatarUrl || null : null,
+          discordAvatarUrl: !isGoogleChatUser(req.session.user) ? req.session.user.avatarUrl || null : null,
+        },
+        userId,
+        store
+      );
       return res.status(200).json({
         ok: true,
         duplicate: true,
         convId,
         groupId: grp.id,
-        message: appended.message,
+        message: dupMsg,
+        sender: dupSender,
       });
     }
 
@@ -1232,7 +1312,7 @@ router.post(
       } catch (_) {}
     }
 
-    const msg = appended.message;
+    const msg = enrichMessageForClient(appended.message);
     let senderResolved = null;
     try {
       const lkp = await lookupUnifiedMembers(req.session.user, [userId]);
@@ -1476,7 +1556,7 @@ router.get('/api/sohbet/:digerId/mesajlar', requireChatMember, requireChatConsen
     ok: true,
     convId,
     other: buildMemberPublicInfo(otherMember, otherId, store),
-    messages: page.messages,
+    messages: page.messages.map(enrichMessageForClient),
     hasMore: page.hasMore,
     canSeeOtherRead,
     state: {
@@ -1680,7 +1760,7 @@ router.post(
         ok: true,
         duplicate: true,
         convId,
-        message: appended.message,
+        message: enrichMessageForClient(appended.message),
       });
     }
 
@@ -1718,14 +1798,19 @@ router.post(
       } catch (_) {}
     }
 
-    const msg = appended.message;
+    const msg = enrichMessageForClient(appended.message);
     const recipientConnected = chatSseHub.isUserConnected(otherId);
     if (recipientConnected) {
       store.markDelivered(convId, otherId, msg.ts);
     }
 
+    const senderIsGoogle = isGoogleChatUser(req.session.user);
+    const senderIsAdmin = !senderIsGoogle && chatConfig.isDiscordIdGroupAdmin(userId);
     const senderInfo = {
       id: userId,
+      kind: senderIsGoogle ? 'google' : 'discord',
+      isAdmin: senderIsAdmin,
+      isGroupAdmin: senderIsAdmin,
       displayName: req.session.user.displayName || req.session.user.username || userId,
       avatarUrl: req.session.user.avatarUrl || null,
       ring: store.getPublicRingForUser(userId),

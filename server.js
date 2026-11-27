@@ -5,6 +5,7 @@ const helmet = require('helmet');
 
 const appConfig = require('./config/app.config');
 const authConfig = require('./config/auth.config');
+const chatConfig = require('./config/chat.config');
 const siteConfig = require('./config/site.config');
 const PersistentSessionStore = require('./services/sessionStore');
 const botApiClient = require('./services/botApiClient');
@@ -150,6 +151,16 @@ function createServerApp() {
 
   // Madde 2: Sağlık Kontrolü (/health) — Sunucunun ayakta olduğunu ve BOT_API_URL erişim durumunu gösterir (Secret içermez)
   app.get('/health', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    // İstemci yeniden bağlanma yoklamaları için hafif ve anlık yanıt (Bot API'yi beklemez)
+    if (req.headers['x-health-probe'] === 'light' || req.query.light === '1') {
+      return res.json({
+        status: 'ok',
+        service: 'piyade-team-web',
+        sunucu: 'ayakta',
+        timestamp: Date.now(),
+      });
+    }
     const botProbe = await botApiClient.probeBotApiStatus();
     const storeCheck = sessionStore.testWriteAccess();
 
@@ -215,6 +226,7 @@ if (require.main === module) {
 
     // Sohbet etkinse 30 günlük saklama + moderasyon vaka temizliği zamanlayıcısını başlat
     if (appConfig.isChatEnabled()) {
+      chatConfig.logChatGroupAdminStartupStatus();
       const chatStore = getChatStore();
       chatStore.startCleanupScheduler({
         onAfterCleanup: () => {

@@ -316,6 +316,32 @@ const googleSignupLimiter = rateLimit({
   },
 });
 
+/**
+ * Developer Sunucu Davet Doğrulama Limiter'ı (Kullanıcı başına dakikada max 6 doğrulama)
+ */
+const serverVerifyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  keyGenerator: (req) => {
+    const uid = req.session && req.session.user && req.session.user.id;
+    if (uid) return `server_verify_user:${String(uid)}`;
+    return `server_verify_ip:${ipKeyGenerator(req.ip)}`;
+  },
+  handler: (req, res) => {
+    const msg = req.t
+      ? req.t('adminServers.errVerifyRateLimited')
+      : 'Dakikada en fazla 6 davet doğrulaması yapabilirsiniz. Lütfen biraz bekleyin.';
+    return res.status(429).json({
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: msg,
+    });
+  },
+});
+
 module.exports = {
   generalLimiter,
   globalLimiter: generalLimiter,
@@ -333,4 +359,5 @@ module.exports = {
   abuseReportLimiter,
   statusLookupLimiter,
   googleSignupLimiter,
+  serverVerifyLimiter,
 };

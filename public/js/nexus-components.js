@@ -1809,13 +1809,6 @@
     const controller = createOrbitalOverlayController(overlay);
     global.NexusOrbitalOverlay = controller;
 
-    const forms = Array.from(document.querySelectorAll('form[data-orbital-loader="true"]'));
-    if (forms.length === 0) {
-      const fallback = document.getElementById('adminWarnForm');
-      if (fallback) forms.push(fallback);
-    }
-    if (forms.length === 0) return;
-
     if (controller.closeBtn) {
       controller.closeBtn.addEventListener('click', () => {
         if (controller.getMode() === 'error') {
@@ -1835,6 +1828,13 @@
         controller.close();
       }
     });
+
+    const forms = Array.from(document.querySelectorAll('form[data-orbital-loader="true"]'));
+    if (forms.length === 0) {
+      const fallback = document.getElementById('adminWarnForm');
+      if (fallback) forms.push(fallback);
+    }
+    if (forms.length === 0) return;
 
     global.NexusOrbitalUploadReady = true;
 

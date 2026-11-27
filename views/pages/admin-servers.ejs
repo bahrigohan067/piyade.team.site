@@ -1,0 +1,478 @@
+<%- include('../layouts/header') %>
+<%
+  const safeAdmin = (typeof adminData !== 'undefined' && adminData) ? adminData : { servers: [], totalCount: 0, maxServers: 24, invalidCount: 0, flaggedCount: 0, lastRefreshAt: null };
+  const serverList = Array.isArray(safeAdmin.servers) ? safeAdmin.servers : [];
+  const safeAudits = Array.isArray(auditLogs) ? auditLogs : [];
+  const activeLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
+  const numberLocale = activeLang === 'en' ? 'en-US' : 'tr-TR';
+
+  const formatDateTime = (iso) => {
+    if (!iso) return t('servers.lastUpdatedNever');
+    try {
+      const dt = new Date(iso);
+      if (Number.isNaN(dt.getTime())) return t('servers.lastUpdatedNever');
+      return new Intl.DateTimeFormat(numberLocale, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(dt);
+    } catch (_) {
+      return iso;
+    }
+  };
+
+  const formatCount = (n) => (typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString(numberLocale) : '');
+
+  const adminClientI18n = {
+    lang: activeLang,
+    numberLocale,
+    verifying: t('adminServers.btnVerifying'),
+    verifyBtn: t('adminServers.btnVerify'),
+    adding: t('adminServers.btnAdding'),
+    addBtn: t('adminServers.btnAdd'),
+    onlineLabel: t('servers.onlineLabel'),
+    membersLabel: t('servers.membersLabel'),
+    createdPrefix: t('servers.createdPrefix'),
+    joinBtn: t('servers.joinBtn'),
+    invalidBtn: t('servers.invalidBtn'),
+    invalidNotice: t('servers.invalidNotice'),
+    badgeCommunity: t('servers.badgeCommunity'),
+    badgeVerified: t('servers.badgeVerified'),
+    badgePartnered: t('servers.badgePartnered'),
+    expiresWarn: t('adminServers.expiresWarning'),
+    flaggedWarn: t('adminServers.flaggedAddWarning'),
+    flaggedConfirmLabel: t('adminServers.flaggedConfirmCheck'),
+    loaderRefreshingAll: t('adminServers.loaderRefreshingAll'),
+    loaderRefreshingOne: t('adminServers.loaderRefreshingOne'),
+    loaderProgressFmt: t('adminServers.loaderProgressFmt'),
+    loaderSuccess: t('adminServers.loaderSuccess'),
+    loaderErrorTitle: t('adminServers.loaderErrorTitle'),
+    errGeneric: t('adminServers.errGeneric'),
+    deleteConfirmText: t('adminServers.deleteModalDesc'),
+  };
+%>
+
+<div
+  id="adminServersPage"
+  class="admin-servers-page"
+  data-csrf="<%= csrfToken %>"
+  data-admin-servers-i18n="<%= JSON.stringify(adminClientI18n) %>"
+>
+  <header class="admin-servers-head">
+    <div>
+      <div class="admin-servers-badges">
+        <span class="badge badge-danger">Developer</span>
+        <span class="badge badge-primary"><%= safeAdmin.totalCount %> / <%= safeAdmin.maxServers %> <%= t('adminServers.countUnit') %></span>
+      </div>
+      <h1 class="admin-servers-title">🌐 <%= t('adminServers.heading') %></h1>
+      <p class="admin-servers-sub"><%= t('adminServers.subtitle') %></p>
+    </div>
+
+    <div class="admin-servers-head-actions">
+      <a href="/sunucular" class="btn btn-secondary btn-sm">
+        <span>🌐 <%= t('adminServers.viewMemberPageBtn') %></span>
+      </a>
+      <button type="button" id="refreshAllServersBtn" class="btn btn-primary btn-sm">
+        <span>🔄 <%= t('adminServers.refreshAllBtn') %></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- KIRMIZI ÖZET UYARI: Geçersiz Davetler -->
+  <% if (safeAdmin.invalidCount > 0) { %>
+    <div class="alert alert-danger admin-servers-summary-alert" role="alert" id="invalidServersSummaryBanner">
+      <span class="admin-servers-alert-icon" aria-hidden="true">❌</span>
+      <div>
+        <strong><%= t('adminServers.invalidSummary').replace('{count}', String(safeAdmin.invalidCount)) %></strong>
+        <p class="admin-servers-alert-sub"><%= t('adminServers.invalidSummaryHelp') %></p>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- SARI ÖZET UYARI: İnceleme Bekleyen (Flagged) Sunucular -->
+  <% if (safeAdmin.flaggedCount > 0) { %>
+    <div class="alert alert-warning admin-servers-summary-alert" role="alert" id="flaggedServersSummaryBanner">
+      <span class="admin-servers-alert-icon" aria-hidden="true">⚠️</span>
+      <div>
+        <strong><%= t('adminServers.flaggedSummary').replace('{count}', String(safeAdmin.flaggedCount)) %></strong>
+        <p class="admin-servers-alert-sub"><%= t('adminServers.flaggedSummaryHelp') %></p>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Flash Mesajları -->
+  <div id="adminServersFeedback" class="alert <%= flashError ? 'alert-danger' : 'alert-success' %> admin-servers-feedback" role="status" <%= (flashSuccess || flashError) ? '' : 'hidden' %>>
+    <span id="adminServersFeedbackText"><%= flashError || flashSuccess || '' %></span>
+  </div>
+
+  <!-- ======================================================================
+       1) YENİ SUNUCU EKLEME FORMU (DOĞRULA -> CANLI ÜYE KARTI ÖNİZLEME -> EKLE)
+       ====================================================================== -->
+  <section class="glass-card admin-servers-add-card" aria-labelledby="addServerHeading">
+    <div class="admin-servers-section-head">
+      <h2 id="addServerHeading" class="admin-servers-section-title">➕ <%= t('adminServers.addHeading') %></h2>
+      <span class="admin-servers-hint"><%= t('adminServers.addFormatsHint') %></span>
+    </div>
+
+    <form
+      id="addServerForm"
+      action="/yonetim/sunucular/ekle"
+      method="POST"
+      class="admin-servers-add-form"
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <input type="hidden" name="_idempotencyKey" id="addServerIdempotencyKey" value="<%= idempotencyKey %>" />
+
+      <div class="admin-servers-add-grid">
+        <div class="admin-servers-add-fields">
+          <div class="form-group">
+            <label class="form-label" for="serverInviteInput"><%= t('adminServers.labelInvite') %></label>
+            <div class="admin-servers-invite-row">
+              <input
+                type="text"
+                id="serverInviteInput"
+                name="invite"
+                class="form-control"
+                placeholder="<%= t('adminServers.placeholderInvite') %>"
+                maxlength="200"
+                autocomplete="off"
+                required
+              />
+              <button type="button" id="verifyInviteBtn" class="btn btn-secondary">
+                <span>🔍 <%= t('adminServers.btnVerify') %></span>
+              </button>
+            </div>
+            <div class="form-text"><%= t('adminServers.inviteHelp') %></div>
+          </div>
+
+          <div class="grid grid-2 admin-servers-meta-inputs">
+            <div class="form-group">
+              <label class="form-label" for="serverLabelInput"><%= t('adminServers.labelFallbackName') %></label>
+              <input
+                type="text"
+                id="serverLabelInput"
+                name="label"
+                class="form-control"
+                placeholder="<%= t('adminServers.placeholderFallbackName') %>"
+                maxlength="60"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="serverNoteInput"><%= t('adminServers.labelInternalNote') %></label>
+              <input
+                type="text"
+                id="serverNoteInput"
+                name="note"
+                class="form-control"
+                placeholder="<%= t('adminServers.placeholderInternalNote') %>"
+                maxlength="300"
+              />
+            </div>
+          </div>
+
+          <!-- Doğrulama Uyarıları (Süreli davet veya Flagged içerik) -->
+          <div id="verifyErrorBox" class="alert alert-danger" role="alert" hidden></div>
+          <div id="verifyExpiryWarnBox" class="alert alert-warning" role="status" hidden></div>
+          <div id="verifyFlaggedWarnBox" class="alert alert-danger" role="alert" hidden>
+            <p id="verifyFlaggedText" class="admin-servers-flagged-text"></p>
+            <label class="admin-servers-confirm-check">
+              <input type="checkbox" id="confirmFlaggedCheckbox" name="confirmFlagged" value="true" />
+              <span><%= t('adminServers.flaggedConfirmCheck') %></span>
+            </label>
+          </div>
+
+          <div class="admin-servers-submit-row">
+            <button
+              type="submit"
+              id="addServerSubmitBtn"
+              class="btn btn-primary"
+              <%= safeAdmin.totalCount >= safeAdmin.maxServers ? 'disabled' : '' %>
+            >
+              <span>➕ <%= t('adminServers.btnAdd') %></span>
+            </button>
+            <span class="admin-servers-order-tip"><%= t('adminServers.addedToEndTip') %></span>
+          </div>
+        </div>
+
+        <!-- Canlı Üye Kartı Önizlemesi -->
+        <div class="admin-servers-preview-pane" aria-live="polite">
+          <div class="admin-servers-preview-label"><%= t('adminServers.previewLabel') %></div>
+          <div id="serverVerifyPreviewEmpty" class="admin-servers-preview-empty">
+            <span aria-hidden="true">🃏</span>
+            <p><%= t('adminServers.previewEmptyHint') %></p>
+          </div>
+          <div id="serverVerifyPreviewSlot" class="admin-servers-preview-slot" hidden></div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================================================================
+       2) KAYITLI SUNUCULAR LİSTESİ (SÜRÜKLE-BIRAK + YUKARI/AŞAĞI + EYLEMLER)
+       ====================================================================== -->
+  <section class="glass-card admin-servers-list-card" aria-labelledby="serverListHeading">
+    <div class="admin-servers-section-head">
+      <div>
+        <h2 id="serverListHeading" class="admin-servers-section-title">📋 <%= t('adminServers.listHeading') %></h2>
+        <p class="admin-servers-list-sub">
+          <%= t('servers.lastUpdatedPrefix') %>
+          <strong id="adminLastRefreshText"><%= formatDateTime(safeAdmin.lastRefreshAt) %></strong>
+          · <%= t('adminServers.dragReorderHint') %>
+        </p>
+      </div>
+    </div>
+
+    <% if (serverList.length === 0) { %>
+      <p class="admin-servers-empty-list"><%= t('adminServers.emptyList') %></p>
+    <% } else { %>
+      <ul id="adminServersList" class="admin-servers-list">
+        <% serverList.forEach(function (srv, idx) {
+          const prev = srv.preview || {};
+          const cache = srv.cache || {};
+          const isInvalid = srv.status === 'invalid';
+          const isStale = srv.status === 'stale';
+          const isFlagged = srv.status === 'flagged';
+          const isOk = srv.status === 'ok';
+          const hasExpiry = Boolean(cache.expiresAt);
+        %>
+          <li
+            class="admin-srv-row<%= srv.featured ? ' is-featured' : '' %><%= isInvalid ? ' is-invalid' : '' %><%= isFlagged ? ' is-flagged' : '' %><%= srv.hidden ? ' is-hidden' : '' %>"
+            draggable="true"
+            data-server-id="<%= srv.id %>"
+            data-server-code="<%= srv.code %>"
+            data-server-label="<%= srv.label %>"
+            data-server-note="<%= srv.note || '' %>"
+            data-server-name="<%= prev.name || srv.label %>"
+          >
+            <!-- Sürükleme Tutacı + Sıra -->
+            <div class="admin-srv-drag-col">
+              <span class="admin-srv-drag-handle" title="<%= t('adminServers.dragHandleTitle') %>" aria-hidden="true">⋮⋮</span>
+              <span class="admin-srv-order-num">#<%= idx + 1 %></span>
+            </div>
+
+            <!-- Canlı Küçük Önizleme Simgesi -->
+            <div class="admin-srv-thumb">
+              <% if (prev.iconUrl) { %>
+                <img src="<%= prev.iconUrl %>" alt="<%= prev.name || srv.label %>" width="48" height="48" loading="lazy" decoding="async" />
+              <% } else { %>
+                <span class="admin-srv-thumb-fallback" aria-hidden="true"><%= prev.initials || 'PW' %></span>
+              <% } %>
+            </div>
+
+            <!-- Sunucu Bilgileri & Durum Çipleri -->
+            <div class="admin-srv-info">
+              <div class="admin-srv-name-row">
+                <strong class="admin-srv-name"><%= prev.name || srv.label %></strong>
+                <% if (srv.featured) { %>
+                  <span class="badge badge-primary admin-srv-chip">⭐ <%= t('servers.featuredRibbon') %></span>
+                <% } %>
+                <% if (isOk) { %>
+                  <span class="badge badge-success admin-srv-chip">✅ <%= t('adminServers.statusOk') %></span>
+                <% } else if (isInvalid) { %>
+                  <span class="badge badge-danger admin-srv-chip">❌ <%= t('adminServers.statusInvalid') %></span>
+                <% } else if (isFlagged) { %>
+                  <span class="badge badge-warning admin-srv-chip">⚠️ <%= t('adminServers.statusFlagged') %></span>
+                <% } else { %>
+                  <span class="badge badge-neutral admin-srv-chip">🕒 <%= t('adminServers.statusStale') %></span>
+                <% } %>
+                <% if (srv.hidden) { %>
+                  <span class="badge badge-neutral admin-srv-chip">🙈 <%= t('adminServers.statusHidden') %></span>
+                <% } %>
+              </div>
+
+              <div class="admin-srv-meta-line">
+                <code class="admin-srv-code">discord.gg/<%= srv.code %></code>
+                <% if (prev.onlineCount !== null && prev.onlineCount !== undefined) { %>
+                  <span class="admin-srv-stat">🟢 <%= formatCount(prev.onlineCount) %> <%= t('servers.onlineLabel') %></span>
+                <% } %>
+                <% if (prev.memberCount !== null && prev.memberCount !== undefined) { %>
+                  <span class="admin-srv-stat">👥 <%= formatCount(prev.memberCount) %> <%= t('servers.membersLabel') %></span>
+                <% } %>
+                <span class="admin-srv-fetched">
+                  <%= t('adminServers.lastSyncLabel') %>: <%= formatDateTime(cache.fetchedAt) %>
+                </span>
+              </div>
+
+              <% if (srv.label && prev.name && srv.label !== prev.name) { %>
+                <div class="admin-srv-subnote">
+                  <%= t('adminServers.fallbackLabelPrefix') %>: <span><%= srv.label %></span>
+                </div>
+              <% } %>
+
+              <% if (srv.note) { %>
+                <div class="admin-srv-internal-note">
+                  📝 <%= t('adminServers.notePrefix') %>: <%= srv.note %>
+                </div>
+              <% } %>
+
+              <% if (hasExpiry) { %>
+                <div class="admin-srv-expiry-warn" role="status">
+                  ⏳ <%= t('adminServers.expiresWarning').replace('{date}', formatDateTime(cache.expiresAt)) %>
+                </div>
+              <% } %>
+
+              <% if (isFlagged && Array.isArray(srv.flaggedReasons) && srv.flaggedReasons.length > 0) { %>
+                <div class="admin-srv-flagged-note">
+                  ⚠️ <%= t('adminServers.flaggedReasonPrefix') %>: <code><%= srv.flaggedReasons.join(', ') %></code>
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Eylem Düğmeleri -->
+            <div class="admin-srv-actions">
+              <div class="admin-srv-move-group">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-xs admin-srv-move-up"
+                  title="<%= t('adminServers.moveUpTitle') %>"
+                  aria-label="<%= t('adminServers.moveUpTitle') %>"
+                  <%= idx === 0 ? 'disabled' : '' %>
+                >↑</button>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-xs admin-srv-move-down"
+                  title="<%= t('adminServers.moveDownTitle') %>"
+                  aria-label="<%= t('adminServers.moveDownTitle') %>"
+                  <%= idx === serverList.length - 1 ? 'disabled' : '' %>
+                >↓</button>
+              </div>
+
+              <% if (isFlagged) { %>
+                <form action="/yonetim/sunucular/<%= encodeURIComponent(srv.id) %>/onayla" method="POST" class="admin-srv-inline-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn btn-primary btn-xs">
+                    ✅ <%= t('adminServers.btnApproveFlagged') %>
+                  </button>
+                </form>
+              <% } %>
+
+              <% if (!srv.featured) { %>
+                <form action="/yonetim/sunucular/<%= encodeURIComponent(srv.id) %>/one-cikar" method="POST" class="admin-srv-inline-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                  <button type="submit" class="btn btn-secondary btn-xs" title="<%= t('adminServers.btnFeature') %>">
+                    ⭐ <%= t('adminServers.btnFeature') %>
+                  </button>
+                </form>
+              <% } %>
+
+              <form action="/yonetim/sunucular/<%= encodeURIComponent(srv.id) %>/gizle" method="POST" class="admin-srv-inline-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                <button type="submit" class="btn btn-secondary btn-xs">
+                  <%= srv.hidden ? '👁️ ' + t('adminServers.btnShow') : '🙈 ' + t('adminServers.btnHide') %>
+                </button>
+              </form>
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-xs admin-srv-edit-btn"
+                data-server-id="<%= srv.id %>"
+              >
+                ✏️ <%= t('adminServers.btnEdit') %>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-xs admin-srv-refresh-btn"
+                data-server-id="<%= srv.id %>"
+              >
+                🔄 <%= t('adminServers.btnRefreshOne') %>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-danger btn-xs admin-srv-delete-btn"
+                data-server-id="<%= srv.id %>"
+                data-server-name="<%= prev.name || srv.label %>"
+              >
+                🗑️ <%= t('adminServers.btnDelete') %>
+              </button>
+            </div>
+          </li>
+        <% }); %>
+      </ul>
+    <% } %>
+  </section>
+
+  <!-- ======================================================================
+       3) İÇERİKSİZ DENETİM KAYDI (SON 25 İŞLEM)
+       ====================================================================== -->
+  <% if (safeAudits.length > 0) { %>
+    <section class="glass-card admin-servers-audit-card" aria-labelledby="auditHeading">
+      <h2 id="auditHeading" class="admin-servers-section-title">🔒 <%= t('adminServers.auditHeading') %></h2>
+      <p class="admin-servers-audit-sub"><%= t('adminServers.auditSubtitle') %></p>
+      <div class="admin-servers-audit-table-wrap">
+        <table class="admin-servers-audit-table">
+          <thead>
+            <tr>
+              <th><%= t('adminServers.auditColTime') %></th>
+              <th><%= t('adminServers.auditColActor') %></th>
+              <th><%= t('adminServers.auditColAction') %></th>
+              <th><%= t('adminServers.auditColCode') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% safeAudits.forEach(function (row) { %>
+              <tr>
+                <td><%= formatDateTime(row.ts) %></td>
+                <td><code><%= row.actorId %></code></td>
+                <td><span class="badge badge-neutral"><%= row.action %></span></td>
+                <td><code><%= row.code || '—' %></code></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</div>
+
+<!-- DÜZENLEME MODALI -->
+<div class="chat-modal-backdrop" id="editServerModal" hidden aria-hidden="true">
+  <div class="chat-modal-card chat-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="editServerModalTitle">
+    <div class="chat-modal-header">
+      <h3 id="editServerModalTitle" class="chat-modal-title">✏️ <%= t('adminServers.editModalTitle') %></h3>
+      <button type="button" class="chat-icon-btn" id="editServerCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+    </div>
+    <form id="editServerForm" class="chat-modal-body" method="POST" action="">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <div class="form-group">
+        <label class="form-label" for="editServerLabelInput"><%= t('adminServers.labelFallbackName') %></label>
+        <input type="text" id="editServerLabelInput" name="label" class="form-control" maxlength="60" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="editServerNoteInput"><%= t('adminServers.labelInternalNote') %></label>
+        <textarea id="editServerNoteInput" name="note" class="form-control" rows="3" maxlength="300"></textarea>
+      </div>
+      <div class="chat-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="editServerCancelBtn"><%= t('chat.cancelBtn') %></button>
+        <button type="submit" class="btn btn-primary btn-sm">💾 <%= t('adminServers.btnSaveEdit') %></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SİLME ONAY MODALI -->
+<div class="chat-modal-backdrop" id="deleteServerModal" hidden aria-hidden="true">
+  <div class="chat-modal-card chat-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="deleteServerModalTitle">
+    <div class="chat-modal-header">
+      <h3 id="deleteServerModalTitle" class="chat-modal-title">🗑️ <%= t('adminServers.deleteModalTitle') %></h3>
+      <button type="button" class="chat-icon-btn" id="deleteServerCloseBtn" aria-label="<%= t('chat.closeBtn') %>">✕</button>
+    </div>
+    <form id="deleteServerForm" class="chat-modal-body" method="POST" action="">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <p id="deleteServerModalDesc" class="admin-servers-delete-desc"></p>
+      <div class="chat-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="deleteServerCancelBtn"><%= t('chat.cancelBtn') %></button>
+        <button type="submit" class="btn btn-danger btn-sm">🗑️ <%= t('adminServers.btnConfirmDelete') %></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/orbital-loader') %>
+
+<%- include('../layouts/footer') %>

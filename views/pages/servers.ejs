@@ -1,0 +1,162 @@
+<%- include('../layouts/header') %>
+<%
+  const safeServers = Array.isArray(servers) ? servers : [];
+  const count = safeServers.length;
+  const startIdx = (typeof featuredIndex === 'number' && featuredIndex >= 0 && featuredIndex < count) ? featuredIndex : 0;
+  const activeLang = (typeof lang !== 'undefined' && lang === 'en') ? 'en' : 'tr';
+  const numberLocale = activeLang === 'en' ? 'en-US' : 'tr-TR';
+  const stepDeg = count > 0 ? (360 / count).toFixed(4) : '60';
+  const cfg = (typeof carouselConfig !== 'undefined' && carouselConfig) ? carouselConfig : {};
+  const serversI18n = {
+    lang: activeLang,
+    numberLocale,
+    dotSelectLabel: t('servers.dotSelectLabel'),
+    announceFormat: t('servers.announceFormat'),
+    onlineLabel: t('servers.onlineLabel'),
+    membersLabel: t('servers.membersLabel'),
+    createdPrefix: t('servers.createdPrefix'),
+    joinBtn: t('servers.joinBtn'),
+    invalidBtn: t('servers.invalidBtn'),
+    invalidNotice: t('servers.invalidNotice'),
+    staleHint: t('servers.staleHint'),
+    copiedToast: t('servers.copiedToast'),
+    copiedShort: t('servers.copiedShort'),
+    refreshing: t('servers.refreshing'),
+    refreshBtn: t('servers.refreshBtn'),
+    refreshedToast: t('servers.refreshedToast'),
+    errCooldown: t('servers.errCooldown'),
+    errRefreshFailed: t('servers.errRefreshFailed'),
+    lastUpdatedPrefix: t('servers.lastUpdatedPrefix'),
+    lastUpdatedNever: t('servers.lastUpdatedNever'),
+    reportLink: t('servers.reportLink'),
+    langPrefix: typeof langPrefix === 'string' ? langPrefix : '',
+  };
+  let formattedUpdated = t('servers.lastUpdatedNever');
+  if (updatedAt) {
+    try {
+      const dt = new Date(updatedAt);
+      if (!Number.isNaN(dt.getTime())) {
+        formattedUpdated = new Intl.DateTimeFormat(numberLocale, {
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(dt);
+      }
+    } catch (_) {}
+  }
+%>
+
+<section
+  id="piyadeServersSection"
+  class="srv-section"
+  aria-labelledby="serversPageHeading"
+  data-count="<%= count %>"
+  data-featured-index="<%= startIdx %>"
+  data-initial-etag="<%= typeof initialEtag === 'string' ? initialEtag : '' %>"
+  data-csrf="<%= typeof csrfToken === 'string' ? csrfToken : '' %>"
+  data-carousel-config="<%= JSON.stringify(cfg) %>"
+  data-servers-i18n="<%= JSON.stringify(serversI18n) %>"
+  style="--item-w: <%= cfg.itemWidth || 300 %>px; --item-h: <%= cfg.itemHeight || 410 %>px; --step: <%= stepDeg %>deg;"
+>
+  <header class="srv-page-head">
+    <div class="srv-kicker">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      <span><%= t('servers.kicker') %></span>
+    </div>
+    <h1 id="serversPageHeading" class="srv-page-title"><%= t('servers.heading') %></h1>
+    <p class="srv-page-subtitle"><%= t('servers.subtitle') %></p>
+  </header>
+
+  <% if (count === 0) { %>
+    <div class="glass-card srv-empty-state" role="status">
+      <span class="srv-empty-icon" aria-hidden="true">🌐</span>
+      <h2><%= t('servers.emptyTitle') %></h2>
+      <p><%= t('servers.emptyDesc') %></p>
+    </div>
+  <% } else { %>
+    <div
+      id="serversCarouselRoot"
+      class="srv-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="<%= t('servers.carouselAria') %>"
+    >
+      <div
+        id="serversCarouselStage"
+        class="srv-stage"
+        tabindex="0"
+        aria-label="<%= t('servers.stageAria') %>"
+      >
+        <div id="serversCarouselRing" class="srv-ring">
+          <% safeServers.forEach(function (card, idx) { %>
+            <%- include('../partials/server-card', {
+              card,
+              idx,
+              totalCount: count,
+              isFrontCard: idx === startIdx,
+              formatCreatedMonth,
+              langPrefix,
+              previewOnly: false,
+            }) %>
+          <% }); %>
+        </div>
+      </div>
+
+      <!-- Ekran Okuyucu İçin Öndeki Sunucu Duyurusu -->
+      <div id="serversLiveAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+      <!-- Gerçek Buton Noktaları (N >= 3 iken görünür) -->
+      <% if (count >= 3) { %>
+        <div id="serversDotsContainer" class="srv-dots" role="tablist" aria-label="<%= t('servers.dotsAria') %>">
+          <% safeServers.forEach(function (card, idx) { %>
+            <button
+              type="button"
+              class="srv-dot<%= idx === startIdx ? ' is-active' : '' %>"
+              data-dot-index="<%= idx %>"
+              aria-label="<%= t('servers.dotSelectLabel').replace('{index}', String(idx + 1)).replace('{name}', card.name) %>"
+              <% if (idx === startIdx) { %>aria-current="true"<% } %>
+            ></button>
+          <% }); %>
+        </div>
+
+        <% if (cfg.hint) { %>
+          <p id="serversCarouselHint" class="srv-hint"><%= cfg.hint %></p>
+        <% } %>
+      <% } %>
+    </div>
+  <% } %>
+
+  <!-- Son Güncelleme & Üye Yenile Düğmesi -->
+  <div class="srv-status-bar">
+    <div class="srv-updated-wrap">
+      <span class="srv-updated-label"><%= t('servers.lastUpdatedPrefix') %></span>
+      <time id="serversLastUpdatedTime" class="srv-updated-time" datetime="<%= updatedAt || '' %>"><%= formattedUpdated %></time>
+    </div>
+
+    <button
+      type="button"
+      id="serversRefreshBtn"
+      class="srv-refresh-btn"
+      aria-label="<%= t('servers.refreshBtn') %>"
+      title="<%= t('servers.refreshBtn') %>"
+    >
+      <svg class="srv-refresh-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      <span id="serversRefreshBtnText"><%= t('servers.refreshBtn') %></span>
+    </button>
+
+    <span id="serversRefreshStatus" class="srv-refresh-status" role="status" aria-live="polite" hidden></span>
+  </div>
+
+  <!-- Alt Açıklama Notu -->
+  <p class="srv-disclaimer"><%= t('servers.disclaimer') %></p>
+</section>
+
+<%- include('../layouts/footer') %>

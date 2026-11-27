@@ -1,0 +1,242 @@
+<%
+  /*
+   * Paylaşılan Discord Davet Önizleme Kartı Partial'ı
+   * Beklenen değişkenler:
+   *  - card: getPublicServerCards() öğesi
+   *  - idx: kart indeksi (0..N-1)
+   *  - totalCount: toplam kart sayısı
+   *  - isFrontCard: başlangıçta ön kart mı?
+   *  - formatCreatedMonth: (iso) => string
+   *  - langPrefix: '' | '/en' | '/tr'
+   *  - previewOnly: (opsiyonel) yönetim önizlemesi mi?
+   */
+  const cardIdx = typeof idx === 'number' ? idx : 0;
+  const cardTotal = typeof totalCount === 'number' ? totalCount : 1;
+  const frontFlag = Boolean(isFrontCard);
+  const isPreview = Boolean(typeof previewOnly !== 'undefined' && previewOnly);
+  const isInvalid = card.status === 'invalid';
+  const isStale = card.status === 'stale';
+  const isFeatured = Boolean(card.featured);
+  const numberLocale = (typeof lang !== 'undefined' && lang === 'en') ? 'en-US' : 'tr-TR';
+  const formatCount = (n) => (typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString(numberLocale) : '');
+  const createdText = card.createdAt && typeof formatCreatedMonth === 'function' ? formatCreatedMonth(card.createdAt) : '';
+  const hasCounts = (card.onlineCount !== null && card.onlineCount !== undefined) || (card.memberCount !== null && card.memberCount !== undefined);
+  const cardAria = `${cardIdx + 1} / ${cardTotal}: ${card.name}`;
+  const cardStyleParts = [`--i:${cardIdx}`];
+  if (card.brandColor) {
+    cardStyleParts.push(`--srv-brand:${card.brandColor}`);
+  }
+  const reportHref = `${typeof langPrefix === 'string' ? langPrefix : ''}/bildir?kategori=other&not=${encodeURIComponent(card.name || card.code || '')}`;
+%>
+<article
+  class="srv-card<%= isFeatured ? ' is-featured' : '' %><%= frontFlag ? ' is-front' : '' %><%= isInvalid ? ' is-invalid' : '' %><%= isStale ? ' is-stale' : '' %><%= isPreview ? ' is-preview' : '' %>"
+  style="<%= cardStyleParts.join(';') %>"
+  role="group"
+  aria-roledescription="slide"
+  aria-label="<%= cardAria %>"
+  tabindex="<%= isPreview ? '-1' : '0' %>"
+  data-server-index="<%= cardIdx %>"
+  data-server-id="<%= card.id %>"
+  data-server-code="<%= card.code %>"
+  data-server-status="<%= card.status %>"
+  data-server-name="<%= card.name %>"
+>
+  <% if (isFeatured) { %>
+    <span class="srv-featured-ribbon" aria-label="<%= t('servers.featuredRibbon') %>">
+      <span aria-hidden="true">⭐</span>
+      <span><%= t('servers.featuredRibbon') %></span>
+    </span>
+  <% } %>
+
+  <!-- Üst Afiş Şeridi -->
+  <div class="srv-banner<%= card.bannerUrl ? ' has-image' : '' %>">
+    <% if (card.bannerUrl) { %>
+      <img
+        src="<%= card.bannerUrl %>"
+        alt=""
+        class="srv-banner-img"
+        draggable="false"
+        loading="<%= frontFlag || isPreview ? 'eager' : 'lazy' %>"
+        decoding="async"
+      />
+    <% } %>
+    <span class="srv-banner-scrim" aria-hidden="true"></span>
+  </div>
+
+  <!-- Solda Taşan 64px Yuvarlatılmış Sunucu Simgesi -->
+  <div class="srv-icon-row">
+    <div class="srv-icon-frame">
+      <% if (card.iconUrl) { %>
+        <img
+          src="<%= card.iconUrl %>"
+          alt="<%= card.name %>"
+          class="srv-icon-img"
+          width="64"
+          height="64"
+          draggable="false"
+          data-static-src="<%= card.iconUrl %>"
+          data-animated-src="<%= card.iconAnimatedUrl || '' %>"
+          loading="<%= frontFlag || isPreview ? 'eager' : 'lazy' %>"
+          decoding="async"
+        />
+        <span class="srv-icon-fallback" hidden aria-hidden="true"><%= card.initials || 'PW' %></span>
+      <% } else { %>
+        <span class="srv-icon-fallback" aria-hidden="true"><%= card.initials || 'PW' %></span>
+      <% } %>
+    </div>
+
+    <% if (isStale && !isInvalid) { %>
+      <span class="srv-stale-pill" title="<%= t('servers.staleTooltip') %>">
+        <span class="srv-stale-dot" aria-hidden="true"></span>
+        <span><%= t('servers.staleHint') %></span>
+      </span>
+    <% } %>
+  </div>
+
+  <!-- Kart Gövdesi -->
+  <div class="srv-body">
+    <div class="srv-title-row">
+      <h2 class="srv-name" title="<%= card.name %>"><%= card.name %></h2>
+      <% if (card.badge === 'partnered') { %>
+        <span class="srv-badge srv-badge-partnered" title="<%= t('servers.badgePartnered') %>" aria-label="<%= t('servers.badgePartnered') %>">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.22"/>
+            <path d="M8.5 14.5a2.5 2.5 0 1 1 0-5h1.5a2 2 0 0 1 2 2v1a2 2 0 0 0 2 2h1.5a2.5 2.5 0 1 0 0-5H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      <% } else if (card.badge === 'verified') { %>
+        <span class="srv-badge srv-badge-verified" title="<%= t('servers.badgeVerified') %>" aria-label="<%= t('servers.badgeVerified') %>">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+            <path d="M12 2l2.4 2.1 3.2-.3 1.1 3 2.8 1.6-.8 3.1.8 3.1-2.8 1.6-1.1 3-3.2-.3L12 22l-2.4-2.1-3.2.3-1.1-3-2.8-1.6.8-3.1-.8-3.1 2.8-1.6 1.1-3 3.2.3L12 2z" fill="currentColor" opacity="0.24" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8.5 12.4l2.3 2.3 4.8-5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      <% } else if (card.badge === 'community') { %>
+        <span class="srv-badge srv-badge-community" title="<%= t('servers.badgeCommunity') %>" aria-label="<%= t('servers.badgeCommunity') %>">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M7.5 11.5L12 7.8l4.5 3.7M9 11v5h6v-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      <% } %>
+    </div>
+
+    <% if (isInvalid) { %>
+      <div class="srv-invalid-notice" role="status">
+        <span aria-hidden="true">⚠️</span>
+        <span><%= t('servers.invalidNotice') %></span>
+      </div>
+    <% } %>
+
+    <% if (hasCounts) { %>
+      <div class="srv-counts">
+        <% if (card.onlineCount !== null && card.onlineCount !== undefined) { %>
+          <span class="srv-count-item srv-count-online">
+            <span class="srv-dot-online" aria-hidden="true"></span>
+            <span class="srv-count-num" data-count-type="online" data-count-value="<%= card.onlineCount %>"><%= formatCount(card.onlineCount) %></span>
+            <span class="srv-count-label"><%= t('servers.onlineLabel') %></span>
+          </span>
+        <% } %>
+        <% if (card.memberCount !== null && card.memberCount !== undefined) { %>
+          <span class="srv-count-item srv-count-member">
+            <span class="srv-dot-member" aria-hidden="true"></span>
+            <span class="srv-count-num" data-count-type="member" data-count-value="<%= card.memberCount %>"><%= formatCount(card.memberCount) %></span>
+            <span class="srv-count-label"><%= t('servers.membersLabel') %></span>
+          </span>
+        <% } %>
+      </div>
+    <% } %>
+
+    <% if (createdText) { %>
+      <div class="srv-created">
+        <span><%= t('servers.createdPrefix') %></span>
+        <strong class="srv-created-val"><%= createdText %></strong>
+      </div>
+    <% } %>
+
+    <% if (Array.isArray(card.gameApps) && card.gameApps.length > 0) { %>
+      <div class="srv-games" aria-label="<%= t('servers.gamesAria') %>">
+        <% card.gameApps.slice(0, 6).forEach(function (app) { %>
+          <img
+            src="<%= app.iconUrl %>"
+            alt="<%= app.name || '' %>"
+            title="<%= app.name || '' %>"
+            class="srv-game-icon"
+            width="28"
+            height="28"
+            loading="lazy"
+            decoding="async"
+            draggable="false"
+          />
+        <% }); %>
+      </div>
+    <% } %>
+
+    <% if (Array.isArray(card.traits) && card.traits.length > 0) { %>
+      <div class="srv-traits">
+        <% card.traits.slice(0, 6).forEach(function (tr) { %>
+          <span class="srv-trait-chip">
+            <% if (tr.emojiUrl) { %>
+              <img src="<%= tr.emojiUrl %>" alt="" class="srv-trait-emoji" width="14" height="14" loading="lazy" decoding="async" draggable="false" />
+            <% } else if (tr.emoji) { %>
+              <span class="srv-trait-emoji-text" aria-hidden="true"><%= tr.emoji %></span>
+            <% } %>
+            <span class="srv-trait-label"><%= tr.label %></span>
+          </span>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Alt Aksiyonlar: Yeşil "Sunucuya git" + Kopyala + Bildir -->
+  <div class="srv-footer">
+    <div class="srv-actions">
+      <% if (isInvalid) { %>
+        <button type="button" class="srv-join-btn is-disabled" disabled aria-disabled="true">
+          <span><%= t('servers.invalidBtn') %></span>
+        </button>
+      <% } else { %>
+        <a
+          href="https://discord.gg/<%= card.code %>"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="srv-join-btn"
+          <% if (isPreview) { %>tabindex="-1"<% } %>
+        >
+          <span><%= t('servers.joinBtn') %></span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      <% } %>
+
+      <button
+        type="button"
+        class="srv-copy-btn"
+        data-copy-url="https://discord.gg/<%= card.code %>"
+        aria-label="<%= t('servers.copyLinkAria') %>"
+        title="<%= t('servers.copyLinkTitle') %>"
+        <% if (isInvalid || isPreview) { %>disabled<% } %>
+      >
+        <svg class="srv-copy-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <span class="srv-copy-feedback" aria-live="polite" hidden><%= t('servers.copiedShort') %></span>
+      </button>
+    </div>
+
+    <% if (!isPreview) { %>
+      <div class="srv-meta-footer">
+        <a href="<%= reportHref %>" class="srv-report-link">
+          <span><%= t('servers.reportLink') %></span>
+        </a>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Yan Kartlar İçin Karartma Katmanı -->
+  <span class="srv-dim" aria-hidden="true"></span>
+</article>
